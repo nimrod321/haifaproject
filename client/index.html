@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic Tac Toe Game</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; }
+        .container { max-width: 400px; margin: 0 auto; }
+        .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 20px 0; }
+        .cell { width: 100px; height: 100px; border: 1px solid #000; display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; }
+        .hidden { display: none; }
+        input { margin: 10px; padding: 5px; }
+        button { padding: 10px 20px; margin: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Tic Tac Toe</h1>
+        <div id="auth">
+            <h2>Sign Up</h2>
+            <input type="text" id="signup-username" placeholder="Username">
+            <input type="password" id="signup-password" placeholder="Password">
+            <button onclick="signup()">Sign Up</button>
+            <h2>Login</h2>
+            <input type="text" id="login-username" placeholder="Username">
+            <input type="password" id="login-password" placeholder="Password">
+            <button onclick="login()">Login</button>
+        </div>
+        <div id="game" class="hidden">
+            <button onclick="joinGame()">Join Tic Tac Toe</button>
+            <button onclick="showPrisonJoin()">Join Prisoner's Dilemma</button>
+            <button onclick="showAdmin()">Admin View</button>
+            
+            <div id="prison-join-form" class="hidden" style="margin-top:20px; padding:20px; border:1px solid #ccc;">
+                <h3>Join Prisoner's Dilemma</h3>
+                <input type="password" id="prison-password" placeholder="Room Password" required>
+                <button onclick="joinPrison()">Join Room</button>
+                <button onclick="cancelPrisonJoin()">Cancel</button>
+                <div id="prison-join-message" style="margin-top:10px; color:red;"></div>
+            </div>
+            
+            <div id="waiting" class="hidden">Waiting for opponent...</div>
+            <div id="board" class="board hidden">
+                <div class="cell" data-index="0" onclick="makeMove(0)"></div>
+                <div class="cell" data-index="1" onclick="makeMove(1)"></div>
+                <div class="cell" data-index="2" onclick="makeMove(2)"></div>
+                <div class="cell" data-index="3" onclick="makeMove(3)"></div>
+                <div class="cell" data-index="4" onclick="makeMove(4)"></div>
+                <div class="cell" data-index="5" onclick="makeMove(5)"></div>
+                <div class="cell" data-index="6" onclick="makeMove(6)"></div>
+                <div class="cell" data-index="7" onclick="makeMove(7)"></div>
+                <div class="cell" data-index="8" onclick="makeMove(8)"></div>
+            </div>
+            <div id="status"></div>
+
+            <div id="prison" class="hidden">
+                <h2>Prisoner's Dilemma</h2>
+                <input type="password" id="prison-password" placeholder="Room Password" required>
+                <button onclick="joinPrison()">Join Prisoner's Dilemma</button>
+                <div id="prison-session" style="margin-bottom:10px"></div>
+                <div id="prison-matrix"></div>
+                <button id="hide-A" onclick="prisonChoose('A')">Hide Row A</button>
+                <button id="hide-B" onclick="prisonChoose('B')">Hide Row B</button>
+                <div id="prison-message" style="margin:10px"></div>
+                <div id="prison-total" style="margin-top:10px"></div>
+            </div>
+        </div>
+
+        <div id="admin" class="hidden">
+            <h2>Admin View</h2>
+            <button onclick="showAdminCreateRoom()">Create Room</button>
+            <button onclick="showAdminRooms()">View Rooms</button>
+            <button onclick="showAdminResults()">View Results</button>
+            <button onclick="backToGame()">Back to Game</button>
+            
+            <div id="admin-create-room" class="hidden" style="margin-top:20px; padding:20px; border:1px solid #ccc;">
+                <h3>Create Room</h3>
+                <input type="password" id="room-password" placeholder="Room Password">
+                <input type="number" id="room-sessions" placeholder="Number of Sessions" value="10">
+                <button onclick="createRoom()">Create Room</button>
+                <div id="create-room-message" style="margin-top:10px;"></div>
+            </div>
+            
+            <div id="admin-rooms" class="hidden" style="margin-top:20px;">
+                <h3>Active Rooms</h3>
+                <table border="1" id="rooms-table">
+                    <thead>
+                        <tr>
+                            <th>Room Password</th>
+                            <th>Sessions</th>
+                            <th>Waiting Players</th>
+                            <th>Active Games</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-rooms-tbody"></tbody>
+                </table>
+                <button onclick="refreshRooms()">Refresh</button>
+            </div>
+            
+            <div id="admin-results" class="hidden" style="margin-top:20px;">
+                <h3>Game Results</h3>
+                <table border="1">
+                    <thead>
+                        <tr>
+                            <th>Game ID</th>
+                            <th>Session</th>
+                            <th>Player 1</th>
+                            <th>Player 2</th>
+                            <th>P1 Choice</th>
+                            <th>P2 Choice</th>
+                            <th>Code</th>
+                            <th>P1 Points</th>
+                            <th>P2 Points</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script>
+        const socket = io();
+        let currentGame = null;
+        let myTurn = false;
+
+        function signup() {
+            const username = document.getElementById('signup-username').value;
+            const password = document.getElementById('signup-password').value;
+            fetch('/signup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            }).then(res => res.json()).then(data => alert(data.message || data.error));
+        }
+
+        function login() {
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+            fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            }).then(res => res.json()).then(data => {
+                if (data.message) {
+                    document.getElementById('auth').classList.add('hidden');
+                    document.getElementById('game').classList.remove('hidden');
+                } else {
+                    alert(data.error);
+                }
+            });
+        }
+
+        function joinGame() {
+            socket.emit('joinTicTacToe', { username: document.getElementById('login-username').value });
+            document.getElementById('waiting').classList.remove('hidden');
+        }
+
+        function makeMove(index) {
+            if (!myTurn || !currentGame) return;
+            socket.emit('move', { gameId: currentGame.id, index });
+        }
+
+        function showPrisonJoin() {
+            document.getElementById('prison-join-form').classList.remove('hidden');
+            document.getElementById('prison-join-message').textContent = '';
+        }
+        
+        function cancelPrisonJoin() {
+            document.getElementById('prison-join-form').classList.add('hidden');
+            document.getElementById('prison-password').value = '';
+            document.getElementById('prison-join-message').textContent = '';
+        }
+        
+        function joinPrison() {
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('prison-password').value;
+            if (!password) {
+                document.getElementById('prison-join-message').textContent = 'Please enter a room password';
+                return;
+            }
+            socket.emit('joinPrison', { username, password });
+            document.getElementById('prison-join-message').textContent = 'Looking for opponent...';
+        }
+
+        function prisonChoose(row) {
+            socket.emit('prisonChooseRow', { gameId: currentPrisonGameId, row });
+            document.getElementById('prison-message').textContent = `You chose to hide row ${row}. Waiting for opponent...`;
+            document.getElementById('hide-A').disabled = true;
+            document.getElementById('hide-B').disabled = true;
+        }
+
+        let currentPrisonGameId = null;
+        let currentTotalSessions = 10;
+
+        function renderPrisonMatrix(matrix) {
+            const m = matrix;
+            document.getElementById('prison-matrix').innerHTML =
+                `<div>A: [${m.AA1},${m.AA2}] | [${m.AB1},${m.AB2}]</div>` +
+                `<div>B: [${m.BA1},${m.BA2}] | [${m.BB1},${m.BB2}]</div>`;
+        }
+
+        function showAdminCreateRoom() {
+            document.getElementById('admin-create-room').classList.remove('hidden');
+            document.getElementById('admin-rooms').classList.add('hidden');
+            document.getElementById('admin-results').classList.add('hidden');
+        }
+        
+        function showAdminRooms() {
+            document.getElementById('admin-create-room').classList.add('hidden');
+            document.getElementById('admin-rooms').classList.remove('hidden');
+            document.getElementById('admin-results').classList.add('hidden');
+            refreshRooms();
+        }
+        
+        function showAdminResults() {
+            document.getElementById('admin-create-room').classList.add('hidden');
+            document.getElementById('admin-rooms').classList.add('hidden');
+            document.getElementById('admin-results').classList.remove('hidden');
+            loadResults();
+        }
+        
+        function createRoom() {
+            const password = document.getElementById('room-password').value;
+            const num_sessions = parseInt(document.getElementById('room-sessions').value);
+            if (!password) {
+                document.getElementById('create-room-message').textContent = 'Please enter a password';
+                return;
+            }
+            fetch('/create_room', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password, num_sessions })
+            }).then(res => res.json()).then(data => {
+                document.getElementById('create-room-message').textContent = data.message || data.error;
+                if (data.message) {
+                    document.getElementById('room-password').value = '';
+                    document.getElementById('room-sessions').value = '10';
+                    setTimeout(() => showAdminRooms(), 500);
+                }
+            });
+        }
+        
+        function backToGame() {
+            document.getElementById('admin').classList.add('hidden');
+            document.getElementById('game').classList.remove('hidden');
+        }
+        
+        function refreshRooms() {
+            fetch('/get_rooms').then(res => res.json()).then(data => {
+                const tbody = document.getElementById('admin-rooms-tbody');
+                tbody.innerHTML = '';
+                if (data.length === 0) {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = '<td colspan="5">No rooms created</td>';
+                    tbody.appendChild(tr);
+                } else {
+                    data.forEach(room => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${room.password}</td>
+                            <td>${room.settings.num_sessions}</td>
+                            <td>${room.waiting.length}</td>
+                            <td>${room.active.length}</td>
+                            <td>
+                                <div>Waiting: ${room.waiting.map(p => p.username).join(', ') || 'None'}</div>
+                                <div>Active: ${room.active.map(g => g.players.join(' vs ')).join(', ') || 'None'}</div>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+            }).catch(err => {
+                console.error('Error fetching rooms:', err);
+                const tbody = document.getElementById('admin-rooms-tbody');
+                tbody.innerHTML = '<tr><td colspan="5">Error loading rooms</td></tr>';
+            });
+        }
+        
+        function loadResults() {
+            fetch('/prison/results').then(res => res.json()).then(data => {
+                const tbody = document.getElementById('admin-tbody');
+                tbody.innerHTML = '';
+                if (data.length === 0) {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = '<td colspan="9">No results yet</td>';
+                    tbody.appendChild(tr);
+                } else {
+                    data.forEach(row => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${row.game_id}</td>
+                            <td>${row.session_index}</td>
+                            <td>${row.player1}</td>
+                            <td>${row.player2}</td>
+                            <td>${row.p1_choice}</td>
+                            <td>${row.p2_choice}</td>
+                            <td>${row.code}</td>
+                            <td>${row.p1_points}</td>
+                            <td>${row.p2_points}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+            }).catch(err => {
+                console.error('Error loading results:', err);
+            });
+        }
+
+        socket.on('waiting', () => {
+            document.getElementById('status').textContent = 'Waiting for opponent...';
+        });
+
+        socket.on('gameStart', (data) => {
+            currentGame = data.game;
+            myTurn = data.yourTurn;
+            document.getElementById('waiting').classList.add('hidden');
+            document.getElementById('board').classList.remove('hidden');
+            updateBoard();
+            document.getElementById('status').textContent = myTurn ? 'Your turn' : 'Opponent\'s turn';
+        });
+
+        socket.on('gameUpdate', (data) => {
+            currentGame.board = data.board;
+            myTurn = data.status === 'Your turn';
+            updateBoard();
+            document.getElementById('status').textContent = data.status;
+        });
+
+        socket.on('gameEnd', (data) => {
+            updateBoard();
+            document.getElementById('status').textContent = data.winner ? `${data.winner} wins!` : 'Draw!';
+            currentGame = null;
+            myTurn = false;
+        });
+
+        socket.on('opponentDisconnected', () => {
+            alert('Opponent disconnected');
+            currentGame = null;
+            myTurn = false;
+            document.getElementById('board').classList.add('hidden');
+            document.getElementById('waiting').classList.add('hidden');
+            document.getElementById('prison').classList.add('hidden');
+        });
+
+        socket.on('prisonWaiting', () => {
+            document.getElementById('prison-message').textContent = 'Waiting for second player...';
+            document.getElementById('prison').classList.remove('hidden');
+            document.getElementById('hide-A').disabled = false;
+            document.getElementById('hide-B').disabled = false;
+        });
+
+        socket.on('prisonError', (data) => {
+            alert(data.message);
+        });
+
+        socket.on('prisonStart', (data) => {
+            currentPrisonGameId = data.gameId;
+            currentTotalSessions = data.total_sessions;
+            document.getElementById('prison-join-form').classList.add('hidden');
+            document.getElementById('prison-join-message').textContent = '';
+            document.getElementById('prison-password').value = '';
+            document.getElementById('game').classList.remove('hidden');
+            document.getElementById('prison').classList.remove('hidden');
+            document.getElementById('prison-session').textContent = `Session ${data.session}/${data.total_sessions}`;
+            document.getElementById('prison-message').textContent = 'Choose a row to hide.';
+            renderPrisonMatrix(data.matrix);
+            document.getElementById('prison-total').textContent = `Total: ${JSON.stringify(data.total)}`;
+            document.getElementById('hide-A').disabled = false;
+            document.getElementById('hide-B').disabled = false;
+        });
+
+        socket.on('prisonRoundResult', (data) => {
+            document.getElementById('prison-message').textContent = `Round result: p1 ${data.p1_choice}, p2 ${data.p2_choice}, code ${data.code}, points ${data.p1_score}/${data.p2_score}`;
+            document.getElementById('prison-total').textContent = `Total: ${JSON.stringify(data.total)}`;
+            if (data.done) {
+                document.getElementById('prison-message').textContent += ' Game over';
+                document.getElementById('hide-A').disabled = true;
+                document.getElementById('hide-B').disabled = true;
+            }
+        });
+
+        socket.on('prisonNextRound', (data) => {
+            document.getElementById('prison-session').textContent = `Session ${data.session}/${currentTotalSessions}`;
+            renderPrisonMatrix(data.matrix);
+            document.getElementById('prison-message').textContent = 'Choose a row to hide for next session.';
+            document.getElementById('prison-total').textContent = `Total: ${JSON.stringify(data.total)}`;
+            document.getElementById('hide-A').disabled = false;
+            document.getElementById('hide-B').disabled = false;
+        });
+
+        socket.on('prisonGameEnd', (data) => {
+            document.getElementById('prison-message').textContent += ` Game over. Session codes: ${data.codes.join(', ')}`;
+        });
+
+        function showAdmin() {
+            document.getElementById('game').classList.add('hidden');
+            document.getElementById('admin').classList.remove('hidden');
+            document.getElementById('admin-create-room').classList.add('hidden');
+            document.getElementById('admin-rooms').classList.add('hidden');
+            document.getElementById('admin-results').classList.add('hidden');
+        }
+
+        function updateBoard() {
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach((cell, index) => {
+                cell.textContent = currentGame.board[index];
+            });
+        }
+    </script>
+</body>
+</html>
