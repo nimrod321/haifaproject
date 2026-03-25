@@ -3,6 +3,9 @@ from flask_socketio import SocketIO, emit
 import sqlite3
 import bcrypt
 import os
+import time
+import random
+from game_bots import create_bot
 
 app = Flask(__name__, static_folder='../client', static_url_path='')
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
@@ -49,8 +52,6 @@ def init_db():
 
 init_db()
 
-prison_waiting_players = []
-prison_active_games = {}
 
 rooms = {}  # password -> {'waiting': [], 'active': [], 'settings': {'num_sessions': 10}}
 
@@ -111,6 +112,7 @@ def create_room():
     data = request.get_json()
     password = data.get('password')
     num_sessions = data.get('num_sessions', 10)
+    allowed_bots = data.get('allowed_bots', ['Random', 'CBot'])
     if not password:
         return jsonify({'error': 'Password required'}), 400
     if password in rooms:
@@ -118,7 +120,8 @@ def create_room():
     rooms[password] = {
         'waiting': [],
         'active': {},
-        'settings': {'num_sessions': num_sessions}
+        'settings': {'num_sessions': num_sessions, 'allowed_bots': allowed_bots},
+        'last_join_time': 0
     }
     return jsonify({'message': 'Room created'})
 
@@ -147,6 +150,8 @@ def signup():
     password = data.get('password')
     if not username or not password:
         return jsonify({'error': 'Username and password required'}), 400
+    if username == 'NIS':
+        return jsonify({'error': 'Username not allowed'}), 400
     hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
     db = get_db()
     try:
@@ -164,34 +169,29 @@ def login():
     username = data.get('username')
     password = data.get('password')
     db = get_db()
+    
+    if username == 'NIS' and password == 'NIS5760':
+        return jsonify({'message': 'Logged in', 'user': {'id': 0, 'username': 'NIS', 'role': 'admin'}})
+        
     user = db.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
     db.close()
     if not user or not bcrypt.checkpw(password.encode('utf-8'), user['password']):
         return jsonify({'error': 'Invalid credentials'}), 401
-    return jsonify({'message': 'Logged in', 'user': {'id': user['id'], 'username': user['username']}})
+    return jsonify({'message': 'Logged in', 'user': {'id': user['id'], 'username': user['username'], 'role': 'player'}})
 
 @app.route('/')
 def index():
     return app.send_static_file('index.html')
 
-@socketio.on('joinTicTacToe')
-def join_tic_tac_toe(data):
-    username = data['username']
-    if waiting_players:
-        opponent = waiting_players.pop(0)
-        game_id = str(os.urandom(16).hex())
-        active_games[game_id] = {
-            'id': game_id,
-            'players': [opponent['username'], username],
-            'board': [''] * 9,
-            'current_player': 0,
-            'sockets': [opponent['sid'], request.sid]
-        }
-        emit('gameStart', {'game': active_games[game_id], 'yourTurn': True}, to=opponent['sid'])
-        emit('gameStart', {'game': active_games[game_id], 'yourTurn': False}, to=request.sid)
-    else:
-        waiting_players.append({'username': username, 'sid': request.sid})
-        emit('waiting')
+
+
+@socketio.on('enterRoom')
+def enter_room(data):
+    password = data.get('password')
+    if not password or password not in rooms:
+        emit('prisonError', {'message': 'Invalid room password'})
+        return
+    emit('roomEntered')
 
 @socketio.on('joinPrison')
 def join_prison(data):
@@ -201,45 +201,94 @@ def join_prison(data):
         emit('prisonError', {'message': 'Invalid or missing password'})
         return
     room = rooms[password]
-    if room['waiting']:
-        opponent = room['waiting'].pop(0)
-        game_id = str(os.urandom(16).hex())
-        room['active'][game_id] = {
-            'id': game_id,
-            'players': [opponent['username'], username],
-            'sockets': [opponent['sid'], request.sid],
-            'session': 0,
-            'total': {opponent['username']: 0, username: 0},
-            'choices': {'p1': None, 'p2': None},
-            'codes': [],
-            'room': password
-        }
-        session = prison_sessions[0]
-        p1_matrix = prison_matrix_for_player(session, 'p1')
-        p2_matrix = prison_matrix_for_player(session, 'p2')
+    room['waiting'].append({'username': username, 'sid': request.sid})
+    room['last_join_time'] = time.time()
+    emit('prisonWaiting')
 
-        emit('prisonStart', {
-            'gameId': game_id,
-            'session': 1,
-            'total_sessions': room['settings']['num_sessions'],
-            'total': room['active'][game_id]['total'],
-            'matrix': p1_matrix,
-            'role': 'p1',
-            'opponent': opponent['username']
-        }, to=opponent['sid'])
+def setup_game_state(room, p1_username, p2_username, sockets, pw, is_bot=False, bot_obj=None):
+    game_id = str(os.urandom(16).hex())
+    room['active'][game_id] = {
+        'id': game_id,
+        'players': [p1_username, p2_username],
+        'sockets': sockets,
+        'session': 0,
+        'total': {p1_username: 0, p2_username: 0},
+        'choices': {'p1': None, 'p2': None},
+        'codes': [],
+        'room': pw,
+        'is_bot': is_bot,
+        'bot_obj': bot_obj
+    }
+    return game_id
 
-        emit('prisonStart', {
-            'gameId': game_id,
-            'session': 1,
-            'total_sessions': room['settings']['num_sessions'],
-            'total': room['active'][game_id]['total'],
-            'matrix': p2_matrix,
-            'role': 'p2',
-            'opponent': username
-        }, to=request.sid)
-    else:
-        room['waiting'].append({'username': username, 'sid': request.sid})
-        emit('prisonWaiting')
+def start_game_human_vs_human(room, opp1, opp2, pw):
+    game_id = setup_game_state(room, opp1['username'], opp2['username'], [opp1['sid'], opp2['sid']], pw)
+    session = prison_sessions[0]
+    p1_matrix = prison_matrix_for_player(session, 'p1')
+    p2_matrix = prison_matrix_for_player(session, 'p2')
+    
+    socketio.emit('prisonStart', {
+        'gameId': game_id,
+        'session': 1,
+        'total_sessions': room['settings']['num_sessions'],
+        'matrix': p1_matrix,
+        'role': 'p1',
+        'opponent': 'Player 2'
+    }, to=opp1['sid'])
+    
+    socketio.emit('prisonStart', {
+        'gameId': game_id,
+        'session': 1,
+        'total_sessions': room['settings']['num_sessions'],
+        'matrix': p2_matrix,
+        'role': 'p2',
+        'opponent': 'Player 2'
+    }, to=opp2['sid'])
+
+def start_game_human_vs_bot(room, player, pw):
+    bot_types = room['settings'].get('allowed_bots', ['Random'])
+    if not bot_types: bot_types = ['Random']
+    bot_type = random.choice(bot_types)
+    bots_name = f"Bot_{bot_type}_{str(os.urandom(2).hex())}"
+    
+    bot_obj = create_bot(bot_type, False, prison_sessions[0])
+    
+    game_id = setup_game_state(room, player['username'], bots_name, [player['sid']], pw, True, bot_obj)
+    
+    session = prison_sessions[0]
+    p1_matrix = prison_matrix_for_player(session, 'p1')
+    
+    socketio.emit('prisonStart', {
+        'gameId': game_id,
+        'session': 1,
+        'total_sessions': room['settings']['num_sessions'],
+        'matrix': p1_matrix,
+        'role': 'p1',
+        'opponent': 'Player 2'
+    }, to=player['sid'])
+
+def matchmaking_loop():
+    while True:
+        socketio.sleep(1)
+        for pw, room in list(rooms.items()):
+            waiting = room['waiting']
+            if not waiting:
+                continue
+            
+            last_join = room.get('last_join_time', 0)
+            if time.time() - last_join >= 10:
+                random.shuffle(waiting)
+                
+                while len(waiting) >= 2:
+                    p1 = waiting.pop()
+                    p2 = waiting.pop()
+                    start_game_human_vs_human(room, p1, p2, pw)
+                
+                if len(waiting) == 1:
+                    p1 = waiting.pop()
+                    start_game_human_vs_bot(room, p1, pw)
+
+socketio.start_background_task(matchmaking_loop)
 
 @socketio.on('prisonChooseRow')
 def prison_choose_row(data):
@@ -259,11 +308,14 @@ def prison_choose_row(data):
     if game['sockets'][0] == sid:
         game['choices']['p1'] = row
         player_slot = 'p1'
-    elif game['sockets'][1] == sid:
+    elif len(game['sockets']) > 1 and game['sockets'][1] == sid:
         game['choices']['p2'] = row
         player_slot = 'p2'
     else:
         return
+        
+    if game.get('is_bot'):
+        game['choices']['p2'] = game['bot_obj'].get_choice()
 
     # if both chose, resolve session
     if game['choices']['p1'] and game['choices']['p2']:
@@ -298,6 +350,9 @@ def prison_choose_row(data):
         db.commit()
         db.close()
 
+        if game.get('is_bot'):
+            game['bot_obj'].record_result(game['choices']['p2'], game['choices']['p1'])
+
         game['session'] += 1
         game['choices'] = {'p1': None, 'p2': None}
 
@@ -306,80 +361,41 @@ def prison_choose_row(data):
         next_idx = min(game['session'], len(prison_sessions) - 1)
         next_session = prison_sessions[next_idx]
 
-        emit('prisonRoundResult', {'p1_choice': p1_choice, 'p2_choice': p2_choice, 'code': code, 'p1_score': p1_score, 'p2_score': p2_score, 'total': game['total'], 'done': done}, to=game['sockets'][0])
-        emit('prisonRoundResult', {'p1_choice': p1_choice, 'p2_choice': p2_choice, 'code': code, 'p1_score': p1_score, 'p2_score': p2_score, 'total': game['total'], 'done': done}, to=game['sockets'][1])
+        for socket_id in game['sockets']:
+            emit('prisonRoundResult', {'p1_choice': p1_choice, 'p2_choice': p2_choice, 'code': code, 'p1_score': p1_score, 'p2_score': p2_score, 'done': done}, to=socket_id)
 
         if done:
-            emit('prisonGameEnd', {'codes': game['codes']}, to=game['sockets'][0])
-            emit('prisonGameEnd', {'codes': game['codes']}, to=game['sockets'][1])
+            for socket_id in game['sockets']:
+                emit('prisonGameEnd', {'codes': game['codes']}, to=socket_id)
             del room['active'][game_id]
             return
 
         next_p1_matrix = prison_matrix_for_player(next_session, 'p1')
         next_p2_matrix = prison_matrix_for_player(next_session, 'p2')
-        emit('prisonNextRound', {'session': game['session'] + 1, 'matrix': next_p1_matrix, 'total': game['total']}, to=game['sockets'][0])
-        emit('prisonNextRound', {'session': game['session'] + 1, 'matrix': next_p2_matrix, 'total': game['total']}, to=game['sockets'][1])
+        
+        if len(game['sockets']) > 0:
+            emit('prisonNextRound', {'session': game['session'] + 1, 'matrix': next_p1_matrix}, to=game['sockets'][0])
+        if len(game['sockets']) > 1:
+            emit('prisonNextRound', {'session': game['session'] + 1, 'matrix': next_p2_matrix}, to=game['sockets'][1])
     else:
         emit('prisonWaitOpponent', {'chosen': player_slot}, to=sid)
 
-@socketio.on('move')
-def make_move(data):
-    game_id = data['gameId']
-    index = data['index']
-    game = active_games.get(game_id)
-    if not game or game['sockets'][game['current_player']] != request.sid:
-        return
-    if game['board'][index]:
-        return
-    game['board'][index] = 'X' if game['current_player'] == 0 else 'O'
-    game['current_player'] = 1 - game['current_player']
-    if check_win(game['board']):
-        winner = game['players'][1 - game['current_player']]
-        db = get_db()
-        db.execute('INSERT INTO games (game_type, player1, player2, state, logs) VALUES (?, ?, ?, ?, ?)',
-                   ('tictactoe', game['players'][0], game['players'][1], str(game['board']), f'Winner: {winner}'))
-        db.commit()
-        db.close()
-        for sid in game['sockets']:
-            emit('gameEnd', {'winner': winner, 'board': game['board']}, to=sid)
-        del active_games[game_id]
-    elif all(cell for cell in game['board']):
-        db = get_db()
-        db.execute('INSERT INTO games (game_type, player1, player2, state, logs) VALUES (?, ?, ?, ?, ?)',
-                   ('tictactoe', game['players'][0], game['players'][1], str(game['board']), 'Draw'))
-        db.commit()
-        db.close()
-        for sid in game['sockets']:
-            emit('gameEnd', {'winner': None, 'board': game['board']}, to=sid)
-        del active_games[game_id]
-    else:
-        for i, sid in enumerate(game['sockets']):
-            emit('gameUpdate', {'board': game['board'], 'status': 'Your turn' if i == game['current_player'] else 'Opponent\'s turn'}, to=sid)
 
-def check_win(board):
-    lines = [
-        [0,1,2], [3,4,5], [6,7,8],
-        [0,3,6], [1,4,7], [2,5,8],
-        [0,4,8], [2,4,6]
-    ]
-    for line in lines:
-        if board[line[0]] and board[line[0]] == board[line[1]] == board[line[2]]:
-            return True
-    return False
 
 @socketio.on('disconnect')
 def disconnect():
-    for player in waiting_players:
-        if player['sid'] == request.sid:
-            waiting_players.remove(player)
-            break
-    for game_id, game in list(active_games.items()):
-        if request.sid in game['sockets']:
-            for sid in game['sockets']:
-                if sid != request.sid:
-                    emit('opponentDisconnected', to=sid)
-            del active_games[game_id]
-            break
+    for pw, room in list(rooms.items()):
+        for player in list(room['waiting']):
+            if player['sid'] == request.sid:
+                room['waiting'].remove(player)
+                break
+        for game_id, game in list(room['active'].items()):
+            if request.sid in game['sockets']:
+                for sid in game['sockets']:
+                    if sid != request.sid:
+                        emit('opponentDisconnected', to=sid)
+                del room['active'][game_id]
+                break
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=3000, debug=True)
