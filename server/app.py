@@ -76,23 +76,23 @@ def get_prison_value(session, p1_row, p2_col):
         ('B','A'): ('BA1','BA2'), ('B','B'): ('BB1','BB2')
     }
     key1,key2 = mapping[(p1_row,p2_col)]
-    return session[key1], session[key2]
+    return int(session[key1]), int(session[key2])
 
 
 def prison_matrix_for_player(session, player):
     # player == 'p1' or 'p2'; p2 sees swapped rows/columns and reversed pairs
     if player == 'p1':
         return {
-            'AA1': session['AA1'], 'AA2': session['AA2'],
-            'AB1': session['AB1'], 'AB2': session['AB2'],
-            'BA1': session['BA1'], 'BA2': session['BA2'],
-            'BB1': session['BB1'], 'BB2': session['BB2']
+            'AA1': int(session['AA1']), 'AA2': int(session['AA2']),
+            'AB1': int(session['AB1']), 'AB2': int(session['AB2']),
+            'BA1': int(session['BA1']), 'BA2': int(session['BA2']),
+            'BB1': int(session['BB1']), 'BB2': int(session['BB2'])
         }
     return {
-        'AA1': session['AA2'], 'AA2': session['AA1'],
-        'AB1': session['BA2'], 'AB2': session['BA1'],
-        'BA1': session['AB2'], 'BA2': session['AB1'],
-        'BB1': session['BB2'], 'BB2': session['BB1']
+        'AA1': int(session['AA2']), 'AA2': int(session['AA1']),
+        'AB1': int(session['BA2']), 'AB2': int(session['BA1']),
+        'BA1': int(session['AB2']), 'BA2': int(session['AB1']),
+        'BB1': int(session['BB2']), 'BB2': int(session['BB1'])
     }
 
 
@@ -113,13 +113,17 @@ def create_room():
     password = data.get('password')
     num_sessions = data.get('num_sessions', 10)
     allowed_bots = data.get('allowed_bots', ['Random', 'CBot'])
+    custom_sessions = data.get('sessions')
+    
     if not password:
         return jsonify({'error': 'Password required'}), 400
     if password in rooms:
         return jsonify({'error': 'Room already exists'}), 400
+        
     rooms[password] = {
         'waiting': [],
         'active': {},
+        'sessions': custom_sessions,
         'settings': {'num_sessions': num_sessions, 'allowed_bots': allowed_bots},
         'last_join_time': 0
     }
@@ -223,7 +227,8 @@ def setup_game_state(room, p1_username, p2_username, sockets, pw, is_bot=False, 
 
 def start_game_human_vs_human(room, opp1, opp2, pw):
     game_id = setup_game_state(room, opp1['username'], opp2['username'], [opp1['sid'], opp2['sid']], pw)
-    session = prison_sessions[0]
+    sessions_list = room.get('sessions') or prison_sessions
+    session = sessions_list[0]
     p1_matrix = prison_matrix_for_player(session, 'p1')
     p2_matrix = prison_matrix_for_player(session, 'p2')
     
@@ -251,11 +256,12 @@ def start_game_human_vs_bot(room, player, pw):
     bot_type = random.choice(bot_types)
     bots_name = f"Bot_{bot_type}_{str(os.urandom(2).hex())}"
     
-    bot_obj = create_bot(bot_type, False, prison_sessions[0])
+    sessions_list = room.get('sessions') or prison_sessions
+    bot_obj = create_bot(bot_type, False, sessions_list[0])
     
     game_id = setup_game_state(room, player['username'], bots_name, [player['sid']], pw, True, bot_obj)
     
-    session = prison_sessions[0]
+    session = sessions_list[0]
     p1_matrix = prison_matrix_for_player(session, 'p1')
     
     socketio.emit('prisonStart', {
@@ -325,10 +331,12 @@ def prison_choose_row(data):
         p1_remain = 'A' if p1_choice == 'B' else 'B'
         p2_remain = 'A' if p2_choice == 'B' else 'B'
 
+        room = rooms[game['room']]
+        sessions_list = room.get('sessions') or prison_sessions
         session_index = game['session']
-        if session_index >= len(prison_sessions):
-            session_index = len(prison_sessions) - 1
-        session = prison_sessions[session_index]
+        if session_index >= len(sessions_list):
+            session_index = len(sessions_list) - 1
+        session = sessions_list[session_index]
 
         p1_score, p2_score = get_prison_value(session, p1_remain, p2_remain)
 
@@ -358,8 +366,8 @@ def prison_choose_row(data):
 
         room = rooms[game['room']]
         done = (game['session'] >= room['settings']['num_sessions'])
-        next_idx = min(game['session'], len(prison_sessions) - 1)
-        next_session = prison_sessions[next_idx]
+        next_idx = min(game['session'], len(sessions_list) - 1)
+        next_session = sessions_list[next_idx]
 
         for socket_id in game['sockets']:
             emit('prisonRoundResult', {'p1_choice': p1_choice, 'p2_choice': p2_choice, 'code': code, 'p1_score': p1_score, 'p2_score': p2_score, 'done': done}, to=socket_id)

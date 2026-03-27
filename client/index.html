@@ -1,77 +1,491 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dilemma Street</title>
     <link href="https://fonts.googleapis.com/css2?family=Bubblegum+Sans&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Bubblegum Sans', cursive, Arial, sans-serif; text-align: center; background-image: url('bg.png'); background-size: cover; background-position: center; background-attachment: fixed; margin: 0; padding: 20px; }
-        .container { max-width: 500px; margin: 0 auto; background: rgba(255, 255, 255, 0.9); padding: 30px; border-radius: 25px; box-shadow: 0 10px 20px rgba(0,0,0,0.2); border: 5px solid #fff; }
-        h1, h2, h3 { color: #ff6b6b; text-shadow: 2px 2px 0px #ffeaa7; font-size: 36px; margin-bottom: 10px; }
-        h2 { font-size: 28px; }
-        .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 20px auto; width: fit-content; }
-        .cell { width: 100px; height: 100px; border: 4px solid #74b9ff; border-radius: 15px; background: #fff; display: flex; align-items: center; justify-content: center; font-size: 60px; color: #0984e3; cursor: pointer; box-shadow: 0 6px 0 #0984e3; transition: transform 0.1s, box-shadow 0.1s; }
-        .cell:active { transform: translateY(6px); box-shadow: 0 0 0 #0984e3; }
-        .hidden { display: none !important; }
-        input { margin: 10px; padding: 12px; border: 3px solid #55efc4; border-radius: 15px; font-size: 18px; font-family: 'Bubblegum Sans', cursive; outline: none; }
-        input:focus { border-color: #00b894; }
-        button { padding: 12px 25px; margin: 10px; font-size: 22px; font-family: 'Bubblegum Sans', cursive; color: white; background: #ff9f43; border: none; border-radius: 15px; cursor: pointer; box-shadow: 0 6px 0 #ee5253; transition: transform 0.1s, box-shadow 0.1s, background 0.2s; }
-        button:active:not(:disabled) { transform: translateY(6px); box-shadow: 0 0 0 #ee5253; }
-        button:hover:not(:disabled) { background: #ff7f50; }
-        button:disabled { background: #ccc; box-shadow: 0 6px 0 #999; cursor: not-allowed; }
-        a { color: #0984e3; font-weight: bold; text-decoration: none; }
-        a:hover { color: #ff6b6b; }
-        table { width: 100%; border-collapse: collapse; margin-top:20px; background: white; border-radius:15px; overflow:hidden; border: 2px solid #74b9ff; }
-        th, td { padding: 12px; border: 1px solid #dfe6e9; font-family: sans-serif; font-size: 14px; }
-        th { background: #74b9ff; color: white; font-family: 'Bubblegum Sans', cursive; font-size: 18px; }
-        #prison-join-form, #admin-create-room { background: rgba(255, 255, 255, 0.8); border: 3px dashed #ff9f43; border-radius: 20px; }
-        
+        body {
+            font-family: 'Bubblegum Sans', cursive, Arial, sans-serif;
+            text-align: center;
+            background-image: url('bg.png');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 30px;
+            border-radius: 25px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            border: 5px solid #fff;
+        }
+
+        h1,
+        h2,
+        h3 {
+            color: #ff6b6b;
+            text-shadow: 2px 2px 0px #ffeaa7;
+            font-size: 36px;
+            margin-bottom: 10px;
+        }
+
+        h2 {
+            font-size: 28px;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin: 20px auto;
+            width: fit-content;
+        }
+
+        .cell {
+            width: 100px;
+            height: 100px;
+            border: 4px solid #74b9ff;
+            border-radius: 15px;
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 60px;
+            color: #0984e3;
+            cursor: pointer;
+            box-shadow: 0 6px 0 #0984e3;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+
+        .cell:active {
+            transform: translateY(6px);
+            box-shadow: 0 0 0 #0984e3;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        input {
+            margin: 10px;
+            padding: 12px;
+            border: 3px solid #55efc4;
+            border-radius: 15px;
+            font-size: 18px;
+            font-family: 'Bubblegum Sans', cursive;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: #00b894;
+        }
+
+        button {
+            padding: 12px 25px;
+            margin: 10px;
+            font-size: 22px;
+            font-family: 'Bubblegum Sans', cursive;
+            color: white;
+            background: #ff9f43;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            box-shadow: 0 6px 0 #ee5253;
+            transition: transform 0.1s, box-shadow 0.1s, background 0.2s;
+        }
+
+        button:active:not(:disabled) {
+            transform: translateY(6px);
+            box-shadow: 0 0 0 #ee5253;
+        }
+
+        button:hover:not(:disabled) {
+            background: #ff7f50;
+        }
+
+        button:disabled {
+            background: #ccc;
+            box-shadow: 0 6px 0 #999;
+            cursor: not-allowed;
+        }
+
+        a {
+            color: #0984e3;
+            font-weight: bold;
+            text-decoration: none;
+        }
+
+        a:hover {
+            color: #ff6b6b;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            border: 2px solid #74b9ff;
+        }
+
+        th,
+        td {
+            padding: 12px;
+            border: 1px solid #dfe6e9;
+            font-family: sans-serif;
+            font-size: 14px;
+        }
+
+        th {
+            background: #74b9ff;
+            color: white;
+            font-family: 'Bubblegum Sans', cursive;
+            font-size: 18px;
+        }
+
+        #prison-join-form,
+        #admin-create-room {
+            background: rgba(255, 255, 255, 0.8);
+            border: 3px dashed #ff9f43;
+            border-radius: 20px;
+        }
+
         /* Dilemma Street V2 UI */
         .game-board-panel {
-            background: linear-gradient(#8b5a2b, #a0522d); border: 12px solid #5c3a21; border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 0 20px rgba(0,0,0,0.8);
-            padding: 20px; position: relative; margin: 20px auto; max-width: 450px;
+            background: linear-gradient(#8b5a2b, #a0522d);
+            border: 12px solid #5c3a21;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            position: relative;
+            margin: 20px auto;
+            max-width: 450px;
         }
-        .board-layout { display: grid; grid-template-columns: 60px 1fr; grid-template-rows: 50px 1fr; gap: 10px; }
-        .top-indicators { grid-column: 2; display: flex; justify-content: space-around; align-items: flex-end; }
-        .p2-indicator { background: #34495e; color: #f1c40f; padding: 5px 15px; border-radius: 10px 10px 0 0; font-weight: bold; font-family: 'Bubblegum Sans', cursive; box-shadow: inset 0 -3px 0 rgba(0,0,0,0.3); transition: all 0.3s; }
-        .p2-indicator.active { background: #f1c40f; color: #c0392b; box-shadow: 0 0 15px #f1c40f; transform: scale(1.1); }
-        .left-selectors { grid-row: 2; display: flex; flex-direction: column; justify-content: space-around; align-items: flex-end; }
-        .row-btn { background: #e74c3c; width: 50px; height: 50px; border-radius: 50%; border: 4px solid #c0392b; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; position: relative; transition: all 0.2s; box-shadow: 0 8px 0 #922b21, 0 15px 10px rgba(0,0,0,0.3); padding: 0; outline: none; }
-        .row-btn:active, .row-btn.selected { transform: translateY(8px); box-shadow: 0 0 0 #922b21, 0 5px 5px rgba(0,0,0,0.3); background: #c0392b; }
-        .row-btn::before { content: 'אני'; position: absolute; left: -40px; color: white; font-family: 'Bubblegum Sans', cursive; text-shadow: 1px 1px 2px #000; font-size: 18px; pointer-events: none; }
-        
-        .matrix-2x2 { grid-column: 2; grid-row: 2; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 10px; box-shadow: inset 0 0 10px rgba(0,0,0,0.5); }
-        .matrix-cell { background: #fdf5e6; border: 4px solid #dcdde1; border-radius: 8px; position: relative; overflow: hidden; height: 100px; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: bold; color: #2c3e50; font-family: monospace; box-shadow: inset 0 0 15px rgba(0,0,0,0.2); }
-        .cell-door { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(#95a5a6, #7f8c8d); border: 2px solid #bdc3c7; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 40px; color: rgba(0,0,0,0.3); transition: transform 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55); z-index: 2; box-shadow: inset 0 0 20px rgba(0,0,0,0.3); }
-        .cell-door.open { transform: translateY(-100%); }
-        .cell-door::after { content: '?'; }
-        
-        .action-area { margin-top: 20px; display: flex; justify-content: center; position: relative; }
-        .submit-btn { background: linear-gradient(#2ecc71, #27ae60); color: white; font-size: 28px; padding: 15px 40px; border: 4px solid #219653; border-radius: 25px; cursor: pointer; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); box-shadow: 0 10px 0 #1e8449, 0 15px 15px rgba(0,0,0,0.3); transition: all 0.2s; font-family: 'Bubblegum Sans', cursive; }
-        .submit-btn:active:not(:disabled) { transform: translateY(10px); box-shadow: 0 0 0 #1e8449, 0 5px 5px rgba(0,0,0,0.3); }
-        .submit-btn:disabled { filter: grayscale(100%); cursor: not-allowed; }
-        
-        .chest-container { position: fixed; bottom: 20px; left: 20px; width: 80px; height: 80px; z-index: 100; cursor: pointer; transition: transform 0.2s; }
-        .chest-container:hover { transform: scale(1.1); }
-        .chest-icon { width: 100%; height: 100%; background: radial-gradient(circle, #9b59b6, #8e44ad); border-radius: 15px 15px 5px 5px; position: relative; border: 4px solid #f1c40f; box-shadow: 0 5px 15px rgba(0,0,0,0.5), inset 0 5px 10px rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-family: sans-serif; }
-        .chest-icon::after { content: ''; position: absolute; top: 30%; width: 100%; height: 8px; background: #c0392b; border-top: 2px solid #f1c40f; border-bottom: 2px solid #f1c40f; }
-        .chest-icon::before { content: ''; position: absolute; width: 20px; height: 20px; background: #e74c3c; border-radius: 50%; border: 3px solid #f1c40f; z-index: 2; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
-        
-        .floating-score { position: fixed; font-size: 32px; font-weight: bold; font-family: 'Bubblegum Sans', cursive; z-index: 101; pointer-events: none; animation: floatToChest 2s cubic-bezier(0.25, 1, 0.5, 1) forwards; text-shadow: 2px 2px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; }
-        .floating-score.positive { color: #2ecc71; }
-        .floating-score.negative { color: #e74c3c; }
-        
+
+        .board-layout {
+            display: grid;
+            grid-template-columns: 60px 1fr;
+            grid-template-rows: 50px 1fr;
+            gap: 10px;
+        }
+
+        .top-indicators {
+            grid-column: 2;
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-end;
+        }
+
+        .p2-indicator {
+            background: #34495e;
+            color: #f1c40f;
+            padding: 5px 15px;
+            border-radius: 10px 10px 0 0;
+            font-weight: bold;
+            font-family: 'Bubblegum Sans', cursive;
+            box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.3);
+            transition: all 0.3s;
+        }
+
+        .p2-indicator.active {
+            background: #f1c40f;
+            color: #c0392b;
+            box-shadow: 0 0 15px #f1c40f;
+            transform: scale(1.1);
+        }
+
+        .left-selectors {
+            grid-row: 2;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            align-items: flex-end;
+        }
+
+        .row-btn {
+            background: #e74c3c;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 4px solid #c0392b;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            position: relative;
+            transition: all 0.2s;
+            box-shadow: 0 8px 0 #922b21, 0 15px 10px rgba(0, 0, 0, 0.3);
+            padding: 0;
+            outline: none;
+        }
+
+        .row-btn:active,
+        .row-btn.selected {
+            transform: translateY(8px);
+            box-shadow: 0 0 0 #922b21, 0 5px 5px rgba(0, 0, 0, 0.3);
+            background: #c0392b;
+        }
+
+        .row-btn::before {
+            content: 'אני';
+            position: absolute;
+            left: -40px;
+            color: white;
+            font-family: 'Bubblegum Sans', cursive;
+            text-shadow: 1px 1px 2px #000;
+            font-size: 18px;
+            pointer-events: none;
+        }
+
+        .matrix-2x2 {
+            grid-column: 2;
+            grid-row: 2;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .matrix-cell {
+            background: #fdf5e6;
+            border: 4px solid #dcdde1;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            font-weight: bold;
+            color: #2c3e50;
+            font-family: monospace;
+            box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .cell-door {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(#95a5a6, #7f8c8d);
+            border: 2px solid #bdc3c7;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            color: rgba(0, 0, 0, 0.3);
+            transition: transform 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            z-index: 2;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .cell-door.open {
+            transform: translateY(-100%);
+        }
+
+        .cell-door::after {
+            content: '?';
+        }
+
+        .action-area {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            position: relative;
+        }
+
+        .submit-btn {
+            background: linear-gradient(#2ecc71, #27ae60);
+            color: white;
+            font-size: 28px;
+            padding: 15px 40px;
+            border: 4px solid #219653;
+            border-radius: 25px;
+            cursor: pointer;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 10px 0 #1e8449, 0 15px 15px rgba(0, 0, 0, 0.3);
+            transition: all 0.2s;
+            font-family: 'Bubblegum Sans', cursive;
+        }
+
+        .submit-btn:active:not(:disabled) {
+            transform: translateY(10px);
+            box-shadow: 0 0 0 #1e8449, 0 5px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        .submit-btn:disabled {
+            filter: grayscale(100%);
+            cursor: not-allowed;
+        }
+
+        .chest-container {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 80px;
+            height: 80px;
+            z-index: 100;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .chest-container:hover {
+            transform: scale(1.1);
+        }
+
+        .chest-icon {
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, #9b59b6, #8e44ad);
+            border-radius: 15px 15px 5px 5px;
+            position: relative;
+            border: 4px solid #f1c40f;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5), inset 0 5px 10px rgba(255, 255, 255, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-family: sans-serif;
+        }
+
+        .chest-icon::after {
+            content: '';
+            position: absolute;
+            top: 30%;
+            width: 100%;
+            height: 8px;
+            background: #c0392b;
+            border-top: 2px solid #f1c40f;
+            border-bottom: 2px solid #f1c40f;
+        }
+
+        .chest-icon::before {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: #e74c3c;
+            border-radius: 50%;
+            border: 3px solid #f1c40f;
+            z-index: 2;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+        }
+
+        .floating-score {
+            position: fixed;
+            font-size: 32px;
+            font-weight: bold;
+            font-family: 'Bubblegum Sans', cursive;
+            z-index: 101;
+            pointer-events: none;
+            animation: floatToChest 2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+            text-shadow: 2px 2px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff;
+        }
+
+        .floating-score.positive {
+            color: #2ecc71;
+        }
+
+        .floating-score.negative {
+            color: #e74c3c;
+        }
+
         @keyframes floatToChest {
-            0% { opacity: 0; transform: scale(0.5) translateY(0); }
-            20% { opacity: 1; transform: scale(1.5) translateY(-50px); }
-            80% { opacity: 1; transform: scale(1) translate(var(--dx), var(--dy)); }
-            100% { opacity: 0; transform: scale(0.5) translate(var(--dx), var(--dy)); }
+            0% {
+                opacity: 0;
+                transform: scale(0.5) translateY(0);
+            }
+
+            20% {
+                opacity: 1;
+                transform: scale(1.5) translateY(-50px);
+            }
+
+            80% {
+                opacity: 1;
+                transform: scale(1) translate(var(--dx), var(--dy));
+            }
+
+            100% {
+                opacity: 0;
+                transform: scale(0.5) translate(var(--dx), var(--dy));
+            }
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-shadow: 2px 2px 4px #000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            backdrop-filter: blur(3px);
+        }
+
+        .loading-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+            cursor: wait;
+        }
+
+        .spinner {
+            border: 6px solid rgba(255, 255, 255, 0.2);
+            border-top: 6px solid #f1c40f;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
     </style>
 </head>
+
 <body>
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <h1 id="loading-text">Loading...</h1>
+    </div>
+
     <div class="container">
         <h1>Dilemma Street</h1>
         <div id="auth">
@@ -91,23 +505,28 @@
             </div>
         </div>
         <div id="game" class="hidden">
-            <div id="prison-join-form" style="margin-top:20px; padding:20px; border:1px solid #ccc; background: rgba(255, 255, 255, 0.8); border: 3px dashed #ff9f43; border-radius: 20px;">
+            <div id="prison-join-form"
+                style="margin-top:20px; padding:20px; border:1px solid #ccc; background: rgba(255, 255, 255, 0.8); border: 3px dashed #ff9f43; border-radius: 20px;">
                 <h2>Join a Room</h2>
                 <input type="password" id="prison-password" placeholder="Room Password" required>
                 <button onclick="enterRoom()">Enter Room</button>
                 <div id="prison-join-message" style="margin-top:10px; color:red;"></div>
             </div>
-            
-            <div id="room-lobby" class="hidden" style="margin-top:20px; padding:20px; background: rgba(255, 255, 255, 0.8); border-radius: 20px;">
+
+            <div id="room-lobby" class="hidden"
+                style="margin-top:20px; padding:20px; background: rgba(255, 255, 255, 0.8); border-radius: 20px;">
                 <h2>Room Lobby</h2>
                 <button onclick="queueForGame()">start game!</button>
-                <div id="waiting" class="hidden" style="margin-top:10px; font-weight:bold;">Waiting for opponent...</div>
+                <div id="waiting" class="hidden" style="margin-top:10px; font-weight:bold;">Waiting for opponent...
+                </div>
             </div>
 
             <div id="prison" class="hidden">
                 <h2>Prisoner's Dilemma</h2>
-                <div id="prison-session" style="margin-bottom:10px; font-weight: bold; color: #e74c3c; background: rgba(255,255,255,0.8); display: inline-block; padding: 5px 15px; border-radius: 10px;"></div>
-                
+                <div id="prison-session"
+                    style="margin-bottom:10px; font-weight: bold; color: #e74c3c; background: rgba(255,255,255,0.8); display: inline-block; padding: 5px 15px; border-radius: 10px;">
+                </div>
+
                 <div class="game-board-panel">
                     <div class="board-layout">
                         <!-- Top Indicators (Player 2) -->
@@ -115,13 +534,13 @@
                             <div id="col-ind-A" class="p2-indicator">שחקן 2</div>
                             <div id="col-ind-B" class="p2-indicator">שחקן 2</div>
                         </div>
-                        
+
                         <!-- Left Selectors (Me / Player 1) -->
                         <div class="left-selectors">
                             <button id="row-btn-A" class="row-btn" onclick="selectRow('A')">A</button>
                             <button id="row-btn-B" class="row-btn" onclick="selectRow('B')">B</button>
                         </div>
-                        
+
                         <!-- Matrix -->
                         <div class="matrix-2x2" id="prison-matrix-grid">
                             <div class="matrix-cell" id="cell-AA">
@@ -142,14 +561,16 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="action-area">
                         <button id="submit-choice-btn" class="submit-btn" onclick="submitChoice()" disabled>שלח</button>
                     </div>
                 </div>
-                
-                <div id="prison-message" style="margin:10px; font-weight: bold; color: white; background: rgba(0,0,0,0.5); padding: 5px; border-radius: 10px;"></div>
-                
+
+                <div id="prison-message"
+                    style="margin:10px; font-weight: bold; color: white; background: rgba(0,0,0,0.5); padding: 5px; border-radius: 10px;">
+                </div>
+
                 <div class="chest-container" id="treasure-chest">
                     <div class="chest-icon"></div>
                 </div>
@@ -161,26 +582,37 @@
             <button onclick="showAdminCreateRoom()">Create Room</button>
             <button onclick="showAdminRooms()">View Rooms</button>
             <button onclick="showAdminResults()">View Results</button>
-            
+
             <div id="admin-create-room" class="hidden" style="margin-top:20px; padding:20px; border:1px solid #ccc;">
                 <h3>Create Room</h3>
                 <input type="password" id="room-password" placeholder="Room Password">
                 <input type="number" id="room-sessions" placeholder="Number of Sessions" value="10">
                 <div style="margin: 10px auto; text-align: left; max-width: 250px;">
+                    <label><strong>Custom Matrix Data (Excel/CSV):</strong></label><br>
+                    <input type="file" id="room-matrix-upload" accept=".xlsx, .xls, .csv"
+                        style="font-size: 14px; padding: 5px; max-width: 100%;">
+                    <div id="matrix-upload-status" style="font-size: 12px; color: #333; margin-top: 5px;">Optional.
+                        Leave blank to use default matrix.</div>
+                </div>
+                <div style="margin: 10px auto; text-align: left; max-width: 250px;">
                     <label><strong>Allowed Bots:</strong></label><br>
-                    <label><input type="checkbox" class="bot-checkbox" value="CBot" checked> CBot (Always Cooperate)</label><br>
-                    <label><input type="checkbox" class="bot-checkbox" value="DBot" checked> DBot (Always Defect)</label><br>
+                    <label><input type="checkbox" class="bot-checkbox" value="CBot" checked> CBot (Always
+                        Cooperate)</label><br>
+                    <label><input type="checkbox" class="bot-checkbox" value="DBot" checked> DBot (Always
+                        Defect)</label><br>
                     <label><input type="checkbox" class="bot-checkbox" value="Random" checked> Random</label><br>
-                    <label><input type="checkbox" class="bot-checkbox" value="TitForTat" checked> Tit-For-Tat</label><br>
+                    <label><input type="checkbox" class="bot-checkbox" value="TitForTat" checked>
+                        Tit-For-Tat</label><br>
                     <label><input type="checkbox" class="bot-checkbox" value="Copycat" checked> Copycat</label><br>
                     <label><input type="checkbox" class="bot-checkbox" value="SERS_3"> Smart Bot (Mem: 3)</label><br>
-                    <label><input type="checkbox" class="bot-checkbox" value="SERS_5" checked> Smart Bot (Mem: 5)</label><br>
+                    <label><input type="checkbox" class="bot-checkbox" value="SERS_5" checked> Smart Bot (Mem:
+                        5)</label><br>
                     <label><input type="checkbox" class="bot-checkbox" value="SERS_10"> Smart Bot (Mem: 10)</label>
                 </div>
                 <button onclick="createRoom()">Create Room</button>
                 <div id="create-room-message" style="margin-top:10px;"></div>
             </div>
-            
+
             <div id="admin-rooms" class="hidden" style="margin-top:20px;">
                 <h3>Active Rooms</h3>
                 <table border="1" id="rooms-table">
@@ -197,7 +629,7 @@
                 </table>
                 <button onclick="refreshRooms()">Refresh</button>
             </div>
-            
+
             <div id="admin-results" class="hidden" style="margin-top:20px;">
                 <h3>Game Results</h3>
                 <table border="1">
@@ -220,22 +652,34 @@
         </div>
     </div>
     <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script>
         const socket = io();
+
+        function showLoading(text) {
+            document.getElementById('loading-text').textContent = text || 'Loading...';
+            document.getElementById('loading-overlay').classList.add('active');
+        }
+
+        function hideLoading() {
+            document.getElementById('loading-overlay').classList.remove('active');
+        }
 
         function signup() {
             const username = document.getElementById('signup-username').value;
             const password = document.getElementById('signup-password').value;
+            showLoading('Signing up...');
             fetch('/signup', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
             }).then(res => res.json()).then(data => {
+                hideLoading();
                 alert(data.message || data.error);
                 if (data.message) {
                     showLogin();
                 }
-            });
+            }).catch(() => hideLoading());
         }
 
         function showSignup(event) {
@@ -253,11 +697,13 @@
         function login() {
             const username = document.getElementById('login-username').value;
             const password = document.getElementById('login-password').value;
+            showLoading('Logging in...');
             fetch('/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
             }).then(res => res.json()).then(data => {
+                hideLoading();
                 if (data.message) {
                     document.getElementById('auth').classList.add('hidden');
                     if (data.user && data.user.role === 'admin') {
@@ -268,7 +714,7 @@
                 } else {
                     alert(data.error);
                 }
-            });
+            }).catch(() => hideLoading());
         }
 
         function enterRoom() {
@@ -277,11 +723,22 @@
                 document.getElementById('prison-join-message').textContent = 'Please enter a room password';
                 return;
             }
+            showLoading('Checking room...');
             socket.emit('enterRoom', { password });
             document.getElementById('prison-join-message').textContent = 'Checking room...';
+
+            // Safety timeout if Socket.IO drops the response
+            setTimeout(() => {
+                if (document.getElementById('loading-overlay').classList.contains('active') &&
+                    document.getElementById('loading-text').textContent === 'Checking room...') {
+                    hideLoading();
+                    alert("Connection timeout! The PythonAnywhere server dropped the socket message (Likely due to multi-worker syncing issues). Try again.");
+                }
+            }, 5000);
         }
 
         socket.on('roomEntered', () => {
+            hideLoading();
             document.getElementById('prison-join-form').classList.add('hidden');
             document.getElementById('room-lobby').classList.remove('hidden');
             document.getElementById('prison-join-message').textContent = '';
@@ -290,8 +747,19 @@
         function queueForGame() {
             const username = document.getElementById('login-username').value;
             const password = document.getElementById('prison-password').value;
+            showLoading('Joining queue...');
             socket.emit('joinPrison', { username, password });
             document.getElementById('waiting').classList.remove('hidden');
+
+            // Safety timeout if Socket.IO drops the response
+            setTimeout(() => {
+                if (document.getElementById('loading-overlay').classList.contains('active') &&
+                    document.getElementById('loading-text').textContent === 'Joining queue...') {
+                    hideLoading();
+                    document.getElementById('waiting').classList.add('hidden');
+                    alert("Connection timeout! The PythonAnywhere server dropped your socket queue request. Please try again.");
+                }
+            }, 6000);
         }
 
         let selectedRow = null;
@@ -300,7 +768,8 @@
         let currentUserScore = 0;
 
         function selectRow(row) {
-            if (document.getElementById('submit-choice-btn').disabled && !selectedRow) return;
+            // Check if row buttons are disabled (means we are locked-in waiting for opponent response)
+            if (document.getElementById('row-btn-A').disabled) return;
             selectedRow = row;
             document.getElementById('row-btn-A').classList.remove('selected');
             document.getElementById('row-btn-B').classList.remove('selected');
@@ -324,27 +793,27 @@
             document.querySelector('#cell-BA .cell-content').textContent = `[${m.BA1}, ${m.BA2}]`;
             document.querySelector('#cell-BB .cell-content').textContent = `[${m.BB1}, ${m.BB2}]`;
         }
-        
+
         function animateScoreToChest(pointsText, startElementId) {
             const startEl = document.getElementById(startElementId);
             const chestEl = document.getElementById('treasure-chest');
             if (!startEl || !chestEl) return;
-            
+
             const startRect = startEl.getBoundingClientRect();
             const chestRect = chestEl.getBoundingClientRect();
-            
+
             const floatingEl = document.createElement('div');
             floatingEl.className = 'floating-score ' + (pointsText.startsWith('-') ? 'negative' : 'positive');
             floatingEl.textContent = pointsText;
-            
-            floatingEl.style.left = (startRect.left + startRect.width/2 - 15) + 'px';
-            floatingEl.style.top = (startRect.top + startRect.height/2 - 15) + 'px';
-            
-            const dx = (chestRect.left + chestRect.width/2) - (startRect.left + startRect.width/2);
-            const dy = (chestRect.top + chestRect.height/2) - (startRect.top + startRect.height/2);
+
+            floatingEl.style.left = (startRect.left + startRect.width / 2 - 15) + 'px';
+            floatingEl.style.top = (startRect.top + startRect.height / 2 - 15) + 'px';
+
+            const dx = (chestRect.left + chestRect.width / 2) - (startRect.left + startRect.width / 2);
+            const dy = (chestRect.top + chestRect.height / 2) - (startRect.top + startRect.height / 2);
             floatingEl.style.setProperty('--dx', dx + 'px');
             floatingEl.style.setProperty('--dy', dy + 'px');
-            
+
             document.body.appendChild(floatingEl);
             setTimeout(() => document.body.removeChild(floatingEl), 2000);
         }
@@ -366,49 +835,101 @@
             document.getElementById('admin-rooms').classList.add('hidden');
             document.getElementById('admin-results').classList.add('hidden');
         }
-        
+
         function showAdminRooms() {
             document.getElementById('admin-create-room').classList.add('hidden');
             document.getElementById('admin-rooms').classList.remove('hidden');
             document.getElementById('admin-results').classList.add('hidden');
             refreshRooms();
         }
-        
+
         function showAdminResults() {
             document.getElementById('admin-create-room').classList.add('hidden');
             document.getElementById('admin-rooms').classList.add('hidden');
             document.getElementById('admin-results').classList.remove('hidden');
             loadResults();
         }
-        
+
+        let uploadedSessionsData = null;
+
+        document.getElementById('room-matrix-upload').addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (!file) {
+                uploadedSessionsData = null;
+                document.getElementById('matrix-upload-status').textContent = "Leave blank to use default matrix.";
+                document.getElementById('room-sessions').disabled = false;
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function (evt) {
+                try {
+                    const data = evt.target.result;
+                    const workbook = XLSX.read(data, { type: 'binary' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheetName]);
+
+                    if (rows.length > 0 && ('AA1' in rows[0])) {
+                        uploadedSessionsData = rows;
+                        document.getElementById('matrix-upload-status').textContent = `Success! Parsed ${rows.length} valid rows from Excel.`;
+                        document.getElementById('matrix-upload-status').style.color = 'green';
+                        document.getElementById('room-sessions').value = rows.length;
+                        document.getElementById('room-sessions').disabled = true;
+                    } else {
+                        throw new Error("Missing required columns like AA1, AB1.");
+                    }
+                } catch (err) {
+                    console.error(err);
+                    document.getElementById('matrix-upload-status').textContent = "Failed! Ensure Excel has AA1, AA2, AB1, etc. headers.";
+                    document.getElementById('matrix-upload-status').style.color = 'red';
+                    uploadedSessionsData = null;
+                    document.getElementById('room-sessions').disabled = false;
+                }
+            };
+            reader.readAsBinaryString(file);
+        });
+
         function createRoom() {
             const password = document.getElementById('room-password').value;
             const num_sessions = parseInt(document.getElementById('room-sessions').value);
             const allowed_bots = Array.from(document.querySelectorAll('.bot-checkbox:checked')).map(cb => cb.value);
-            
+
             if (!password) {
                 document.getElementById('create-room-message').textContent = 'Please enter a password';
                 return;
             }
+
+            const payload = { password, num_sessions, allowed_bots };
+            if (uploadedSessionsData) {
+                payload.sessions = uploadedSessionsData;
+            }
+
+            showLoading('Creating room...');
             fetch('/create_room', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password, num_sessions, allowed_bots })
+                body: JSON.stringify(payload)
             }).then(res => res.json()).then(data => {
+                hideLoading();
                 document.getElementById('create-room-message').textContent = data.message || data.error;
                 if (data.message) {
                     document.getElementById('room-password').value = '';
                     document.getElementById('room-sessions').value = '10';
+                    document.getElementById('room-sessions').disabled = false;
+                    document.getElementById('room-matrix-upload').value = '';
+                    uploadedSessionsData = null;
+                    document.getElementById('matrix-upload-status').textContent = 'Leave blank to use default matrix.';
+                    document.getElementById('matrix-upload-status').style.color = '#333';
                     setTimeout(() => showAdminRooms(), 500);
                 }
-            });
+            }).catch(() => hideLoading());
         }
-        
+
         function backToGame() {
             document.getElementById('admin').classList.add('hidden');
             document.getElementById('game').classList.remove('hidden');
         }
-        
+
         function refreshRooms() {
             fetch('/get_rooms').then(res => res.json()).then(data => {
                 const tbody = document.getElementById('admin-rooms-tbody');
@@ -439,7 +960,7 @@
                 tbody.innerHTML = '<tr><td colspan="5">Error loading rooms</td></tr>';
             });
         }
-        
+
         function loadResults() {
             fetch('/prison/results').then(res => res.json()).then(data => {
                 const tbody = document.getElementById('admin-tbody');
@@ -471,6 +992,7 @@
         }
 
         socket.on('opponentDisconnected', () => {
+            hideLoading();
             alert('Opponent disconnected');
             document.getElementById('prison').classList.add('hidden');
             document.getElementById('room-lobby').classList.remove('hidden');
@@ -478,16 +1000,19 @@
         });
 
         socket.on('prisonWaiting', () => {
+            showLoading('Waiting for opponent...');
             document.getElementById('prison-message').textContent = 'Waiting for second player...';
             document.getElementById('prison').classList.remove('hidden');
             resetDoors();
         });
 
         socket.on('prisonError', (data) => {
+            hideLoading();
             alert(data.message);
         });
 
         socket.on('prisonStart', (data) => {
+            hideLoading();
             currentPrisonGameId = data.gameId;
             currentTotalSessions = data.total_sessions;
             currentUserScore = 0;
@@ -504,9 +1029,9 @@
             const myChoice = selectedRow;
             let theirChoice = data.p1_choice;
             if (data.p1_choice === selectedRow && data.p2_choice !== selectedRow) {
-                 theirChoice = data.p2_choice;
+                theirChoice = data.p2_choice;
             } else if (data.p1_choice === selectedRow && data.p2_choice === selectedRow) {
-                 theirChoice = selectedRow;
+                theirChoice = selectedRow;
             }
 
             const cellId = `cell-${myChoice}${theirChoice}`;
@@ -524,7 +1049,7 @@
                     animateScoreToChest(pointsText, cellId);
                 }
             }
-            
+
             document.getElementById('prison-message').textContent = `Result: They chose ${theirChoice}. P1 ${data.p1_score} | P2 ${data.p2_score}`;
             if (data.done) {
                 document.getElementById('prison-message').textContent += ' | Game Over!';
@@ -555,4 +1080,5 @@
 
     </script>
 </body>
+
 </html>
