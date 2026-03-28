@@ -726,15 +726,6 @@
             showLoading('Checking room...');
             socket.emit('enterRoom', { password });
             document.getElementById('prison-join-message').textContent = 'Checking room...';
-
-            // Safety timeout if Socket.IO drops the response
-            setTimeout(() => {
-                if (document.getElementById('loading-overlay').classList.contains('active') &&
-                    document.getElementById('loading-text').textContent === 'Checking room...') {
-                    hideLoading();
-                    alert("Connection timeout! The PythonAnywhere server dropped the socket message. Please try again.");
-                }
-            }, 15000);
         }
 
         socket.on('roomEntered', () => {
@@ -750,16 +741,6 @@
             showLoading('Joining queue...');
             socket.emit('joinPrison', { username, password });
             document.getElementById('waiting').classList.remove('hidden');
-
-            // Safety timeout if Socket.IO drops the response
-            setTimeout(() => {
-                if (document.getElementById('loading-overlay').classList.contains('active') &&
-                    document.getElementById('loading-text').textContent === 'Joining queue...') {
-                    hideLoading();
-                    document.getElementById('waiting').classList.add('hidden');
-                    alert("Connection timeout! The PythonAnywhere server dropped your socket queue request. Please try again.");
-                }
-            }, 15000);
         }
 
         let selectedRow = null;
