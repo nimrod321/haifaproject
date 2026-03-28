@@ -115,6 +115,17 @@ def create_room():
     allowed_bots = data.get('allowed_bots', ['Random', 'CBot'])
     custom_sessions = data.get('sessions')
     
+    if custom_sessions:
+        cleaned_list = []
+        for s in custom_sessions:
+            c = {}
+            for k, v in s.items():
+                c[str(k).upper().strip()] = v
+            for req in ['AA1','AA2','AB1','AB2','BA1','BA2','BB1','BB2']:
+                if req not in c: c[req] = 0
+            cleaned_list.append(c)
+        custom_sessions = cleaned_list
+    
     if not password:
         return jsonify({'error': 'Password required'}), 400
     if password in rooms:
@@ -280,23 +291,26 @@ def start_game_human_vs_bot(room, player, pw):
 def matchmaking_loop():
     while True:
         socketio.sleep(1)
-        for pw, room in list(rooms.items()):
-            waiting = room['waiting']
-            if not waiting:
-                continue
-            
-            last_join = room.get('last_join_time', 0)
-            if time.time() - last_join >= 10:
-                random.shuffle(waiting)
+        try:
+            for pw, room in list(rooms.items()):
+                waiting = room['waiting']
+                if not waiting:
+                    continue
                 
-                while len(waiting) >= 2:
-                    p1 = waiting.pop()
-                    p2 = waiting.pop()
-                    start_game_human_vs_human(room, p1, p2, pw)
-                
-                if len(waiting) == 1:
-                    p1 = waiting.pop()
-                    start_game_human_vs_bot(room, p1, pw)
+                last_join = room.get('last_join_time', 0)
+                if time.time() - last_join >= 10:
+                    random.shuffle(waiting)
+                    
+                    while len(waiting) >= 2:
+                        p1 = waiting.pop()
+                        p2 = waiting.pop()
+                        start_game_human_vs_human(room, p1, p2, pw)
+                    
+                    if len(waiting) == 1:
+                        p1 = waiting.pop()
+                        start_game_human_vs_bot(room, p1, pw)
+        except Exception as e:
+            print(f"Matchmaking crash averted: {e}")
 
 socketio.start_background_task(matchmaking_loop)
 
