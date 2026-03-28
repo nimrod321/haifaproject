@@ -727,14 +727,7 @@
             socket.emit('enterRoom', { password });
             document.getElementById('prison-join-message').textContent = 'Checking room...';
 
-            // Safety timeout if Socket.IO drops the response
-            setTimeout(() => {
-                if (document.getElementById('loading-overlay').classList.contains('active') &&
-                    document.getElementById('loading-text').textContent === 'Checking room...') {
-                    hideLoading();
-                    alert("Connection timeout! The PythonAnywhere server dropped the socket message. Please try again.");
-                }
-            }, 20000);
+            // Removed UI timeouts per request. User will wait until PythonAnywhere responds.
         }
 
         socket.on('roomEntered', () => {
@@ -751,15 +744,7 @@
             socket.emit('joinPrison', { username, password });
             document.getElementById('waiting').classList.remove('hidden');
 
-            // Safety timeout if Socket.IO drops the response
-            setTimeout(() => {
-                if (document.getElementById('loading-overlay').classList.contains('active') &&
-                    document.getElementById('loading-text').textContent === 'Joining queue...') {
-                    hideLoading();
-                    document.getElementById('waiting').classList.add('hidden');
-                    alert("Connection timeout! The server dropped your socket queue request. Please try again.");
-                }
-            }, 20000);
+            // Removed UI timeouts per request.
         }
 
         let selectedRow = null;
@@ -1023,6 +1008,13 @@
             document.getElementById('room-lobby').classList.add('hidden');
             document.getElementById('game').classList.remove('hidden');
             document.getElementById('prison').classList.remove('hidden');
+            
+            // Clean up screen; only show matrix
+            const mainTitle = document.querySelector('h1');
+            if (mainTitle) mainTitle.style.display = 'none';
+            const prisonTitle = document.querySelector('#prison h2');
+            if (prisonTitle) prisonTitle.style.display = 'none';
+
             document.getElementById('prison-session').textContent = `Session ${data.session}/${data.total_sessions}`;
             document.getElementById('prison-message').textContent = 'Your turn! Select a row and send.';
             renderPrisonMatrix(data.matrix);
