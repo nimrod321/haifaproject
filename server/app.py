@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
 from flask_socketio import SocketIO, emit
 import sqlite3
 import bcrypt
@@ -185,7 +185,7 @@ def login():
 
 @app.route('/')
 def index():
-    resp = app.send_static_file('index.html')
+    resp = make_response(app.send_static_file('index.html'))
     resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     resp.headers['Pragma'] = 'no-cache'
     resp.headers['Expires'] = '0'
