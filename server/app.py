@@ -278,21 +278,12 @@ def matchmaking_loop():
         socketio.sleep(1)
         for pw, room in list(rooms.items()):
             waiting = room['waiting']
-            if not waiting:
-                continue
             
-            last_join = room.get('last_join_time', 0)
-            if time.time() - last_join >= 10:
-                random.shuffle(waiting)
-                
-                while len(waiting) >= 2:
-                    p1 = waiting.pop()
-                    p2 = waiting.pop()
-                    start_game_human_vs_human(room, p1, p2, pw)
-                
-                if len(waiting) == 1:
-                    p1 = waiting.pop()
-                    start_game_human_vs_bot(room, p1, pw)
+            # Match 2 humans immediately when available
+            while len(waiting) >= 2:
+                p1 = waiting.pop(0)
+                p2 = waiting.pop(0)
+                start_game_human_vs_human(room, p1, p2, pw)
 
 socketio.start_background_task(matchmaking_loop)
 
