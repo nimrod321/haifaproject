@@ -732,9 +732,9 @@
                 if (document.getElementById('loading-overlay').classList.contains('active') &&
                     document.getElementById('loading-text').textContent === 'Checking room...') {
                     hideLoading();
-                    alert("Connection timeout! The PythonAnywhere server dropped the socket message (Likely due to multi-worker syncing issues). Try again.");
+                    alert("Connection timeout! The PythonAnywhere server dropped the socket message. Please try again.");
                 }
-            }, 5000);
+            }, 15000);
         }
 
         socket.on('roomEntered', () => {
@@ -759,7 +759,7 @@
                     document.getElementById('waiting').classList.add('hidden');
                     alert("Connection timeout! The PythonAnywhere server dropped your socket queue request. Please try again.");
                 }
-            }, 6000);
+            }, 15000);
         }
 
         let selectedRow = null;
@@ -816,6 +816,10 @@
 
             document.body.appendChild(floatingEl);
             setTimeout(() => document.body.removeChild(floatingEl), 2000);
+        }
+
+        function openAllDoors() {
+            document.querySelectorAll('.cell-door').forEach(door => door.classList.add('open'));
         }
 
         function resetDoors() {
@@ -1023,6 +1027,7 @@
             document.getElementById('prison-message').textContent = 'Your turn! Select a row and send.';
             renderPrisonMatrix(data.matrix);
             resetDoors();
+            setTimeout(openAllDoors, 500);
         });
 
         socket.on('prisonRoundResult', (data) => {
@@ -1058,10 +1063,14 @@
 
         socket.on('prisonNextRound', (data) => {
             setTimeout(() => {
+                resetDoors();
+            }, 2200);
+
+            setTimeout(() => {
                 document.getElementById('prison-session').textContent = `Session ${data.session}/${currentTotalSessions}`;
                 renderPrisonMatrix(data.matrix);
                 document.getElementById('prison-message').textContent = 'Next round started. Select a row.';
-                resetDoors();
+                openAllDoors();
             }, 3000);
         });
 
