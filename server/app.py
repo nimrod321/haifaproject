@@ -219,10 +219,17 @@ def join_prison(data):
     if not password or password not in rooms:
         emit('prisonError', {'message': 'Invalid or missing password'})
         return
+    
     room = rooms[password]
-    room['waiting'].append({'username': username, 'sid': request.sid})
-    room['last_join_time'] = time.time()
-    emit('prisonWaiting')
+    waiting = room['waiting']
+    player_obj = {'username': username, 'sid': request.sid}
+    
+    if len(waiting) >= 1:
+        p1 = waiting.pop(0)
+        start_game_human_vs_human(room, p1, player_obj, password)
+    else:
+        waiting.append(player_obj)
+        emit('prisonWaiting')
 
 def setup_game_state(room, p1_username, p2_username, sockets, pw, is_bot=False, bot_obj=None):
     game_id = str(os.urandom(16).hex())
@@ -288,31 +295,20 @@ def start_game_human_vs_bot(room, player, pw):
         'opponent': 'Player 2'
     }, to=player['sid'])
 
-def matchmaking_loop():
-    while True:
-        socketio.sleep(1)
-        try:
-            for pw, room in list(rooms.items()):
-                waiting = room['waiting']
-                if not waiting:
-                    continue
-                
-                last_join = room.get('last_join_time', 0)
-                if time.time() - last_join >= 10:
-                    random.shuffle(waiting)
-                    
-                    while len(waiting) >= 2:
-                        p1 = waiting.pop()
-                        p2 = waiting.pop()
-                        start_game_human_vs_human(room, p1, p2, pw)
-                    
-                    if len(waiting) == 1:
-                        p1 = waiting.pop()
-                        start_game_human_vs_bot(room, p1, pw)
-        except Exception as e:
-            print(f"Matchmaking crash averted: {e}")
-
-socketio.start_background_task(matchmaking_loop)
+@socketio.on('requestBot')
+def request_bot(data):
+    password = data.get('password')
+    if not password or password not in rooms:
+        return
+    
+    room = rooms[password]
+    waiting = room['waiting']
+    
+    for p in list(waiting):
+        if p['sid'] == request.sid:
+            waiting.remove(p)
+            start_game_human_vs_bot(room, p, password)
+            return
 
 @socketio.on('prisonChooseRow')
 def prison_choose_row(data):

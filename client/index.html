@@ -744,9 +744,12 @@
             socket.emit('joinPrison', { username, password });
             document.getElementById('waiting').classList.remove('hidden');
 
-            // Removed UI timeouts per request.
+            matchmakingTimeout = setTimeout(() => {
+                socket.emit('requestBot', { password });
+            }, 10000);
         }
 
+        let matchmakingTimeout = null;
         let selectedRow = null;
         let currentPrisonGameId = null;
         let currentTotalSessions = 10;
@@ -1001,6 +1004,7 @@
         });
 
         socket.on('prisonStart', (data) => {
+            if (matchmakingTimeout) clearTimeout(matchmakingTimeout);
             hideLoading();
             currentPrisonGameId = data.gameId;
             currentTotalSessions = data.total_sessions;
