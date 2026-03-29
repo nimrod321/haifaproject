@@ -305,6 +305,17 @@
             content: '?';
         }
 
+        .matrix-cell.blacked-out::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            border-radius: 15px;
+            z-index: 20;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
         .action-area {
             margin-top: 20px;
             display: flex;
@@ -758,20 +769,51 @@
         function selectRow(row) {
             // Check if row buttons are disabled (means we are locked-in waiting for opponent response)
             if (document.getElementById('row-btn-A').disabled) return;
+            
+            if (selectedRow === row) {
+                // Cancel decision
+                selectedRow = null;
+                document.getElementById('row-btn-' + row).classList.remove('selected');
+                document.getElementById('submit-choice-btn').disabled = true;
+                
+                // Remove all blackouts
+                document.querySelectorAll('.matrix-cell').forEach(c => c.classList.remove('blacked-out'));
+                return;
+            }
+
             selectedRow = row;
             document.getElementById('row-btn-A').classList.remove('selected');
             document.getElementById('row-btn-B').classList.remove('selected');
             document.getElementById('row-btn-' + row).classList.add('selected');
             document.getElementById('submit-choice-btn').disabled = false;
+            
+            // Apply row blackouts:
+            document.querySelectorAll('.matrix-cell').forEach(c => c.classList.remove('blacked-out'));
+            if (row === 'A') {
+                document.getElementById('cell-BA').classList.add('blacked-out');
+                document.getElementById('cell-BB').classList.add('blacked-out');
+            } else {
+                document.getElementById('cell-AA').classList.add('blacked-out');
+                document.getElementById('cell-AB').classList.add('blacked-out');
+            }
         }
 
         function submitChoice() {
             if (!selectedRow) return;
             socket.emit('prisonChooseRow', { gameId: currentPrisonGameId, row: selectedRow });
             document.getElementById('prison-message').textContent = `Locked in row ${selectedRow}. Waiting for opponent...`;
-            document.getElementById('submit-choice-btn').disabled = true;
-            document.getElementById('row-btn-A').disabled = true;
-            document.getElementById('row-btn-B').disabled = true;
+            socket.on('prisonRoundResult', (data) => {
+                document.getElementById('row-btn-A').disabled = true;
+                document.getElementById('row-btn-B').disabled = true;
+                currentUserScore += data.p1_score;
+                if (data.p2_choice === 'A') {
+                    document.getElementById('cell-AB').classList.add('blacked-out');
+                    document.getElementById('cell-BB').classList.add('blacked-out');
+                } else {
+                    document.getElementById('cell-AA').classList.add('blacked-out');
+                    document.getElementById('cell-BA').classList.add('blacked-out');
+                }
+            });
         }
 
         function renderPrisonMatrix(matrix) {
@@ -812,6 +854,7 @@
 
         function resetDoors() {
             document.querySelectorAll('.cell-door').forEach(door => door.classList.remove('open'));
+            document.querySelectorAll('.matrix-cell').forEach(c => c.classList.remove('blacked-out'));
             document.getElementById('col-ind-A').classList.remove('active');
             document.getElementById('col-ind-B').classList.remove('active');
             document.getElementById('row-btn-A').classList.remove('selected');
