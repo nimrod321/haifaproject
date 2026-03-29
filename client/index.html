@@ -748,6 +748,18 @@
             document.getElementById('prison-join-message').textContent = '';
         });
 
+        socket.on('prisonGameEnd', (data) => {
+            setTimeout(() => {
+                document.getElementById('prison').classList.add('hidden');
+                document.getElementById('room-lobby').classList.remove('hidden');
+                document.getElementById('waiting').textContent = `Game Over! Final Score: ${currentUserScore} ⭐`;
+                document.getElementById('waiting').classList.remove('hidden');
+                
+                // Clear any hanging filters cleanly
+                document.querySelectorAll('.matrix-cell').forEach(c => c.classList.remove('blacked-out'));
+            }, 3000);
+        });
+
         function queueForGame() {
             const username = document.getElementById('login-username').value;
             const password = document.getElementById('prison-password').value;
