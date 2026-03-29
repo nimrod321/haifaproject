@@ -930,7 +930,6 @@
                     document.getElementById('matrix-upload-status').textContent = "Failed! Ensure Excel has AA1, AA2, AB1, etc. headers.";
                     document.getElementById('matrix-upload-status').style.color = 'red';
                     uploadedSessionsData = null;
-                    document.getElementById('room-sessions').disabled = false;
                 }
             };
             reader.readAsBinaryString(file);
