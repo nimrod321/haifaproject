@@ -120,7 +120,11 @@ def create_room():
         for s in custom_sessions:
             c = {}
             for k, v in s.items():
-                c[str(k).upper().strip()] = v
+                kw = str(k).upper().strip()
+                try:
+                    c[kw] = int(float(v)) if str(v).strip() != '' else 0
+                except:
+                    c[kw] = 0
             for req in ['AA1','AA2','AB1','AB2','BA1','BA2','BB1','BB2']:
                 if req not in c: c[req] = 0
             cleaned_list.append(c)
@@ -335,15 +339,13 @@ def prison_choose_row(data):
         return
         
     if game.get('is_bot'):
-        game['choices']['p2'] = game['bot_obj'].get_choice()
+        bot_eval = game['bot_obj'].get_choice()
+        game['choices']['p2'] = 'A' if bot_eval == 'C' else 'B'
 
     # if both chose, resolve session
     if game['choices']['p1'] and game['choices']['p2']:
         p1_choice = game['choices']['p1']
         p2_choice = game['choices']['p2']
-
-        p1_remain = 'A' if p1_choice == 'B' else 'B'
-        p2_remain = 'A' if p2_choice == 'B' else 'B'
 
         room = rooms[game['room']]
         sessions_list = room.get('sessions') or prison_sessions
@@ -352,7 +354,7 @@ def prison_choose_row(data):
             session_index = len(sessions_list) - 1
         session = sessions_list[session_index]
 
-        p1_score, p2_score = get_prison_value(session, p1_remain, p2_remain)
+        p1_score, p2_score = get_prison_value(session, p1_choice, p2_choice)
 
         p1_code = 'C' if p1_choice == 'A' else 'D'
         p2_code = 'C' if p2_choice == 'A' else 'D'
@@ -373,7 +375,9 @@ def prison_choose_row(data):
         db.close()
 
         if game.get('is_bot'):
-            game['bot_obj'].record_result(game['choices']['p2'], game['choices']['p1'])
+            bot_my_eval = 'C' if game['choices']['p2'] == 'A' else 'D'
+            bot_op_eval = 'C' if game['choices']['p1'] == 'A' else 'D'
+            game['bot_obj'].record_result(bot_my_eval, bot_op_eval)
 
         game['session'] += 1
         game['choices'] = {'p1': None, 'p2': None}
