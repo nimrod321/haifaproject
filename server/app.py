@@ -8,12 +8,13 @@ import random
 from game_bots import create_bot
 
 app = Flask(__name__, static_folder='../client', static_url_path='')
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode=None)
 
-DATABASE = 'games.db'
+DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'games.db')
 
 def get_db():
-    db = sqlite3.connect(DATABASE)
+    # Adding a timeout for PythonAnywhere stability
+    db = sqlite3.connect(DATABASE, timeout=20)
     db.row_factory = sqlite3.Row
     return db
 
