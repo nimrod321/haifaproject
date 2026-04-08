@@ -269,19 +269,24 @@ def login():
     db = get_db()
     
     if username == 'NIS' and password == 'NIS5760':
+        db.close()
         return jsonify({'message': 'Logged in', 'user': {'id': 0, 'username': 'NIS', 'role': 'admin'}})
         
-    user = db.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
-    if not user or not bcrypt.checkpw(password.encode('utf-8'), user['password']):
-        db.close()
-        return jsonify({'error': 'Invalid credentials'}), 401
-    
-    is_banned = db.execute('SELECT 1 FROM banned_users WHERE username = ?', (username,)).fetchone()
-    db.close()
-    if is_banned:
-        return jsonify({'error': 'This account has been banned from the platform.'}), 403
+    try:
+        user = db.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+        if not user or not bcrypt.checkpw(password.encode('utf-8'), user['password']):
+            db.close()
+            return jsonify({'error': 'Invalid credentials'}), 401
         
-    return jsonify({'message': 'Logged in', 'user': {'id': user['id'], 'username': user['username'], 'role': 'player'}})
+        is_banned = db.execute('SELECT 1 FROM banned_users WHERE username = ?', (username,)).fetchone()
+        db.close()
+        if is_banned:
+            return jsonify({'error': 'This account has been banned from the platform.'}), 403
+            
+        return jsonify({'message': 'Logged in', 'user': {'id': user['id'], 'username': user['username'], 'role': 'player'}})
+    except Exception as e:
+        if db: db.close()
+        return jsonify({'error': f'Database error: {str(e)}'}), 500
 
 @app.route('/get_players', methods=['POST'])
 def get_players():

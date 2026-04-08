@@ -276,19 +276,32 @@
         async function login() {
             const u = document.getElementById('login-username').value, p = document.getElementById('login-password').value;
             showLoading('Logging in...');
-            const res = await fetch('/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) });
-            const data = await res.json(); hideLoading();
-            if (res.ok) { currentUsername = u; currentUserRole = data.user.role; document.getElementById('auth').classList.add('hidden');
-            if(currentUserRole === 'admin') { document.getElementById('admin-panel').classList.remove('hidden'); loadAdminRooms(); loadAdminPlayers(); } else { document.getElementById('game').classList.remove('hidden'); }
-            } else alert(data.error);
+            try {
+                const res = await fetch('/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) });
+                const data = await res.json(); 
+                hideLoading();
+                if (res.ok) { 
+                    currentUsername = u; currentUserRole = data.user.role; document.getElementById('auth').classList.add('hidden');
+                    if(currentUserRole === 'admin') { document.getElementById('admin-panel').classList.remove('hidden'); loadAdminRooms(); loadAdminPlayers(); } else { document.getElementById('game').classList.remove('hidden'); }
+                } else alert(data.error);
+            } catch (e) {
+                hideLoading();
+                alert('Server connection error. Please refresh and try again.');
+            }
         }
 
         async function signup() {
             const u = document.getElementById('login-username').value, p = document.getElementById('login-password').value;
             showLoading('Creating Account...');
-            const res = await fetch('/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) });
-            const data = await res.json(); hideLoading();
-            if (res.ok) { alert('Account created! Please login.'); } else { alert(data.error); }
+            try {
+                const res = await fetch('/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) });
+                const data = await res.json(); 
+                hideLoading();
+                if (res.ok) { alert('Account created! Please login.'); } else { alert(data.error); }
+            } catch (e) {
+                hideLoading();
+                alert('Server connection error. Please refresh and try again.');
+            }
         }
 
         async function adminCreateRoom() {
@@ -360,6 +373,10 @@
 
         function enterRoom() { socket.emit('enterRoom', { password: document.getElementById('prison-password').value }); }
         socket.on('roomEntered', () => { document.getElementById('prison-join-form').classList.add('hidden'); document.getElementById('room-lobby').classList.remove('hidden'); });
+        
+        socket.on('prisonError', d => {
+            alert(d.message || 'Cannot join room. Please check the password.');
+        });
 
         function queueForGame() { 
             const pw = document.getElementById('prison-password').value; 
