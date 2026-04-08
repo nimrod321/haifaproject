@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dilemma Street</title>
     <link href="https://fonts.googleapis.com/css2?family=Bubblegum+Sans&display=swap" rel="stylesheet">
+    <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
     <style>
         body {
             font-family: 'Bubblegum Sans', cursive, Arial, sans-serif;
@@ -14,1172 +15,506 @@
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
-            margin: 0;
-            padding: 20px;
+            margin: 0; padding: 0; color: #fff; min-height: 100vh;
+            display: flex; flex-direction: column; align-items: center;
         }
 
-        .container {
-            max-width: 500px;
-            margin: 0 auto;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 30px;
-            border-radius: 25px;
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
-            border: 5px solid #fff;
+        .container { width: 100%; max-width: 1100px; margin: 0 auto; padding: 20px; box-sizing: border-box; }
+
+        h1 {
+            color: #fff; text-shadow: 0 0 10px rgba(46, 204, 113, 0.8), 3.5px 3.5px 7px rgba(0,0,0,1);
+            font-size: 64px; margin: 15px 0 25px 0; font-weight: bold;
         }
 
-        h1,
-        h2,
-        h3 {
-            color: #ff6b6b;
-            text-shadow: 2px 2px 0px #ffeaa7;
-            font-size: 36px;
-            margin-bottom: 10px;
-        }
+        h2, h3 { color: #f1c40f; text-shadow: 2px 2px 4px #000; font-size: 34px; }
+        .hidden { display: none !important; }
 
-        h2 {
-            font-size: 28px;
-        }
-
-        .board {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            margin: 20px auto;
-            width: fit-content;
-        }
-
-        .cell {
-            width: 100px;
-            height: 100px;
-            border: 4px solid #74b9ff;
-            border-radius: 15px;
-            background: #fff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 60px;
-            color: #0984e3;
-            cursor: pointer;
-            box-shadow: 0 6px 0 #0984e3;
-            transition: transform 0.1s, box-shadow 0.1s;
-        }
-
-        .cell:active {
-            transform: translateY(6px);
-            box-shadow: 0 0 0 #0984e3;
-        }
-
-        .hidden {
-            display: none !important;
-        }
+        .glass-panel { background: rgba(0,0,0,0.1); padding: 30px; margin: 15px auto; border-radius: 30px; max-width: 600px; backdrop-filter: blur(5px); }
 
         input {
-            margin: 10px;
-            padding: 12px;
-            border: 3px solid #55efc4;
-            border-radius: 15px;
-            font-size: 18px;
-            font-family: 'Bubblegum Sans', cursive;
-            outline: none;
+            margin: 10px auto; padding: 12px 25px; border: 3px solid #2ecc71; border-radius: 50px;
+            font-size: 18px; font-family: 'Bubblegum Sans', cursive; background: white; color: #333; outline: none;
+            display: block; width: 300px; font-weight: bold;
         }
 
-        input:focus {
-            border-color: #00b894;
+        button:not(.row-btn):not(.submit-btn) {
+            padding: 10px 30px; margin: 10px; font-size: 22px; font-family: 'Bubblegum Sans', cursive; color: #fff;
+            background: #27ae60; border: 4px solid #fff; border-radius: 50px; cursor: pointer;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4); transition: all 0.2s;
         }
 
-        button {
-            padding: 12px 25px;
-            margin: 10px;
-            font-size: 22px;
-            font-family: 'Bubblegum Sans', cursive;
-            color: white;
-            background: #ff9f43;
-            border: none;
-            border-radius: 15px;
-            cursor: pointer;
-            box-shadow: 0 6px 0 #ee5253;
-            transition: transform 0.1s, box-shadow 0.1s, background 0.2s;
-        }
-
-        button:active:not(:disabled) {
-            transform: translateY(6px);
-            box-shadow: 0 0 0 #ee5253;
-        }
-
-        button:hover:not(:disabled) {
-            background: #ff7f50;
-        }
-
-        button:disabled {
-            background: #ccc;
-            box-shadow: 0 6px 0 #999;
-            cursor: not-allowed;
-        }
-
-        a {
-            color: #0984e3;
-            font-weight: bold;
-            text-decoration: none;
-        }
-
-        a:hover {
-            color: #ff6b6b;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-            background: white;
-            border-radius: 15px;
-            overflow: hidden;
-            border: 2px solid #74b9ff;
-        }
-
-        th,
-        td {
-            padding: 12px;
-            border: 1px solid #dfe6e9;
-            font-family: sans-serif;
-            font-size: 14px;
-        }
-
-        th {
-            background: #74b9ff;
-            color: white;
-            font-family: 'Bubblegum Sans', cursive;
-            font-size: 18px;
-        }
-
-        #prison-join-form,
-        #admin-create-room {
-            background: rgba(255, 255, 255, 0.8);
-            border: 3px dashed #ff9f43;
-            border-radius: 20px;
-        }
-
-        /* Dilemma Street V2 UI */
+        /* SYMMETRIC BOARD */
         .game-board-panel {
-            background: linear-gradient(#8b5a2b, #a0522d);
-            border: 12px solid #5c3a21;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(0, 0, 0, 0.8);
-            padding: 20px;
-            position: relative;
-            margin: 20px auto;
-            max-width: 450px;
+            background: #4e342e; border: 10px solid #3e2723; border-radius: 20px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.9), inset 0 0 40px rgba(0,0,0,0.6);
+            padding: 40px; position: relative; margin: 20px auto; width: 680px; box-sizing: border-box;
+            display: flex; justify-content: center; align-items: center;
         }
 
         .board-layout {
             display: grid;
-            grid-template-columns: 60px 1fr;
-            grid-template-rows: 50px 1fr;
-            gap: 10px;
+            grid-template-columns: 80px 220px 220px;
+            grid-template-rows: 60px 150px 150px;
+            gap: 20px;
+            align-items: center;
+            justify-content: center;
         }
 
-        .top-indicators {
-            grid-column: 2;
-            display: flex;
-            justify-content: space-around;
-            align-items: flex-end;
+        .col-header {
+            background: #2c3e50; color: #f1c40f; padding: 12px; border-radius: 15px 15px 0 0;
+            font-weight: bold; border: 4px solid #3e2723; font-size: 20px; text-align: center;
+            display: flex; align-items: center; justify-content: center; height: 35px;
         }
-
-        .p2-indicator {
-            background: #34495e;
-            color: #f1c40f;
-            padding: 5px 15px;
-            border-radius: 10px 10px 0 0;
-            font-weight: bold;
-            font-family: 'Bubblegum Sans', cursive;
-            box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.3);
-            transition: all 0.3s;
-        }
-
-        .p2-indicator.active {
-            background: #f1c40f;
-            color: #c0392b;
-            box-shadow: 0 0 15px #f1c40f;
-            transform: scale(1.1);
-        }
-
-        .left-selectors {
-            grid-row: 2;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-around;
-            align-items: flex-end;
-        }
+        #col-header-A { grid-column: 2; grid-row: 1; }
+        #col-header-B { grid-column: 3; grid-row: 1; }
 
         .row-btn {
-            background: #e74c3c;
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            border: 4px solid #c0392b;
-            color: white;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            position: relative;
-            transition: all 0.2s;
-            box-shadow: 0 8px 0 #922b21, 0 15px 10px rgba(0, 0, 0, 0.3);
-            padding: 0;
-            outline: none;
+            background: #8d6e63; width: 75px; height: 75px; border-radius: 50%;
+            border: 6px solid #3e2723; color: #f1c40f; cursor: pointer;
+            box-shadow: 0 8px 0 #2d1b11; transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center; font-size: 32px;
+            position: relative; grid-column: 1;
         }
-
-        .row-btn:active,
-        .row-btn.selected {
-            transform: translateY(8px);
-            box-shadow: 0 0 0 #922b21, 0 5px 5px rgba(0, 0, 0, 0.3);
-            background: #c0392b;
-        }
-
-        .row-btn::before {
-            content: 'אני';
-            position: absolute;
-            left: -40px;
-            color: white;
-            font-family: 'Bubblegum Sans', cursive;
-            text-shadow: 1px 1px 2px #000;
-            font-size: 18px;
-            pointer-events: none;
-        }
-
-        .matrix-2x2 {
-            grid-column: 2;
-            grid-row: 2;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            grid-template-rows: 1fr 1fr;
-            gap: 10px;
-            background: rgba(0, 0, 0, 0.2);
-            padding: 10px;
-            border-radius: 10px;
-            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
-        }
+        .row-btn.selected { transform: translateY(10px); box-shadow: 0 0 0 #2d1b11; background: #c0392b; }
+        .row-btn::before { content: 'אני'; position: absolute; left: -55px; color: white; text-shadow: 2px 2px 4px #000; font-size: 22px; }
+        #row-btn-A { grid-row: 2; }
+        #row-btn-B { grid-row: 3; }
 
         .matrix-cell {
-            background: #fdf5e6;
-            border: 4px solid #dcdde1;
-            border-radius: 8px;
-            position: relative;
-            overflow: hidden;
-            height: 100px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 28px;
-            font-weight: bold;
-            color: #2c3e50;
-            font-family: monospace;
-            box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.2);
+            background: #3e2723; border: 5px solid #2d1b11; border-radius: 15px;
+            position: relative; overflow: hidden; height: 150px; width: 220px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 52px; font-weight: bold; font-family: 'Bubblegum Sans', cursive;
         }
+        #cell-AA { grid-column: 2; grid-row: 2; }
+        #cell-AB { grid-column: 3; grid-row: 2; }
+        #cell-BA { grid-column: 2; grid-row: 3; }
+        #cell-BB { grid-column: 3; grid-row: 3; }
 
-        .cell-door {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(#95a5a6, #7f8c8d);
-            border: 2px solid #bdc3c7;
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 40px;
-            color: rgba(0, 0, 0, 0.3);
-            transition: transform 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55);
-            z-index: 2;
-            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.3);
-        }
+        .p1-val { color: #ff4757; text-shadow: 2px 2px 6px rgba(0,0,0,0.8); }
+        .p2-val { color: #2e86de; text-shadow: 2px 2px 6px rgba(0,0,0,0.8); }
+        .val-separator { color: #fff; margin: 0 12px; opacity: 0.3; }
 
-        .cell-door.open {
-            transform: translateY(-100%);
+        .door-container { position: absolute; inset: 0; z-index: 5; display: flex; pointer-events: none; }
+        .door-half {
+            flex: 1; background: #5d4037; border: 1px solid #3e2723;
+            transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            background-image: repeating-linear-gradient(to right, rgba(0,0,0,0.2), rgba(0,0,0,0.2) 10px, transparent 10px, transparent 20px);
         }
-
-        .cell-door::after {
-            content: '?';
-        }
-
-        .matrix-cell.blacked-out::after {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0, 0, 0, 0.85);
-            border-radius: 15px;
-            z-index: 20;
-            pointer-events: none;
-            transition: opacity 0.3s ease;
-        }
-
-        .action-area {
-            margin-top: 20px;
-            display: flex;
-            justify-content: center;
-            position: relative;
-        }
+        .door-left { border-right: 2px solid #2d1b11; transform: translateX(-102%); }
+        .door-right { border-left: 2px solid #2d1b11; transform: translateX(102%); }
+        .cell-closed .door-left { transform: translateX(0) !important; }
+        .cell-closed .door-right { transform: translateX(0) !important; }
 
         .submit-btn {
-            background: linear-gradient(#2ecc71, #27ae60);
-            color: white;
-            font-size: 28px;
-            padding: 15px 40px;
-            border: 4px solid #219653;
-            border-radius: 25px;
-            cursor: pointer;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-            box-shadow: 0 10px 0 #1e8449, 0 15px 15px rgba(0, 0, 0, 0.3);
-            transition: all 0.2s;
-            font-family: 'Bubblegum Sans', cursive;
+            background: #5d4037; color: #f1c40f; font-size: 36px; padding: 18px 70px;
+            border: 5px solid #3e2723; border-radius: 20px; cursor: pointer;
+            box-shadow: 0 10px 0 #2d1b11, 0 15px 30px rgba(0,0,0,0.5);
+            transition: all 0.2s; font-family: 'Bubblegum Sans', cursive; margin-top:20px;
         }
 
-        .submit-btn:active:not(:disabled) {
-            transform: translateY(10px);
-            box-shadow: 0 0 0 #1e8449, 0 5px 5px rgba(0, 0, 0, 0.3);
+        /* RE-ADDED BOT SELECTION AREA (CLEAN) */
+        .bot-selection { background: rgba(0,0,0,0.4); padding: 15px; border-radius: 15px; text-align: left; margin: 10px 0; font-size: 14px; }
+        .bot-line { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+
+        /* PURPLE MAGICAL CHEST */
+        .chest-float { position: fixed; bottom: 40px; left: 40px; width: 140px; height: 120px; z-index: 1000; }
+        .magical-chest {
+            width: 100%; height: 100%; background: #8e44ad; border: 4px solid #f1c40f;
+            border-radius: 15px 15px 10px 10px; position: relative;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.9), inset 0 0 30px rgba(0,0,0,0.5);
+        }
+        .chest-band { position: absolute; width: 15px; height: 100%; background: #f1c40f; top: 0; box-shadow: 2px 0 5px rgba(0,0,0,0.3); }
+        .band-left { left: 25px; }
+        .band-right { right: 25px; }
+        .chest-lock-logo {
+            position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
+            width: 40px; height: 50px; background: #f1c40f; border-radius: 5px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .chest-lock-logo::after {
+            content: ''; width: 8px; height: 12px; background: #333; border-radius: 50% 50% 0 0; position: relative; top: -5px;
         }
 
-        .submit-btn:disabled {
-            filter: grayscale(100%);
-            cursor: not-allowed;
-        }
-
-        .chest-container {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            width: 80px;
-            height: 80px;
-            z-index: 100;
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-
-        .chest-container:hover {
-            transform: scale(1.1);
-        }
-
-        .chest-icon {
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(circle, #9b59b6, #8e44ad);
-            border-radius: 15px 15px 5px 5px;
-            position: relative;
-            border: 4px solid #f1c40f;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5), inset 0 5px 10px rgba(255, 255, 255, 0.3);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            font-family: sans-serif;
-        }
-
-        .chest-icon::after {
-            content: '';
-            position: absolute;
-            top: 30%;
-            width: 100%;
-            height: 8px;
-            background: #c0392b;
-            border-top: 2px solid #f1c40f;
-            border-bottom: 2px solid #f1c40f;
-        }
-
-        .chest-icon::before {
-            content: '';
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            background: #e74c3c;
-            border-radius: 50%;
-            border: 3px solid #f1c40f;
-            z-index: 2;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
-        }
-
-        .floating-score {
-            position: fixed;
-            font-size: 32px;
-            font-weight: bold;
-            font-family: 'Bubblegum Sans', cursive;
-            z-index: 101;
-            pointer-events: none;
-            animation: floatToChest 2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
-            text-shadow: 2px 2px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff;
-        }
-
-        .floating-score.positive {
-            color: #2ecc71;
-        }
-
-        .floating-score.negative {
-            color: #e74c3c;
-        }
-
-        @keyframes floatToChest {
-            0% {
-                opacity: 0;
-                transform: scale(0.5) translateY(0);
-            }
-
-            20% {
-                opacity: 1;
-                transform: scale(1.5) translateY(-50px);
-            }
-
-            80% {
-                opacity: 1;
-                transform: scale(1) translate(var(--dx), var(--dy));
-            }
-
-            100% {
-                opacity: 0;
-                transform: scale(0.5) translate(var(--dx), var(--dy));
-            }
-        }
-
-        /* Loading Overlay */
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.6);
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            text-shadow: 2px 2px 4px #000;
+        .queued-point-bubble {
+            padding: 5px 20px; border-radius: 30px;
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(10px);
+            border: 2px solid #f1c40f; 
+            color: #fff; font-weight: bold; font-size: 22px;
+            display: flex; align-items: center; justify-content: center;
+            position: absolute; left: 50%; 
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 0 15px rgba(241, 196, 15, 0.5);
             opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.2s;
-            backdrop-filter: blur(3px);
+            transform: translateX(-50%) scale(0);
+            z-index: 200;
+            white-space: nowrap;
         }
 
-        .loading-overlay.active {
-            opacity: 1;
-            pointer-events: all;
-            cursor: wait;
-        }
 
-        .spinner {
-            border: 6px solid rgba(255, 255, 255, 0.2);
-            border-top: 6px solid #f1c40f;
-            border-radius: 50%;
-            width: 60px;
-            height: 60px;
-            animation: spin 1s linear infinite;
-            margin-bottom: 20px;
+        #reveal-countdown-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 2500; display: none; align-items: center; justify-content: center; pointer-events: none; }
+        #countdown-text { font-size: 280px; color: #f1c40f; text-shadow: 10px 10px 50px #000, 0 0 30px #fff; animation: pulse-countdown 1s ease-in-out infinite; }
+        #result-popup {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.5);
+            background: rgba(0,0,0,0.96); border: 12px solid #f1c40f; border-radius: 40px; padding: 60px; z-index: 3000; opacity: 0; pointer-events: none;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
-
-        @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-
-            100% {
-                transform: rotate(360deg);
-            }
-        }
+        #result-popup.active { opacity: 1; transform: translate(-50%, -50%) scale(1); pointer-events: all; }
     </style>
 </head>
 
 <body>
-    <div id="loading-overlay" class="loading-overlay">
-        <div class="spinner"></div>
+    <div id="loading-overlay" style="position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 9999; display: none; align-items: center; justify-content: center; flex-direction: column;">
+        <div style="border: 8px solid rgba(255,255,255,0.1); border-top: 8px solid #f1c40f; border-radius: 50%; width: 70px; height: 70px; animation: spin 1s linear infinite; margin-bottom: 20px;"></div>
         <h1 id="loading-text">Loading...</h1>
     </div>
 
     <div class="container">
         <h1>Dilemma Street</h1>
+        
         <div id="auth">
-            <div id="login-section">
-                <h2>Login</h2>
+            <div id="login-section" class="glass-panel">
+                <h2>Login / Register</h2>
                 <input type="text" id="login-username" placeholder="Username">
                 <input type="password" id="login-password" placeholder="Password">
                 <button onclick="login()">Login</button>
-                <p>new here? <a href="#" onclick="showSignup(event)">sign up!</a></p>
-            </div>
-            <div id="signup-section" class="hidden">
-                <h2>Sign Up</h2>
-                <input type="text" id="signup-username" placeholder="Username">
-                <input type="password" id="signup-password" placeholder="Password">
-                <button onclick="signup()">Sign Up</button>
-                <p>already have an account? <a href="#" onclick="showLogin(event)">log in!</a></p>
+                <button onclick="signup()" style="background:#3498db; margin-top:10px;">Create Account</button>
             </div>
         </div>
+
+        <!-- Admin -->
+        <div id="admin-panel" class="hidden" style="width: 100%; max-width: 1100px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h2>Admin Dashboard</h2>
+                <button class="btn-danger" style="font-size:16px;" onclick="location.reload()">Logout</button>
+            </div>
+            <div style="display:grid; grid-template-columns: 1fr 1.5fr; gap: 20px; margin-top:20px;">
+                <div class="admin-card glass-panel" style="background:rgba(0,0,0,0.4);">
+                    <h3>Create Room</h3>
+                    <input type="password" id="admin-room-password" placeholder="Room Password">
+                    <input type="number" id="admin-room-rounds" placeholder="Rounds" value="10">
+                    <input type="file" id="admin-room-excel" accept=".xlsx, .xls">
+                    <!-- BOT SELECTION ADDED BACK -->
+                    <div class="bot-selection">
+                        <div class="bot-line"><label><input type="checkbox" class="bot-check" value="Random" checked> Random Bot</label></div>
+                        <div class="bot-line"><label><input type="checkbox" class="bot-check" value="CBot" checked> Always Cooperate (CBot)</label></div>
+                        <div class="bot-line"><label><input type="checkbox" class="bot-check" value="DBot"> Always Defect (DBot)</label></div>
+                        <div class="bot-line"><label><input type="checkbox" class="bot-check" value="TitForTat"> Tit-For-Tat</label></div>
+                        <div class="bot-line"><label><input type="checkbox" class="bot-check" value="Copycat"> Copycat</label></div>
+                        <div class="bot-line"><label><input type="checkbox" class="bot-check" value="SERS_1"> SERS Bot (1 Mem)</label></div>
+                        <div class="bot-line"><label><input type="checkbox" class="bot-check" value="SERS_3"> SERS Bot (3 Mem)</label></div>
+                        <div class="bot-line"><label><input type="checkbox" class="bot-check" value="SERS_5" checked> SERS Bot (5 Mem)</label></div>
+                    </div>
+                    <button onclick="adminCreateRoom()" style="width:100%; margin-top:15px;">Create Room</button>
+                </div>
+                <div class="admin-card glass-panel" style="background:rgba(0,0,0,0.4);">
+                    <h3>Manage Rooms & Logs</h3>
+                    <div id="admin-rooms-list" style="max-height: 250px; overflow-y: auto;"></div>
+                    <div id="log-viewer-panel" style="display:none; margin-top:15px; position:relative;"></div>
+                </div>
+                <div class="admin-card glass-panel" style="background:rgba(0,0,0,0.4); grid-column: span 2;">
+                    <h3>Manage Players</h3>
+                    <div id="admin-players-list" style="max-height: 250px; overflow-y: auto;"></div>
+                </div>
+            </div>
+        </div>
+
         <div id="game" class="hidden">
-            <div id="prison-join-form"
-                style="margin-top:20px; padding:20px; border:1px solid #ccc; background: rgba(255, 255, 255, 0.8); border: 3px dashed #ff9f43; border-radius: 20px;">
-                <h2>Join a Room</h2>
-                <input type="password" id="prison-password" placeholder="Room Password" required>
-                <button onclick="enterRoom()">Enter Room</button>
-                <div id="prison-join-message" style="margin-top:10px; color:red;"></div>
+            <div id="prison-join-form" class="glass-panel">
+                <h2>Join Room</h2>
+                <input type="password" id="prison-password" placeholder="Room Password">
+                <button onclick="enterRoom()">Enter</button>
             </div>
 
-            <div id="room-lobby" class="hidden"
-                style="margin-top:20px; padding:20px; background: rgba(255, 255, 255, 0.8); border-radius: 20px;">
-                <h2>Room Lobby</h2>
-                <button onclick="queueForGame()">start game!</button>
-                <div id="waiting" class="hidden" style="margin-top:10px; font-weight:bold;">Waiting for opponent...
-                </div>
+            <div id="room-lobby" class="glass-panel hidden">
+                <button onclick="queueForGame()" id="start-game-btn" class="submit-btn" style="padding: 10px 40px; font-size:30px;">START GAME</button>
+                <div id="lobby-message" style="margin-top:20px; font-weight:bold; color:#f1c40f;"></div>
             </div>
 
             <div id="prison" class="hidden">
-                <h2>Prisoner's Dilemma</h2>
-                <div id="prison-session"
-                    style="margin-bottom:10px; font-weight: bold; color: #e74c3c; background: rgba(255,255,255,0.8); display: inline-block; padding: 5px 15px; border-radius: 10px;">
-                </div>
-
                 <div class="game-board-panel">
                     <div class="board-layout">
-                        <!-- Top Indicators (Player 2) -->
-                        <div class="top-indicators">
-                            <div id="col-ind-A" class="p2-indicator">שחקן 2</div>
-                            <div id="col-ind-B" class="p2-indicator">שחקן 2</div>
-                        </div>
-
-                        <!-- Left Selectors (Me / Player 1) -->
-                        <div class="left-selectors">
-                            <button id="row-btn-A" class="row-btn" onclick="selectRow('A')">A</button>
-                            <button id="row-btn-B" class="row-btn" onclick="selectRow('B')">B</button>
-                        </div>
-
-                        <!-- Matrix -->
-                        <div class="matrix-2x2" id="prison-matrix-grid">
-                            <div class="matrix-cell" id="cell-AA">
-                                <div class="cell-content"></div>
-                                <div class="cell-door"></div>
-                            </div>
-                            <div class="matrix-cell" id="cell-AB">
-                                <div class="cell-content"></div>
-                                <div class="cell-door"></div>
-                            </div>
-                            <div class="matrix-cell" id="cell-BA">
-                                <div class="cell-content"></div>
-                                <div class="cell-door"></div>
-                            </div>
-                            <div class="matrix-cell" id="cell-BB">
-                                <div class="cell-content"></div>
-                                <div class="cell-door"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="action-area">
-                        <button id="submit-choice-btn" class="submit-btn" onclick="submitChoice()" disabled>שלח</button>
+                        <div class="col-header" id="col-header-A">שחקן 2 A</div>
+                        <div class="col-header" id="col-header-B">שחקן 2 B</div>
+                        <button id="row-btn-A" class="row-btn" onclick="selectRow('A')">A</button>
+                        <div class="matrix-cell" id="cell-AA"><div class="cell-content"></div><div class="door-container"><div class="door-half door-left"></div><div class="door-half door-right"></div></div></div>
+                        <div class="matrix-cell" id="cell-AB"><div class="cell-content"></div><div class="door-container"><div class="door-half door-left"></div><div class="door-half door-right"></div></div></div>
+                        <button id="row-btn-B" class="row-btn" onclick="selectRow('B')">B</button>
+                        <div class="matrix-cell" id="cell-BA"><div class="cell-content"></div><div class="door-container"><div class="door-half door-left"></div><div class="door-half door-right"></div></div></div>
+                        <div class="matrix-cell" id="cell-BB"><div class="cell-content"></div><div class="door-container"><div class="door-half door-left"></div><div class="door-half door-right"></div></div></div>
                     </div>
                 </div>
-
-                <div id="prison-message"
-                    style="margin:10px; font-weight: bold; color: white; background: rgba(0,0,0,0.5); padding: 5px; border-radius: 10px;">
+                <button id="submit-choice-btn" class="submit-btn" onclick="submitChoice()" disabled>שלח</button>
+                <div id="prison-message" style="margin-top:15px; font-weight:bold; color:#f1c40f; font-size:22px;"></div>
+                
+                <div class="chest-float" id="treasure-chest">
+                    <div class="magical-chest">
+                        <div class="chest-band band-left"></div>
+                        <div class="chest-band band-right"></div>
+                        <div class="chest-lock-logo"></div>
+                    </div>
                 </div>
-
-                <div class="chest-container" id="treasure-chest">
-                    <div class="chest-icon"></div>
-                </div>
-            </div>
-        </div>
-
-        <div id="admin" class="hidden">
-            <h2>Admin View</h2>
-            <button onclick="showAdminCreateRoom()">Create Room</button>
-            <button onclick="showAdminRooms()">View Rooms</button>
-            <button onclick="showAdminResults()">View Results</button>
-
-            <div id="admin-create-room" class="hidden" style="margin-top:20px; padding:20px; border:1px solid #ccc;">
-                <h3>Create Room</h3>
-                <input type="password" id="room-password" placeholder="Room Password">
-                <input type="number" id="room-sessions" placeholder="Number of Sessions" value="10">
-                <div style="margin: 10px auto; text-align: left; max-width: 250px;">
-                    <label><strong>Custom Matrix Data (Excel/CSV):</strong></label><br>
-                    <input type="file" id="room-matrix-upload" accept=".xlsx, .xls, .csv"
-                        style="font-size: 14px; padding: 5px; max-width: 100%;">
-                    <div id="matrix-upload-status" style="font-size: 12px; color: #333; margin-top: 5px;">Optional.
-                        Leave blank to use default matrix.</div>
-                </div>
-                <div style="margin: 10px auto; text-align: left; max-width: 250px;">
-                    <label><strong>Allowed Bots:</strong></label><br>
-                    <label><input type="checkbox" class="bot-checkbox" value="CBot" checked> CBot (Always
-                        Cooperate)</label><br>
-                    <label><input type="checkbox" class="bot-checkbox" value="DBot" checked> DBot (Always
-                        Defect)</label><br>
-                    <label><input type="checkbox" class="bot-checkbox" value="Random" checked> Random</label><br>
-                    <label><input type="checkbox" class="bot-checkbox" value="TitForTat" checked>
-                        Tit-For-Tat</label><br>
-                    <label><input type="checkbox" class="bot-checkbox" value="Copycat" checked> Copycat</label><br>
-                    <label><input type="checkbox" class="bot-checkbox" value="SERS_3"> Smart Bot (Mem: 3)</label><br>
-                    <label><input type="checkbox" class="bot-checkbox" value="SERS_5" checked> Smart Bot (Mem:
-                        5)</label><br>
-                    <label><input type="checkbox" class="bot-checkbox" value="SERS_10"> Smart Bot (Mem: 10)</label>
-                </div>
-                <button onclick="createRoom()">Create Room</button>
-                <div id="create-room-message" style="margin-top:10px;"></div>
-            </div>
-
-            <div id="admin-rooms" class="hidden" style="margin-top:20px;">
-                <h3>Active Rooms</h3>
-                <table border="1" id="rooms-table">
-                    <thead>
-                        <tr>
-                            <th>Room Password</th>
-                            <th>Sessions</th>
-                            <th>Waiting Players</th>
-                            <th>Active Games</th>
-                            <th>Details</th>
-                        </tr>
-                    </thead>
-                    <tbody id="admin-rooms-tbody"></tbody>
-                </table>
-                <button onclick="refreshRooms()">Refresh</button>
-            </div>
-
-            <div id="admin-results" class="hidden" style="margin-top:20px;">
-                <h3>Game Results</h3>
-                <table border="1">
-                    <thead>
-                        <tr>
-                            <th>Game ID</th>
-                            <th>Session</th>
-                            <th>Player 1</th>
-                            <th>Player 2</th>
-                            <th>P1 Choice</th>
-                            <th>P2 Choice</th>
-                            <th>Code</th>
-                            <th>P1 Points</th>
-                            <th>P2 Points</th>
-                        </tr>
-                    </thead>
-                    <tbody id="admin-tbody"></tbody>
-                </table>
             </div>
         </div>
     </div>
+
+    <div id="reveal-countdown-overlay"><div id="countdown-text">3</div></div>
+    <div id="result-popup">
+        <div id="popup-my-score" style="font-size:46px; color:#2ecc71;">Your: 0</div>
+        <div id="popup-op-score" style="font-size:46px; color:#e74c3c; margin-top:10px;">Opponent: 0</div>
+    </div>
+
     <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script>
         const socket = io();
+        let selectedMove = null, currentGid = null, currentUsername = null, currentUserRole = null, choiceLocked = false;
 
-        function showLoading(text) {
-            document.getElementById('loading-text').textContent = text || 'Loading...';
-            document.getElementById('loading-overlay').classList.add('active');
-        }
+        function showLoading(t) { const o=document.querySelector('#loading-overlay'); o.style.display='flex'; o.querySelector('#loading-text').textContent=t; }
+        function hideLoading() { document.querySelector('#loading-overlay').style.display='none'; }
 
-        function hideLoading() {
-            document.getElementById('loading-overlay').classList.remove('active');
-        }
-
-        function signup() {
-            const username = document.getElementById('signup-username').value;
-            const password = document.getElementById('signup-password').value;
-            showLoading('Signing up...');
-            fetch('/signup', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            }).then(res => res.json()).then(data => {
-                hideLoading();
-                alert(data.message || data.error);
-                if (data.message) {
-                    showLogin();
-                }
-            }).catch(() => hideLoading());
-        }
-
-        function showSignup(event) {
-            if (event) event.preventDefault();
-            document.getElementById('login-section').classList.add('hidden');
-            document.getElementById('signup-section').classList.remove('hidden');
-        }
-
-        function showLogin(event) {
-            if (event) event.preventDefault();
-            document.getElementById('signup-section').classList.add('hidden');
-            document.getElementById('login-section').classList.remove('hidden');
-        }
-
-        function login() {
-            const username = document.getElementById('login-username').value;
-            const password = document.getElementById('login-password').value;
+        async function login() {
+            const u = document.getElementById('login-username').value, p = document.getElementById('login-password').value;
             showLoading('Logging in...');
-            fetch('/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            }).then(res => res.json()).then(data => {
-                hideLoading();
-                if (data.message) {
-                    document.getElementById('auth').classList.add('hidden');
-                    if (data.user && data.user.role === 'admin') {
-                        document.getElementById('admin').classList.remove('hidden');
-                    } else {
-                        document.getElementById('game').classList.remove('hidden');
-                    }
-                } else {
-                    alert(data.error);
-                }
-            }).catch(() => hideLoading());
+            const res = await fetch('/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) });
+            const data = await res.json(); hideLoading();
+            if (res.ok) { currentUsername = u; currentUserRole = data.user.role; document.getElementById('auth').classList.add('hidden');
+            if(currentUserRole === 'admin') { document.getElementById('admin-panel').classList.remove('hidden'); loadAdminRooms(); loadAdminPlayers(); } else { document.getElementById('game').classList.remove('hidden'); }
+            } else alert(data.error);
         }
 
-        function enterRoom() {
-            const password = document.getElementById('prison-password').value;
-            if (!password) {
-                document.getElementById('prison-join-message').textContent = 'Please enter a room password';
-                return;
-            }
-            showLoading('Checking room...');
-            socket.emit('enterRoom', { password });
-            document.getElementById('prison-join-message').textContent = 'Checking room...';
-
-            // Removed UI timeouts per request. User will wait until PythonAnywhere responds.
+        async function signup() {
+            const u = document.getElementById('login-username').value, p = document.getElementById('login-password').value;
+            showLoading('Creating Account...');
+            const res = await fetch('/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) });
+            const data = await res.json(); hideLoading();
+            if (res.ok) { alert('Account created! Please login.'); } else { alert(data.error); }
         }
 
-        socket.on('roomEntered', () => {
-            hideLoading();
-            document.getElementById('prison-join-form').classList.add('hidden');
-            document.getElementById('room-lobby').classList.remove('hidden');
-            document.getElementById('prison-join-message').textContent = '';
-        });
+        async function adminCreateRoom() {
+            const pw = document.getElementById('admin-room-password').value, rd = parseInt(document.getElementById('admin-room-rounds').value) || 10;
+            if(!pw) return alert('Password required');
+            const bots = []; document.querySelectorAll('.bot-check').forEach(c => { if(c.checked) bots.push(c.value); });
 
-        socket.on('prisonGameEnd', (data) => {
-            setTimeout(() => {
-                document.getElementById('prison').classList.add('hidden');
-                document.getElementById('room-lobby').classList.remove('hidden');
-                document.getElementById('waiting').textContent = `Game Over! Final Score: ${currentUserScore} ⭐`;
-                document.getElementById('waiting').classList.remove('hidden');
-                
-                // Clear any hanging filters cleanly
-                document.querySelectorAll('.matrix-cell').forEach(c => c.classList.remove('blacked-out'));
-            }, 3000);
-        });
-
-        function queueForGame() {
-            const username = document.getElementById('login-username').value;
-            const password = document.getElementById('prison-password').value;
-            showLoading('Joining queue...');
-            socket.emit('joinPrison', { username, password });
-            document.getElementById('waiting').classList.remove('hidden');
-
-            matchmakingTimeout = setTimeout(() => {
-                socket.emit('requestBot', { password });
-            }, 10000);
+            let sess = null; const f = document.getElementById('admin-room-excel');
+            if(f.files.length > 0) { sess = await parseExcel(f.files[0]); }
+            const res = await fetch('/create_room', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw, num_sessions: rd, allowed_bots: bots, sessions: sess }) });
+            if(res.ok) { alert('Room Created!'); loadAdminRooms(); } else alert('Failed');
         }
-
-        let matchmakingTimeout = null;
-        let selectedRow = null;
-        let currentPrisonGameId = null;
-        let currentTotalSessions = 10;
-        let currentUserScore = 0;
-
-        function selectRow(row) {
-            // Check if row buttons are disabled (means we are locked-in waiting for opponent response)
-            if (document.getElementById('row-btn-A').disabled) return;
-            
-            if (selectedRow === row) {
-                // Cancel decision
-                selectedRow = null;
-                document.getElementById('row-btn-' + row).classList.remove('selected');
-                document.getElementById('submit-choice-btn').disabled = true;
-                
-                // Remove all blackouts
-                document.querySelectorAll('.matrix-cell').forEach(c => c.classList.remove('blacked-out'));
-                return;
-            }
-
-            selectedRow = row;
-            document.getElementById('row-btn-A').classList.remove('selected');
-            document.getElementById('row-btn-B').classList.remove('selected');
-            document.getElementById('row-btn-' + row).classList.add('selected');
-            document.getElementById('submit-choice-btn').disabled = false;
-            
-            // Apply row blackouts:
-            document.querySelectorAll('.matrix-cell').forEach(c => c.classList.remove('blacked-out'));
-            if (row === 'A') {
-                document.getElementById('cell-BA').classList.add('blacked-out');
-                document.getElementById('cell-BB').classList.add('blacked-out');
-            } else {
-                document.getElementById('cell-AA').classList.add('blacked-out');
-                document.getElementById('cell-AB').classList.add('blacked-out');
-            }
-        }
-
-        function submitChoice() {
-            if (!selectedRow) return;
-            socket.emit('prisonChooseRow', { gameId: currentPrisonGameId, row: selectedRow });
-            document.getElementById('prison-message').textContent = `Locked in row ${selectedRow}. Waiting for opponent...`;
-            document.getElementById('submit-choice-btn').disabled = true;
-            document.getElementById('row-btn-A').disabled = true;
-            document.getElementById('row-btn-B').disabled = true;
-        }
-
-        socket.on('prisonRoundResult', (data) => {
-            // Unconditionally lock inputs internally for spectating
-            document.getElementById('row-btn-A').disabled = true;
-            document.getElementById('row-btn-B').disabled = true;
-            
-            currentUserScore += data.p1_score;
-
-            // Opponent column blackout
-            if (data.p2_choice === 'A') {
-                document.getElementById('cell-AB').classList.add('blacked-out');
-                document.getElementById('cell-BB').classList.add('blacked-out');
-            } else {
-                document.getElementById('cell-AA').classList.add('blacked-out');
-                document.getElementById('cell-BA').classList.add('blacked-out');
-            }
-
-            // Highlight the exact remaining intersection door natively
-            let targetDoorId = '';
-            if (data.p2_choice === 'A') {
-                targetDoorId = selectedRow === 'A' ? 'door-AA' : 'door-BA';
-            } else {
-                targetDoorId = selectedRow === 'A' ? 'door-AB' : 'door-BB';
-            }
-            if (targetDoorId) {
-                const highlightDoor = document.getElementById(targetDoorId);
-                if (highlightDoor) highlightDoor.parentElement.classList.add('highlight-cell');
-            }
-
-            document.getElementById('prison-message').textContent = `Round resolved. You got ${data.p1_score} points.`;
-            
-            let p2PointsText = data.p2_score > 0 ? `+${data.p2_score}` : data.p2_score;
-            let p1PointsText = data.p1_score > 0 ? `+${data.p1_score}` : data.p1_score;
-
-            if (data.p2_choice === 'A') {
-                document.getElementById('col-ind-A').classList.add('active');
-                animateScoreToChest(p2PointsText, 'col-ind-A');
-            } else {
-                document.getElementById('col-ind-B').classList.add('active');
-                animateScoreToChest(p2PointsText, 'col-ind-B');
-            }
-            
-            setTimeout(() => {
-                animateScoreToChest(p1PointsText, targetDoorId);
-            }, 500);
-
-            setTimeout(() => {
-                document.querySelectorAll('.matrix-cell').forEach(d => d.classList.remove('highlight-cell'));
-                document.getElementById('p1-score').textContent = currentUserScore;
-            }, 3000);
-        });
-
-        function renderPrisonMatrix(matrix) {
-            const m = matrix;
-            document.querySelector('#cell-AA .cell-content').textContent = `[${m.AA1}, ${m.AA2}]`;
-            document.querySelector('#cell-AB .cell-content').textContent = `[${m.AB1}, ${m.AB2}]`;
-            document.querySelector('#cell-BA .cell-content').textContent = `[${m.BA1}, ${m.BA2}]`;
-            document.querySelector('#cell-BB .cell-content').textContent = `[${m.BB1}, ${m.BB2}]`;
-        }
-
-        function animateScoreToChest(pointsText, startElementId) {
-            const startEl = document.getElementById(startElementId);
-            const chestEl = document.getElementById('treasure-chest');
-            if (!startEl || !chestEl) return;
-
-            const startRect = startEl.getBoundingClientRect();
-            const chestRect = chestEl.getBoundingClientRect();
-
-            const floatingEl = document.createElement('div');
-            floatingEl.className = 'floating-score ' + (pointsText.startsWith('-') ? 'negative' : 'positive');
-            floatingEl.textContent = pointsText;
-
-            floatingEl.style.left = (startRect.left + startRect.width / 2 - 15) + 'px';
-            floatingEl.style.top = (startRect.top + startRect.height / 2 - 15) + 'px';
-
-            const dx = (chestRect.left + chestRect.width / 2) - (startRect.left + startRect.width / 2);
-            const dy = (chestRect.top + chestRect.height / 2) - (startRect.top + startRect.height / 2);
-            floatingEl.style.setProperty('--dx', dx + 'px');
-            floatingEl.style.setProperty('--dy', dy + 'px');
-
-            document.body.appendChild(floatingEl);
-            setTimeout(() => document.body.removeChild(floatingEl), 2000);
-        }
-
-        function openAllDoors() {
-            document.querySelectorAll('.cell-door').forEach(door => door.classList.add('open'));
-        }
-
-        function resetDoors() {
-            document.querySelectorAll('.cell-door').forEach(door => door.classList.remove('open'));
-            document.querySelectorAll('.matrix-cell').forEach(c => c.classList.remove('blacked-out'));
-            document.getElementById('col-ind-A').classList.remove('active');
-            document.getElementById('col-ind-B').classList.remove('active');
-            document.getElementById('row-btn-A').classList.remove('selected');
-            document.getElementById('row-btn-B').classList.remove('selected');
-            document.getElementById('row-btn-A').disabled = false;
-            document.getElementById('row-btn-B').disabled = false;
-            selectedRow = null;
-            document.getElementById('submit-choice-btn').disabled = true;
-        }
-
-        function showAdminCreateRoom() {
-            document.getElementById('admin-create-room').classList.remove('hidden');
-            document.getElementById('admin-rooms').classList.add('hidden');
-            document.getElementById('admin-results').classList.add('hidden');
-        }
-
-        function showAdminRooms() {
-            document.getElementById('admin-create-room').classList.add('hidden');
-            document.getElementById('admin-rooms').classList.remove('hidden');
-            document.getElementById('admin-results').classList.add('hidden');
-            refreshRooms();
-        }
-
-        function showAdminResults() {
-            document.getElementById('admin-create-room').classList.add('hidden');
-            document.getElementById('admin-rooms').classList.add('hidden');
-            document.getElementById('admin-results').classList.remove('hidden');
-            loadResults();
-        }
-
-        let uploadedSessionsData = null;
-
-        document.getElementById('room-matrix-upload').addEventListener('change', function (e) {
-            const file = e.target.files[0];
-            if (!file) {
-                uploadedSessionsData = null;
-                document.getElementById('matrix-upload-status').textContent = "Leave blank to use default matrix.";
-                document.getElementById('room-sessions').disabled = false;
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onload = function (evt) {
-                try {
-                    const data = evt.target.result;
-                    const workbook = XLSX.read(data, { type: 'binary' });
-                    const firstSheetName = workbook.SheetNames[0];
-                    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheetName]);
-
-                    if (rows.length > 0 && ('AA1' in rows[0])) {
-                        uploadedSessionsData = rows;
-                        document.getElementById('matrix-upload-status').textContent = `Success! Parsed ${rows.length} valid rows from Excel.`;
-                        document.getElementById('matrix-upload-status').style.color = 'green';
-                        document.getElementById('room-sessions').value = rows.length;
-                        document.getElementById('room-sessions').disabled = true;
-                    } else {
-                        throw new Error("Missing required columns like AA1, AB1.");
-                    }
-                } catch (err) {
-                    console.error(err);
-                    document.getElementById('matrix-upload-status').textContent = "Failed! Ensure Excel has AA1, AA2, AB1, etc. headers.";
-                    document.getElementById('matrix-upload-status').style.color = 'red';
-                    uploadedSessionsData = null;
-                }
-            };
-            reader.readAsBinaryString(file);
-        });
-
-        function createRoom() {
-            const password = document.getElementById('room-password').value;
-            const num_sessions = parseInt(document.getElementById('room-sessions').value);
-            const allowed_bots = Array.from(document.querySelectorAll('.bot-checkbox:checked')).map(cb => cb.value);
-
-            if (!password) {
-                document.getElementById('create-room-message').textContent = 'Please enter a password';
-                return;
-            }
-
-            const payload = { password, num_sessions, allowed_bots };
-            if (uploadedSessionsData) {
-                payload.sessions = uploadedSessionsData;
-            }
-
-            showLoading('Creating room...');
-            fetch('/create_room', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            }).then(res => res.json()).then(data => {
-                hideLoading();
-                document.getElementById('create-room-message').textContent = data.message || data.error;
-                if (data.message) {
-                    document.getElementById('room-password').value = '';
-                    document.getElementById('room-sessions').value = '10';
-                    document.getElementById('room-sessions').disabled = false;
-                    document.getElementById('room-matrix-upload').value = '';
-                    uploadedSessionsData = null;
-                    document.getElementById('matrix-upload-status').textContent = 'Leave blank to use default matrix.';
-                    document.getElementById('matrix-upload-status').style.color = '#333';
-                    setTimeout(() => showAdminRooms(), 500);
-                }
-            }).catch(() => hideLoading());
-        }
-
-        function backToGame() {
-            document.getElementById('admin').classList.add('hidden');
-            document.getElementById('game').classList.remove('hidden');
-        }
-
-        function refreshRooms() {
-            fetch('/get_rooms').then(res => res.json()).then(data => {
-                const tbody = document.getElementById('admin-rooms-tbody');
-                tbody.innerHTML = '';
-                if (data.length === 0) {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = '<td colspan="5">No rooms created</td>';
-                    tbody.appendChild(tr);
-                } else {
-                    data.forEach(room => {
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `
-                            <td>${room.password}</td>
-                            <td>${room.settings.num_sessions}</td>
-                            <td>${room.waiting.length}</td>
-                            <td>${room.active.length}</td>
-                            <td>
-                                <div>Waiting: ${room.waiting.map(p => p.username).join(', ') || 'None'}</div>
-                                <div>Active: ${room.active.map(g => g.players.join(' vs ')).join(', ') || 'None'}</div>
-                            </td>
-                        `;
-                        tbody.appendChild(tr);
-                    });
-                }
-            }).catch(err => {
-                console.error('Error fetching rooms:', err);
-                const tbody = document.getElementById('admin-rooms-tbody');
-                tbody.innerHTML = '<tr><td colspan="5">Error loading rooms</td></tr>';
+        function parseExcel(file) { return new Promise((resolve) => { const reader = new FileReader(); reader.onload = (e) => { resolve(XLSX.utils.sheet_to_json(XLSX.read(new Uint8Array(e.target.result), { type: 'array' }).Sheets[XLSX.read(new Uint8Array(e.target.result), { type: 'array' }).SheetNames[0]])); }; reader.readAsArrayBuffer(file); }); }
+        
+        async function loadAdminRooms() {
+            const res = await fetch('/get_rooms'); const data = await res.json();
+            const list = document.getElementById('admin-rooms-list'); list.innerHTML = '';
+            data.forEach(room => {
+                const item = document.createElement('div'); item.className='room-item'; 
+                item.innerHTML = `Room: ${room.password} 
+                    <button class="btn-small" onclick="viewLogs('${room.password}')" style="background:#3498db; margin-left:10px;">View Logs</button>
+                    <button class="btn-small" onclick="downloadLogs('${room.password}')" style="background:#2ecc71;">CSV</button>
+                    <button class="btn-small btn-danger" onclick="deleteRoom('${room.password}')">X</button>`;
+                list.appendChild(item);
             });
         }
 
-        function loadResults() {
-            fetch('/prison/results').then(res => res.json()).then(data => {
-                const tbody = document.getElementById('admin-tbody');
-                tbody.innerHTML = '';
-                if (data.length === 0) {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = '<td colspan="9">No results yet</td>';
-                    tbody.appendChild(tr);
-                } else {
-                    data.forEach(row => {
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `
-                            <td>${row.game_id}</td>
-                            <td>${row.session_index}</td>
-                            <td>${row.player1}</td>
-                            <td>${row.player2}</td>
-                            <td>${row.p1_choice}</td>
-                            <td>${row.p2_choice}</td>
-                            <td>${row.code}</td>
-                            <td>${row.p1_points}</td>
-                            <td>${row.p2_points}</td>
-                        `;
-                        tbody.appendChild(tr);
-                    });
-                }
-            }).catch(err => {
-                console.error('Error loading results:', err);
-            });
+        async function viewLogs(pw) {
+            const res = await fetch('/get_room_logs', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({password: pw}) });
+            const data = await res.json();
+            if(!data.logs || data.logs.length === 0) return alert('No logs found for this room.');
+            
+            let html = `<div style="display:flex; justify-content:space-between; align-items:center;">
+                            <h4>Logs for Room: ${pw}</h4>
+                            <button class="btn-small btn-danger" onclick="document.getElementById('log-viewer-panel').style.display='none'">Close Logs</button>
+                        </div>
+                        <ul style="text-align:left; font-size:14px; max-height:400px; overflow-y:auto; background:rgba(0,0,0,0.5); padding:10px; border-radius:10px; list-style-type:none;">`;
+            const groups = {};
+            data.logs.forEach(l => { if(!groups[l.game_id]) groups[l.game_id] = []; groups[l.game_id].push(l); });
+            
+            for(const [gId, logs] of Object.entries(groups)) {
+                let p1tot=0, p2tot=0;
+                html += `<li style="margin-bottom:15px; border-bottom: 1px solid #777; padding-bottom:5px;">
+                            <strong style="color:#f1c40f;">Session: ${gId}</strong><br> 
+                            Players: ${logs[0].player1} vs ${logs[0].player2} <br><ul style="list-style-type:circle; margin-left:20px;">`;
+                logs.forEach(l => {
+                    p1tot += l.p1_points; p2tot += l.p2_points;
+                    html += `<li>Round ${l.session_index} [Matrix: ${l.matrix_id}]: ${l.code} (P1: ${l.p1_points}, P2: ${l.p2_points}) at ${l.timestamp}</li>`;
+                });
+                html += `</ul><strong style="color:#2ecc71;">Total Score -> P1: ${p1tot}, P2: ${p2tot}</strong></li>`;
+            }
+            html += '</ul>';
+            document.getElementById('log-viewer-panel').innerHTML = html;
+            document.getElementById('log-viewer-panel').style.display = 'block';
         }
 
-        socket.on('opponentDisconnected', () => {
-            hideLoading();
-            alert('Opponent disconnected');
-            document.getElementById('prison').classList.add('hidden');
-            document.getElementById('room-lobby').classList.remove('hidden');
-            document.getElementById('waiting').classList.add('hidden');
-        });
+        async function downloadLogs(pw) {
+            const res = await fetch('/get_room_logs', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({password: pw}) });
+            const data = await res.json();
+            if(!data.logs || data.logs.length === 0) return alert('No logs found for this room.');
+            
+            const worksheet = XLSX.utils.json_to_sheet(data.logs);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Session_Logs");
+            XLSX.writeFile(workbook, `Room_${pw}_Logs.csv`);
+        }
+
+        async function deleteRoom(pw) { await fetch('/delete_room', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({password: pw}) }); loadAdminRooms(); }
+
+        function enterRoom() { socket.emit('enterRoom', { password: document.getElementById('prison-password').value }); }
+        socket.on('roomEntered', () => { document.getElementById('prison-join-form').classList.add('hidden'); document.getElementById('room-lobby').classList.remove('hidden'); });
+
+        function queueForGame() { 
+            const pw = document.getElementById('prison-password').value; 
+            socket.emit('joinPrison', { username: currentUsername, password: pw }); 
+            // The server handles the 10-second logic
+        }
 
         socket.on('prisonWaiting', () => {
-            showLoading('Waiting for opponent...');
-            document.getElementById('prison-message').textContent = 'Waiting for second player...';
+            document.getElementById('start-game-btn').style.display = 'none';
+            document.getElementById('lobby-message').innerHTML = `
+                <div style="font-size: 28px; color: #f1c40f; margin-bottom: 20px;">
+                    <div style="display:inline-block; border: 5px solid rgba(255,255,255,0.2); border-top: 5px solid #f1c40f; border-radius: 50%; width: 25px; height: 25px; animation: spin 1s linear infinite; vertical-align: middle; margin-right: 15px;"></div>
+                    Looking for partner...
+                </div>
+            `;
+        });
+
+        socket.on('prisonMatchFound', () => {
+             document.getElementById('start-game-btn').style.display = 'none';
+             document.getElementById('lobby-message').innerHTML = `
+                 <div style="font-size: 34px; color: #2ecc71; animation: pulse 1s infinite alternate;">
+                     Match Found!
+                 </div>
+             `;
+        });
+        
+        socket.on('prisonStart', d => {
+            currentGid = d.gameId;
+            renderMatrix(d.matrix);
+            document.getElementById('room-lobby').classList.add('hidden'); 
             document.getElementById('prison').classList.remove('hidden');
-            resetDoors();
+            openAllDoors();
+            choiceLocked = false; 
         });
 
-        socket.on('prisonError', (data) => {
-            hideLoading();
-            alert(data.message);
-        });
+        function renderMatrix(m) { ['AA','AB','BA','BB'].forEach(c => { const cell = document.getElementById(`cell-${c}`); cell.querySelector('.cell-content').innerHTML = `<span class="p1-val">${m[c+'1']}</span><span class="val-separator">|</span><span class="p2-val">${m[c+'2']}</span>`; }); }
+        function openAllDoors() { document.querySelectorAll('.matrix-cell').forEach(c => c.classList.remove('cell-closed')); }
+        function closeAllDoors() { document.querySelectorAll('.matrix-cell').forEach(c => c.classList.add('cell-closed')); }
 
-        socket.on('prisonStart', (data) => {
-            if (matchmakingTimeout) clearTimeout(matchmakingTimeout);
-            hideLoading();
-            currentPrisonGameId = data.gameId;
-            currentTotalSessions = data.total_sessions;
-            currentUserScore = 0;
-            document.getElementById('room-lobby').classList.add('hidden');
-            document.getElementById('game').classList.remove('hidden');
-            document.getElementById('prison').classList.remove('hidden');
-            
-            // Clean up screen; only show matrix
-            const mainTitle = document.querySelector('h1');
-            if (mainTitle) mainTitle.style.display = 'none';
-            const prisonTitle = document.querySelector('#prison h2');
-            if (prisonTitle) prisonTitle.style.display = 'none';
-
-            document.getElementById('prison-session').textContent = `Session ${data.session}/${data.total_sessions}`;
-            document.getElementById('prison-message').textContent = 'Your turn! Select a row and send.';
-            renderPrisonMatrix(data.matrix);
-            resetDoors();
-            setTimeout(openAllDoors, 500);
-        });
-
-        socket.on('prisonRoundResult', (data) => {
-            const myChoice = selectedRow;
-            let theirChoice = data.p1_choice;
-            if (data.p1_choice === selectedRow && data.p2_choice !== selectedRow) {
-                theirChoice = data.p2_choice;
-            } else if (data.p1_choice === selectedRow && data.p2_choice === selectedRow) {
-                theirChoice = selectedRow;
-            }
-
-            const cellId = `cell-${myChoice}${theirChoice}`;
-            const cellDoor = document.querySelector(`#${cellId} .cell-door`);
-            if (cellDoor) cellDoor.classList.add('open');
-            document.getElementById(`col-ind-${theirChoice}`).classList.add('active');
-
-            const cellContentEl = document.querySelector(`#${cellId} .cell-content`);
-            if (cellContentEl) {
-                const text = cellContentEl.textContent;
-                const match = text.match(/\[([-\d]+),\s*([-\d]+)\]/);
-                if (match) {
-                    const myPoints = parseInt(match[1]);
-                    const pointsText = myPoints >= 0 ? `+${myPoints}` : `${myPoints}`;
-                    animateScoreToChest(pointsText, cellId);
-                }
-            }
-
-            document.getElementById('prison-message').textContent = `Result: They chose ${theirChoice}. P1 ${data.p1_score} | P2 ${data.p2_score}`;
-            if (data.done) {
-                document.getElementById('prison-message').textContent += ' | Game Over!';
-            }
-        });
-
-        socket.on('prisonNextRound', (data) => {
-            setTimeout(() => {
-                resetDoors();
-            }, 2200);
-
-            setTimeout(() => {
-                document.getElementById('prison-session').textContent = `Session ${data.session}/${currentTotalSessions}`;
-                renderPrisonMatrix(data.matrix);
-                document.getElementById('prison-message').textContent = 'Next round started. Select a row.';
+        function selectRow(r) {
+            if(choiceLocked) return;
+            if (selectedMove === r) {
+                selectedMove = null; document.getElementById('row-btn-A').classList.remove('selected'); document.getElementById('row-btn-B').classList.remove('selected'); document.getElementById('submit-choice-btn').disabled = true;
                 openAllDoors();
-            }, 3000);
-        });
-
-        socket.on('prisonGameEnd', (data) => {
-            document.getElementById('prison-message').textContent += ` Game over. Session codes: ${data.codes.join(', ')}`;
-        });
-
-        function showAdmin() {
-            document.getElementById('game').classList.add('hidden');
-            document.getElementById('admin').classList.remove('hidden');
-            document.getElementById('admin-create-room').classList.add('hidden');
-            document.getElementById('admin-rooms').classList.add('hidden');
-            document.getElementById('admin-results').classList.add('hidden');
+            } else {
+                selectedMove = r; document.getElementById('row-btn-A').classList.remove('selected'); document.getElementById('row-btn-B').classList.remove('selected'); document.getElementById(`row-btn-${r}`).classList.add('selected'); document.getElementById('submit-choice-btn').disabled = false;
+                const unchosen = (r === 'A' ? 'B' : 'A');
+                document.querySelectorAll(`.matrix-cell[id^="cell-${r}"]`).forEach(c => c.classList.remove('cell-closed'));
+                document.querySelectorAll(`.matrix-cell[id^="cell-${unchosen}"]`).forEach(c => c.classList.add('cell-closed'));
+            }
         }
 
+        function submitChoice() { 
+            if(!selectedMove || choiceLocked) return; 
+            choiceLocked = true;
+            document.getElementById('submit-choice-btn').disabled = true; 
+            socket.emit('prisonChooseRow', { gameId: currentGid, row: selectedMove }); 
+            document.getElementById('prison-message').textContent = 'Submitting Move...'; 
+        }
 
+        socket.on('prisonRoundResult', d => {
+            const sequence = async () => {
+                const overlay = document.getElementById('reveal-countdown-overlay'); const text = document.getElementById('countdown-text');
+                overlay.style.display = 'flex';
+                for(let i=3; i>0; i--) { text.textContent = i; await new Promise(r => setTimeout(r, 1000)); }
+                overlay.style.display = 'none';
+
+                const chosenCol = d.op_choice; 
+                const unchosenCol = (chosenCol === 'A' ? 'B' : 'A');
+                document.querySelectorAll(`.matrix-cell[id$="${unchosenCol}"]`).forEach(c => c.classList.add('cell-closed'));
+                await new Promise(r => setTimeout(r, 800));
+
+                document.getElementById('popup-my-score').textContent = `Your: ${d.my_score}`;
+                document.getElementById('popup-op-score').textContent = `Opponent: ${d.op_score}`;
+                document.getElementById('result-popup').classList.add('active');
+                
+                spawnPointBubbles(d.my_score, d.op_score);
+                
+                await new Promise(r => setTimeout(r, 3000)); 
+                document.getElementById('result-popup').classList.remove('active');
+                
+                closeAllDoors();
+                await new Promise(r => setTimeout(r, 1000));
+
+                if(d.done) { alert('Game Over!'); location.reload(); }
+            };
+            sequence();
+        });
+
+        let floatingScores = [];
+
+        function spawnPointBubbles(my_score, op_score) {
+            const chest = document.getElementById('treasure-chest');
+            const b = document.createElement('div'); 
+            b.className = 'queued-point-bubble';
+            b.innerHTML = `<span style="color:#2ecc71; text-shadow:0 0 10px #2ecc71;">${my_score}</span><span style="color:#fff; margin:0 5px;">,</span><span style="color:#e74c3c; text-shadow:0 0 10px #e74c3c;">${op_score}</span>`;
+            
+            floatingScores.push(b);
+            updateChestQueue(chest);
+        }
+
+        function updateChestQueue(chest) {
+            // Drop oldest into chest if length > 3
+            while (floatingScores.length > 3) {
+                const oldest = floatingScores.shift();
+                oldest.style.transform = `translate(-50%, 60px) scale(0)`;
+                oldest.style.opacity = '0';
+                setTimeout(() => { if (oldest.parentNode) oldest.remove(); }, 500);
+            }
+            
+            // Adjust remaining
+            floatingScores.forEach((bubble, idx) => {
+                const verticalOffset = -50 - ((floatingScores.length - 1 - idx) * 50); 
+                if (!bubble.parentNode) {
+                    chest.appendChild(bubble);
+                }
+                
+                requestAnimationFrame(() => {
+                    bubble.style.opacity = '1';
+                    bubble.style.transform = `translate(-50%, ${verticalOffset}px) scale(1)`;
+                });
+            });
+        }
+
+        socket.on('prisonNextRound', d => {
+            // Wait for the reveal sequence (3s countdown + 3s result + 1s close) to finish before opening fresh
+            setTimeout(() => {
+                renderMatrix(d.matrix);
+                selectedMove = null; 
+                document.getElementById('row-btn-A').classList.remove('selected'); 
+                document.getElementById('row-btn-B').classList.remove('selected');
+                document.getElementById('submit-choice-btn').disabled = true; 
+                document.getElementById('prison-message').textContent = '';
+                openAllDoors();
+                choiceLocked = false;
+            }, 8500); // Increased to match reveal sequence length
+        });
+
+        async function loadAdminPlayers() {
+            const res = await fetch('/get_players', { method: 'POST' }); 
+            const data = await res.json();
+            const list = document.getElementById('admin-players-list'); list.innerHTML = '';
+            data.forEach(p => {
+                if (p.role === 'admin') return;
+                const item = document.createElement('div'); item.className='room-item'; item.style.display = 'flex'; item.style.justifyContent = 'space-between';
+                item.innerHTML = `<span><strong>${p.username}</strong> | Sessions completed: ${p.session_counter}</span> 
+                    <button class="btn-small btn-danger" onclick="banPlayer('${p.username}')">Ban User</button>`;
+                list.appendChild(item);
+            });
+        }
+        async function banPlayer(u) {
+            if(!confirm(`Are you sure you want to completely ban ${u}?`)) return;
+            const res = await fetch('/ban_player', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username: u}) });
+            if (res.ok) { alert('Player banned.'); loadAdminPlayers(); }
+        }
     </script>
 </body>
-
 </html>

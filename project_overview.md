@@ -1,57 +1,64 @@
-# HaiFa Project Overview
+# Dilemma Street - Project Overview & Technical Specification
 
-## What I Did
-I helped fix and enhance a multiplayer game application built with Flask and SocketIO. The app supports Tic-Tac-Toe and Prisoner's Dilemma games. Here are the main changes I made:
+## 1. Project Concept
+**Dilemma Street** is a high-fidelity, real-time multiplayer platform for the classic **Prisoner's Dilemma** game. It prioritizes psychological tension through tactile UI elements, cinematic reveal sequences, and adaptive AI bots.
 
-### Database Fixes
-- Fixed SQLite database connection issues by ensuring all connections are properly closed
-- Moved the database file to avoid filesystem conflicts
-- Added proper error handling for database operations
+---
 
-### Room System for Prisoner's Dilemma
-- Created a password-protected room system where players can only join games with the correct password
-- Admins can create rooms with custom settings (number of sessions)
-- Players are queued within their room and paired up automatically
+## 2. Visual Aesthetic & UI/UX
+*   **Theme**: "Floating Nature" (Glassmorphism over a serene nature background).
+*   **Game Board**: A heavy, symmetric **Aged Oak** game table. Features vertical-grain wooden curtains (sliding doors) for each cell.
+*   **Magical Elements**: 
+    *   **The Chest**: A 3D-styled **Magical Purple Chest** with gold trim and a glowing heart lock.
+    *   **Point Bubbles**: Glowing circular bubbles (15, 30, 45 style) that float and zoom into the chest upon round resolution.
+*   **Matchmaking UI**: Anonymous matchmaking labeling opponents simply as "Player 2" with shadowy mask avatars.
 
-### Admin Interface
-- Added an admin view to create rooms, monitor active rooms, and view game results
-- Rooms show waiting players and active games in real-time
-- Results table displays all completed game data
+---
 
-### UI Improvements
-- Added forms for joining Prisoner's Dilemma games with password input
-- Improved navigation between admin sections
-- Better error messages and feedback
+## 3. Core Gameplay Loop & Animation Sequence (The "Sacred Sequence")
+The animation timing is critical for the "Dilemma Street" experience:
+1.  **Round Initialize**: All 4 wooden doors slide **OPEN** simultaneously to reveal the new score matrix for the round.
+2.  **Selection Interaction**:
+    *   When a player clicks Row A or Row B, the **unchosen row curtains close instantly**.
+    *   The choice is visually locked once the "שלח" (Submit) button is clicked. No decision changes allowed after submission.
+3.  **The Reveal (3-Phase Sequence)**:
+    *   **Phase 1 (Countdown)**: A pulsing **3-2-1 overlay** appears once both players (or the bot) have locked in moves.
+    *   **Phase 2 (Isolatory Close)**: The **column NOT chosen** by the opponent slides shut, leaving exactly one intersection cell visible—the winning square.
+    *   **Phase 3 (Reward)**: Result popup appears + points bubble into the Purple Chest.
+4.  **Reset Transition**:
+    *   After 3 seconds, **ALL 4 squares slide SHUT** simultaneously to clear the data.
+    *   After a 1-second pause, they all **slide OPEN fresh** with the next round's matrix numbers and cleared state.
 
-## File Descriptions
+---
 
-### requirements.txt
-This file lists all the Python packages needed to run the application. It includes Flask (web framework), Flask-SocketIO (real-time communication), and bcrypt (password hashing).
+## 4. Matchmaking & Queue Logic
+*   **Human-First**: The server prioritizes matching human players in the queue.
+*   **The 10-Second Rule**: When a player joins a room, the server waits **10 seconds**. If no second human joins, a **Bot Match** is automatically triggered.
+*   **Anonymous Play**: Players never see each other's real usernames during gameplay to maintain the "Dilemma" psychological integrity.
 
-### client/index.html
-This is the main web page that users see in their browser. It contains:
-- Login and signup forms
-- Buttons to join different games
-- The game interfaces for Tic-Tac-Toe and Prisoner's Dilemma
-- Admin controls for creating and monitoring rooms
-- JavaScript code that connects to the server and handles game logic
+---
 
-### server/app.py
-This is the main server file written in Python. It:
-- Sets up a Flask web server
-- Handles user authentication (signup/login)
-- Manages game rooms and player matching
-- Processes game moves and calculates results
-- Stores game data in a SQLite database
-- Uses SocketIO for real-time communication between players
+## 5. Administrative Dashboard (NIS Authenticated)
+Admins (Credentials: `NIS` / `NIS5760`) have full control over the environment:
+*   **Matrix Management**: Upload `.xlsx` files to define round-by-round points. Expected keys: `AA1, AA2, AB1, AB2, BA1, BA2, BB1, BB2`.
+*   **Bot Configuration**: 
+    *   Toggle specific bots: **Random**, **CBot** (Always Cooperate), **Tit-For-Tat**, etc.
+    *   **SERS Bots**: Configurable adaptive bots with variable "Memory Stacks" (e.g., SERS_5 remembers the last 5 interactions to calculate expected rewards).
+*   **Room Control**: Stop active games, delete rooms, and wipe session logs.
+*   **Persistence**: All room data and session outcomes are logged to a localized SQLite database for historical analysis.
 
-### README.md
-This is a documentation file that explains how to set up and use the application. It includes installation instructions, usage guide, and troubleshooting tips.
+---
 
-### games.db (created automatically)
-This is a SQLite database file that stores:
-- User accounts
-- Game results and statistics
-- Prisoner's Dilemma game data
+## 6. Adaptive AI (SERS Logic)
+The **SERS Bot** (State Expected Reward Synchronizer) uses Bayesian-style logic:
+1.  **Probability Calculation (ps)**: Calculates the likelihood of the opponent matching the bot's move based on the history stack.
+2.  **EV Assessment**: Calculates the **Expected Value (EV)** for picking Row A (C) vs. Row B (D) based on current matrix values and `ps`.
+3.  **Decision**: Picks the row with the statistically highest reward, allowing it to adapt to human patterns (Cooperative vs. Defective).
 
-The database is created when the server first runs and stores all persistent data.
+---
+
+## 7. Technical Stack
+*   **Backend**: Python (Flask) + Flask-SocketIO (Real-time).
+*   **Frontend**: Vanilla HTML5, CSS3, JavaScript (SheetJS for Excel).
+*   **Database**: SQLite (local persistence).
+*   **Real-time Protocol**: Event-based socket communication for synchronized animations across all clients.
