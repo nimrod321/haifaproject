@@ -412,7 +412,7 @@ def join_prison(data):
     username = data.get('username')
     password = data.get('password')
     if not password or not ensure_room_loaded(password):
-        emit('prisonError', {'message': 'Invalid or missing password'})
+        socketio.emit('prisonError', {'message': 'Invalid or missing password'}, to=request.sid)
         return
     
     room = rooms[password]
@@ -425,7 +425,7 @@ def join_prison(data):
         start_game_human_vs_human(room, p1, player_obj, password)
     else:
         waiting.append(player_obj)
-        emit('prisonWaiting')
+        socketio.emit('prisonWaiting', to=request.sid)
 
 @socketio.on('triggerBotMatch')
 def trigger_bot_match(data):
@@ -541,6 +541,7 @@ def prison_choose_row(data):
         # If it's a bot game, trigger bot decision immediately
         if game.get('is_bot'):
             try:
+                print(f"[Game] Bot game detected, getting bot choice...")
                 bot_eval = game['bot_obj'].get_choice() # Returns 'C' or 'D'
                 bot_row = 'A' if bot_eval == 'C' else 'B'
                 game['choices']['p2'] = bot_row
@@ -549,7 +550,7 @@ def prison_choose_row(data):
                 t_val = random.uniform(-2, 2)
                 bot_delay = max(t_val, 0)
                 if bot_delay > 0:
-                    socketio.sleep(bot_delay)
+                    time.sleep(bot_delay)
                     
                 print(f"[Game] Bot (p2) chose {bot_row} (Eval: {bot_eval}) after {bot_delay:.2f}s delay.")
             except Exception as e:
@@ -620,7 +621,7 @@ def prison_choose_row(data):
             # Emit Result - Tailored for perspective
             if len(game['sockets']) > 0:
                 s_id_p1 = game['sockets'][0]
-                emit('prisonRoundResult', {
+                socketio.emit('prisonRoundResult', {
                     'op_choice': p2_choice,
                     'code': code,
                     'my_score': p1_score,
@@ -631,7 +632,7 @@ def prison_choose_row(data):
             if len(game['sockets']) > 1:
                 s_id_p2 = game['sockets'][1]
                 # For P2, op_choice is p1_choice.
-                emit('prisonRoundResult', {
+                socketio.emit('prisonRoundResult', {
                     'op_choice': p1_choice,
                     'code': code,
                     'my_score': p2_score,
@@ -642,7 +643,7 @@ def prison_choose_row(data):
             if done:
                 print(f"[Game] Session {game_id} Complete")
                 for s_id in game['sockets']:
-                    emit('prisonGameEnd', {'codes': game['codes']}, to=s_id)
+                    socketio.emit('prisonGameEnd', {'codes': game['codes']}, to=s_id)
                 del room['active'][game_id]
                 return
 
@@ -652,12 +653,12 @@ def prison_choose_row(data):
             next_p2_matrix = prison_matrix_for_player(next_session, 'p2')
             
             if len(game['sockets']) > 0:
-                emit('prisonNextRound', {'session': game['session'] + 1, 'matrix': next_p1_matrix}, to=game['sockets'][0])
+                socketio.emit('prisonNextRound', {'session': game['session'] + 1, 'matrix': next_p1_matrix}, to=game['sockets'][0])
             if len(game['sockets']) > 1:
-                emit('prisonNextRound', {'session': game['session'] + 1, 'matrix': next_p2_matrix}, to=game['sockets'][1])
+                socketio.emit('prisonNextRound', {'session': game['session'] + 1, 'matrix': next_p2_matrix}, to=game['sockets'][1])
         else:
             # Only one player chose
-            emit('prisonWaitOpponent', {'chosen': player_slot}, to=sid)
+            socketio.emit('prisonWaitOpponent', {'chosen': player_slot}, to=sid)
             
     except Exception as e:
         print(f"[Game] Fatal Execution Error: {e}")
@@ -675,7 +676,7 @@ def disconnect():
             if request.sid in game['sockets']:
                 for sid in game['sockets']:
                     if sid != request.sid:
-                        emit('opponentDisconnected', to=sid)
+                        socketio.emit('opponentDisconnected', to=sid)
                 del room['active'][game_id]
                 break
 
