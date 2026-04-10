@@ -187,26 +187,30 @@ def get_room_logs():
     if not password:
         return jsonify({'error': 'Password required'}), 400
     
-    db = get_db()
-    cursor = db.execute('''SELECT * FROM prison_games WHERE room_password = ? ORDER BY id''', (password,))
-    rows = cursor.fetchall()
-    
-    logs = []
-    for r in rows:
-        logs.append({
-            'game_id': r['game_id'],
-            'session_index': r['session_index'],
-            'player1': r['player1'],
-            'player2': r['player2'],
-            'p1_choice': r['p1_choice'],
-            'p2_choice': r['p2_choice'],
-            'code': r['code'],
-            'p1_points': r['p1_points'],
-            'p2_points': r['p2_points'],
-            'matrix_id': r['matrix_id'] if 'matrix_id' in r.keys() else '',
-            'timestamp': r['timestamp'] if 'timestamp' in r.keys() else ''
-        })
-    db.close()
+    db = None
+    try:
+        db = get_db()
+        cursor = db.execute('''SELECT * FROM prison_games WHERE room_password = ? ORDER BY id''', (password,))
+        rows = cursor.fetchall()
+        
+        logs = []
+        for r in rows:
+            logs.append({
+                'game_id': r['game_id'],
+                'session_index': r['session_index'],
+                'player1': r['player1'],
+                'player2': r['player2'],
+                'p1_choice': r['p1_choice'],
+                'p2_choice': r['p2_choice'],
+                'code': r['code'],
+                'p1_points': r['p1_points'],
+                'p2_points': r['p2_points'],
+                'matrix_id': r['matrix_id'] if 'matrix_id' in r.keys() else '',
+                'timestamp': r['timestamp'] if 'timestamp' in r.keys() else ''
+            })
+    finally:
+        if db: db.close()
+        
     return jsonify({'password': password, 'logs': logs})
 
 @app.route('/delete_room', methods=['POST'])
@@ -232,10 +236,13 @@ def terminate_game():
             break
             
     if delete_logs:
-        db = get_db()
-        db.execute('DELETE FROM prison_games WHERE game_id = ?', (game_id,))
-        db.commit()
-        db.close()
+        db = None
+        try:
+            db = get_db()
+            db.execute('DELETE FROM prison_games WHERE game_id = ?', (game_id,))
+            db.commit()
+        finally:
+            if db: db.close()
         
     if found:
         return jsonify({'message': 'Game terminated'})
@@ -251,15 +258,18 @@ def signup():
     if username == 'NIS':
         return jsonify({'error': 'Username not allowed'}), 400
     hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-    db = get_db()
+    db = None
     try:
+        db = get_db()
         db.execute('INSERT INTO users (username, password) VALUES (?, ?)', (username, hashed))
         db.commit()
         return jsonify({'message': 'User created'})
     except sqlite3.IntegrityError:
         return jsonify({'error': 'Username already exists'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
     finally:
-        db.close()
+        if db: db.close()
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -290,11 +300,14 @@ def login():
 
 @app.route('/get_players', methods=['POST'])
 def get_players():
-    db = get_db()
-    rows = db.execute('SELECT username, session_counter FROM users').fetchall()
-    banned = db.execute('SELECT username FROM banned_users').fetchall()
-    banned_set = set([b['username'] for b in banned])
-    db.close()
+    db = None
+    try:
+        db = get_db()
+        rows = db.execute('SELECT username, session_counter FROM users').fetchall()
+        banned = db.execute('SELECT username FROM banned_users').fetchall()
+        banned_set = set([b['username'] for b in banned])
+    finally:
+        if db: db.close()
     
     players = []
     for r in rows:
@@ -306,12 +319,14 @@ def get_players():
 def ban_player():
     data = request.get_json()
     username = data.get('username')
-    db = get_db()
+    db = None
     try:
+        db = get_db()
         db.execute('INSERT INTO banned_users (username) VALUES (?)', (username,))
         db.commit()
     except: pass
-    db.close()
+    finally:
+        if db: db.close()
     # If the user is currently in active games or queues, you could eject them here as an enhancement.
     return jsonify({'message': 'User banned'})
 
@@ -510,6 +525,7 @@ def prison_choose_row(data):
             game['total'][player2] += p2_score
 
             # DB Log
+            db = None
             try:
                 db = get_db()
                 room_pwd = game.get('room', '')
@@ -518,9 +534,10 @@ def prison_choose_row(data):
                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                            (game_id, session_idx + 1, player1, player2, p1_choice, p2_choice, code, p1_score, p2_score, room_pwd, mat_id))
                 db.commit()
-                db.close()
             except Exception as e:
                 print(f"[Game] DB Error: {e}")
+            finally:
+                if db: db.close()
 
             # Bot Update
             if game.get('is_bot'):
@@ -534,13 +551,15 @@ def prison_choose_row(data):
             done = (game['session'] >= room['settings']['num_sessions'])
             
             if done:
+                db = None
                 try:
                     db = get_db()
                     db.execute('UPDATE users SET session_counter = session_counter + 1 WHERE username IN (?, ?)', (player1, player2))
                     db.commit()
-                    db.close()
                 except:
                     pass
+                finally:
+                    if db: db.close()
             
             # Emit Result - Tailored for perspective
             if len(game['sockets']) > 0:
