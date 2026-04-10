@@ -161,10 +161,18 @@
             display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
         #result-popup.active { opacity: 1; transform: translate(-50%, -50%) scale(1); pointer-events: all; }
+        
+        #custom-alert-box {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background: #e74c3c; color: white; padding: 15px 30px; border-radius: 15px; border: 3px solid #c0392b;
+            font-size: 20px; font-weight: bold; z-index: 10000; display: none; opacity: 0; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            transition: opacity 0.3s ease-in-out; white-space: pre-wrap;
+        }
     </style>
 </head>
 
 <body>
+    <div id="custom-alert-box"></div>
     <div id="loading-overlay" style="position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 9999; display: none; align-items: center; justify-content: center; flex-direction: column;">
         <div style="border: 8px solid rgba(255,255,255,0.1); border-top: 8px solid #f1c40f; border-radius: 50%; width: 70px; height: 70px; animation: spin 1s linear infinite; margin-bottom: 20px;"></div>
         <h1 id="loading-text">Loading...</h1>
@@ -272,6 +280,16 @@
 
         function showLoading(t) { const o=document.querySelector('#loading-overlay'); o.style.display='flex'; o.querySelector('#loading-text').textContent=t; }
         function hideLoading() { document.querySelector('#loading-overlay').style.display='none'; }
+        
+        function customAlert(msg) {
+            const ab = document.getElementById('custom-alert-box');
+            ab.textContent = msg; ab.style.display = 'block';
+            setTimeout(() => { ab.style.opacity = '1'; }, 10);
+            setTimeout(() => { 
+                ab.style.opacity = '0'; 
+                setTimeout(() => { ab.style.display = 'none'; }, 300);
+            }, 3500);
+        }
 
         async function login() {
             const u = document.getElementById('login-username').value, p = document.getElementById('login-password').value;
@@ -283,10 +301,10 @@
                 if (res.ok) { 
                     currentUsername = u; currentUserRole = data.user.role; document.getElementById('auth').classList.add('hidden');
                     if(currentUserRole === 'admin') { document.getElementById('admin-panel').classList.remove('hidden'); loadAdminRooms(); loadAdminPlayers(); } else { document.getElementById('game').classList.remove('hidden'); }
-                } else alert(data.error);
+                } else customAlert(data.error);
             } catch (e) {
                 hideLoading();
-                alert('Server connection error. Please refresh and try again.');
+                customAlert('Server connection error. Please refresh and try again.');
             }
         }
 
@@ -297,22 +315,22 @@
                 const res = await fetch('/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) });
                 const data = await res.json(); 
                 hideLoading();
-                if (res.ok) { alert('Account created! Please login.'); } else { alert(data.error); }
+                if (res.ok) { customAlert('Account created! Please login.'); } else { customAlert(data.error); }
             } catch (e) {
                 hideLoading();
-                alert('Server connection error. Please refresh and try again.');
+                customAlert('Server connection error. Please refresh and try again.');
             }
         }
 
         async function adminCreateRoom() {
             const pw = document.getElementById('admin-room-password').value, rd = parseInt(document.getElementById('admin-room-rounds').value) || 10;
-            if(!pw) return alert('Password required');
+            if(!pw) return customAlert('Password required');
             const bots = []; document.querySelectorAll('.bot-check').forEach(c => { if(c.checked) bots.push(c.value); });
 
             let sess = null; const f = document.getElementById('admin-room-excel');
             if(f.files.length > 0) { sess = await parseExcel(f.files[0]); }
             const res = await fetch('/create_room', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw, num_sessions: rd, allowed_bots: bots, sessions: sess }) });
-            if(res.ok) { alert('Room Created!'); loadAdminRooms(); } else alert('Failed');
+            if(res.ok) { customAlert('Room Created!'); loadAdminRooms(); } else customAlert('Failed');
         }
         function parseExcel(file) { return new Promise((resolve) => { const reader = new FileReader(); reader.onload = (e) => { resolve(XLSX.utils.sheet_to_json(XLSX.read(new Uint8Array(e.target.result), { type: 'array' }).Sheets[XLSX.read(new Uint8Array(e.target.result), { type: 'array' }).SheetNames[0]])); }; reader.readAsArrayBuffer(file); }); }
         
@@ -332,7 +350,7 @@
         async function viewLogs(pw) {
             const res = await fetch('/get_room_logs', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({password: pw}) });
             const data = await res.json();
-            if(!data.logs || data.logs.length === 0) return alert('No logs found for this room.');
+            if(!data.logs || data.logs.length === 0) return customAlert('No logs found for this room.');
             
             let html = `<div style="display:flex; justify-content:space-between; align-items:center;">
                             <h4>Logs for Room: ${pw}</h4>
@@ -361,7 +379,7 @@
         async function downloadLogs(pw) {
             const res = await fetch('/get_room_logs', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({password: pw}) });
             const data = await res.json();
-            if(!data.logs || data.logs.length === 0) return alert('No logs found for this room.');
+            if(!data.logs || data.logs.length === 0) return customAlert('No logs found for this room.');
             
             const worksheet = XLSX.utils.json_to_sheet(data.logs);
             const workbook = XLSX.utils.book_new();
@@ -371,11 +389,15 @@
 
         async function deleteRoom(pw) { await fetch('/delete_room', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({password: pw}) }); loadAdminRooms(); }
 
-        function enterRoom() { socket.emit('enterRoom', { password: document.getElementById('prison-password').value }); }
+        function enterRoom() { 
+            const pw = document.getElementById('prison-password').value;
+            if(!pw) return customAlert('Password required.');
+            socket.emit('enterRoom', { password: pw }); 
+        }
         socket.on('roomEntered', () => { document.getElementById('prison-join-form').classList.add('hidden'); document.getElementById('room-lobby').classList.remove('hidden'); });
         
         socket.on('prisonError', d => {
-            alert(d.message || 'Cannot join room. Please check the password.');
+            customAlert(d.message || 'Cannot join room. Please check the password.');
         });
 
         function queueForGame() { 
@@ -471,7 +493,7 @@
                 closeAllDoors();
                 await new Promise(r => setTimeout(r, 1000));
 
-                if(d.done) { alert('Game Over!'); location.reload(); }
+                if(d.done) { customAlert('Game Over!'); location.reload(); }
             };
             sequence();
         });
@@ -540,7 +562,7 @@
         async function banPlayer(u) {
             if(!confirm(`Are you sure you want to completely ban ${u}?`)) return;
             const res = await fetch('/ban_player', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username: u}) });
-            if (res.ok) { alert('Player banned.'); loadAdminPlayers(); }
+            if (res.ok) { customAlert('Player banned.'); loadAdminPlayers(); }
         }
     </script>
 </body>

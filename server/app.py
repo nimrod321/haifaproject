@@ -4,6 +4,7 @@ import sqlite3
 import bcrypt
 import os
 import time
+import json
 import random
 from game_bots import create_bot
 
@@ -62,6 +63,13 @@ def init_db():
             db.execute('''CREATE TABLE IF NOT EXISTS banned_users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE
+            )''')
+            
+            db.execute('''CREATE TABLE IF NOT EXISTS prison_rooms (
+                password TEXT PRIMARY KEY,
+                num_sessions INTEGER,
+                allowed_bots TEXT,
+                custom_sessions TEXT
             )''')
             
             db.commit()
@@ -150,34 +158,53 @@ def create_room():
     
     if not password:
         return jsonify({'error': 'Password required'}), 400
-    if password in rooms:
-        return jsonify({'error': 'Room already exists'}), 400
         
-    rooms[password] = {
-        'waiting': [],
-        'active': {},
-        'sessions': custom_sessions,
-        'settings': {'num_sessions': num_sessions, 'allowed_bots': allowed_bots},
-        'last_join_time': 0
-    }
+    db = None
+    try:
+        db = get_db()
+        existing = db.execute('SELECT 1 FROM prison_rooms WHERE password = ?', (password,)).fetchone()
+        if existing:
+            return jsonify({'error': 'Room already exists'}), 400
+            
+        db.execute('''INSERT INTO prison_rooms (password, num_sessions, allowed_bots, custom_sessions)
+                      VALUES (?, ?, ?, ?)''', 
+                   (password, num_sessions, json.dumps(allowed_bots), json.dumps(custom_sessions) if custom_sessions else None))
+        db.commit()
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if db: db.close()
+
     return jsonify({'message': 'Room created'})
 
 @app.route('/get_rooms', methods=['GET'])
 def get_rooms():
     room_list = []
-    for password, room in rooms.items():
-        active_games = []
-        for game_id, game in room['active'].items():
-            active_games.append({
-                'game_id': game_id,
-                'players': game['players']
+    db = None
+    try:
+        db = get_db()
+        db_rooms = db.execute('SELECT password FROM prison_rooms').fetchall()
+        for r in db_rooms:
+            password = r['password']
+            
+            # Keep active match data for admin viewing if the global mem exists
+            active_games_list = []
+            if password in rooms:
+                for game_id, game in rooms[password].get('active', {}).items():
+                    active_games_list.append({
+                        'game_id': game_id,
+                        'players': game['players'],
+                        'session': game.get('session', 0)
+                    })
+                    
+            room_list.append({
+                'password': password,
+                'active_games': len(active_games_list),
+                'games': active_games_list
             })
-        room_list.append({
-            'password': password,
-            'settings': room['settings'],
-            'waiting': room['waiting'],
-            'active': active_games
-        })
+    finally:
+        if db: db.close()
+        
     return jsonify(room_list)
 
 @app.route('/get_room_logs', methods=['POST'])
@@ -217,10 +244,19 @@ def get_room_logs():
 def delete_room():
     data = request.get_json()
     password = data.get('password')
+    db = None
+    try:
+        db = get_db()
+        res = db.execute('DELETE FROM prison_rooms WHERE password = ?', (password,))
+        db.commit()
+    finally:
+        if db: db.close()
+        
+    # Free memory queue tracking
     if password in rooms:
         del rooms[password]
-        return jsonify({'message': 'Room deleted'})
-    return jsonify({'error': 'Room not found'}), 404
+        
+    return jsonify({'message': 'Room deleted'})
 
 @app.route('/terminate_game', methods=['POST'])
 def terminate_game():
@@ -341,10 +377,32 @@ def index():
 
 
 
+def ensure_room_loaded(password):
+    if password in rooms:
+        return True
+    db = None
+    try:
+        db = get_db()
+        row = db.execute('SELECT * FROM prison_rooms WHERE password = ?', (password,)).fetchone()
+        if row:
+            rooms[password] = {
+                'waiting': [],
+                'active': {},
+                'sessions': json.loads(row['custom_sessions']) if row['custom_sessions'] else None,
+                'settings': {'num_sessions': row['num_sessions'], 'allowed_bots': json.loads(row['allowed_bots'])},
+                'last_join_time': 0
+            }
+            return True
+    except Exception as e:
+        print("DB Load Error:", e)
+    finally:
+        if db: db.close()
+    return False
+
 @socketio.on('enterRoom')
 def enter_room(data):
     password = data.get('password')
-    if not password or password not in rooms:
+    if not password or not ensure_room_loaded(password):
         emit('prisonError', {'message': 'Invalid room password'})
         return
     emit('roomEntered')
@@ -353,7 +411,7 @@ def enter_room(data):
 def join_prison(data):
     username = data.get('username')
     password = data.get('password')
-    if not password or password not in rooms:
+    if not password or not ensure_room_loaded(password):
         emit('prisonError', {'message': 'Invalid or missing password'})
         return
     
@@ -372,7 +430,7 @@ def join_prison(data):
 @socketio.on('triggerBotMatch')
 def trigger_bot_match(data):
     password = data.get('password')
-    if password in rooms:
+    if ensure_room_loaded(password):
         room = rooms[password]
         for p in list(room['waiting']):
             if p['sid'] == request.sid:
