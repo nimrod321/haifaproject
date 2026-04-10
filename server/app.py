@@ -257,7 +257,8 @@ def signup():
         return jsonify({'error': 'Username and password required'}), 400
     if username == 'NIS':
         return jsonify({'error': 'Username not allowed'}), 400
-    hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+    # Lower rounds to 4 to prevent heavy CPU throttling on PythonAnywhere 
+    hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt(4))
     db = None
     try:
         db = get_db()
@@ -348,19 +349,6 @@ def enter_room(data):
         return
     emit('roomEntered')
 
-def bot_matchmaking_task(pw, sid):
-    # Wait 10 seconds to see if a human joins
-    socketio.sleep(10)
-    if pw in rooms:
-        room = rooms[pw]
-        # Check if the player is still in the waiting list
-        for p in list(room['waiting']):
-            if p['sid'] == sid:
-                room['waiting'].remove(p)
-                print(f"[Queue] No human found for {p['username']} in 10s. Matching with bot.")
-                start_game_human_vs_bot(room, p, pw)
-                return
-
 @socketio.on('joinPrison')
 def join_prison(data):
     username = data.get('username')
@@ -380,8 +368,18 @@ def join_prison(data):
     else:
         waiting.append(player_obj)
         emit('prisonWaiting')
-        # Robust Server-Side Bot Matching
-        socketio.start_background_task(bot_matchmaking_task, password, request.sid)
+
+@socketio.on('triggerBotMatch')
+def trigger_bot_match(data):
+    password = data.get('password')
+    if password in rooms:
+        room = rooms[password]
+        for p in list(room['waiting']):
+            if p['sid'] == request.sid:
+                room['waiting'].remove(p)
+                print(f"[Queue] 10s passed via client pulse. Matching {p['username']} with bot.")
+                start_game_human_vs_bot(room, p, password)
+                return
 
 def setup_game_state(room, p1_username, p2_username, sockets, pw, is_bot=False, bot_obj=None):
     game_id = str(os.urandom(16).hex())

@@ -384,6 +384,7 @@
             // The server handles the 10-second logic
         }
 
+        let botMatchTimeout;
         socket.on('prisonWaiting', () => {
             document.getElementById('start-game-btn').style.display = 'none';
             document.getElementById('lobby-message').innerHTML = `
@@ -392,9 +393,18 @@
                     Looking for partner...
                 </div>
             `;
+            
+            // Pulse the server after 10 seconds to inject a bot
+            clearTimeout(botMatchTimeout);
+            botMatchTimeout = setTimeout(() => {
+                const pw = document.getElementById('prison-password').value;
+                if(document.getElementById('room-lobby').classList.contains('hidden')) return; // already in game
+                socket.emit('triggerBotMatch', { password: pw });
+            }, 10000);
         });
 
         socket.on('prisonMatchFound', () => {
+             clearTimeout(botMatchTimeout);
              document.getElementById('start-game-btn').style.display = 'none';
              document.getElementById('lobby-message').innerHTML = `
                  <div style="font-size: 34px; color: #2ecc71; animation: pulse 1s infinite alternate;">
