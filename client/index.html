@@ -389,47 +389,45 @@
 
         async function deleteRoom(pw) { await fetch('/delete_room', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({password: pw}) }); loadAdminRooms(); }
 
-        function enterRoom() { 
+        async function enterRoom() { 
             const pw = document.getElementById('prison-password').value;
             if(!pw) return customAlert('Password required.');
             
-            showLoading("Connecting to Database...");
-            socket.emit('enterRoom', { password: pw }); 
-            
-            // Network fallback if PythonAnywhere worker is ghost-locked
-            window.enterRoomTimeout = setTimeout(() => {
+            showLoading("Connecting to room...");
+            try {
+                const res = await fetch('/enter_room', { 
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'}, 
+                    body: JSON.stringify({password: pw}) 
+                });
                 hideLoading();
-                customAlert('Server is currently busy! Please ensure no Admin tabs are open and wait 20 seconds for the cloud worker to refresh.');
-            }, 6000);
+                if(res.ok) {
+                    document.getElementById('prison-join-form').classList.add('hidden'); 
+                    document.getElementById('room-lobby').classList.remove('hidden');
+                } else {
+                    const data = await res.json();
+                    customAlert(data.error || 'Invalid room password.');
+                }
+            } catch(e) {
+                hideLoading();
+                customAlert('Server connection error. Please try again.');
+            }
         }
-        socket.on('roomEntered', () => { 
-            clearTimeout(window.enterRoomTimeout);
-            hideLoading();
-            document.getElementById('prison-join-form').classList.add('hidden'); 
-            document.getElementById('room-lobby').classList.remove('hidden'); 
-        });
         
         socket.on('prisonError', d => {
-            clearTimeout(window.enterRoomTimeout);
             hideLoading();
             customAlert(d.message || 'Cannot join room. Please check the password.');
         });
 
         function queueForGame() { 
             const pw = document.getElementById('prison-password').value; 
-            showLoading("Establishing Queue Connection...");
+            document.getElementById('start-game-btn').style.display = 'none';
+            document.getElementById('lobby-message').innerHTML = '<div style="font-size: 22px; color: #aaa;">Connecting...</div>';
             socket.emit('joinPrison', { username: currentUsername, password: pw }); 
-            
-            window.queueTimeout = setTimeout(() => {
-                hideLoading();
-                customAlert('Server is currently busy! Please ensure no Admin tabs are open to unblock the worker.');
-            }, 6000);
         }
 
         let botMatchTimeout;
         socket.on('prisonWaiting', () => {
-            clearTimeout(window.queueTimeout);
-            hideLoading();
             document.getElementById('start-game-btn').style.display = 'none';
             document.getElementById('lobby-message').innerHTML = `
                 <div style="font-size: 28px; color: #f1c40f; margin-bottom: 20px;">
@@ -448,7 +446,6 @@
         });
 
         socket.on('prisonMatchFound', () => {
-             clearTimeout(window.queueTimeout);
              clearTimeout(botMatchTimeout);
              document.getElementById('start-game-btn').style.display = 'none';
              document.getElementById('lobby-message').innerHTML = `

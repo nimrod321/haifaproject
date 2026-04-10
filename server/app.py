@@ -9,7 +9,7 @@ import random
 from game_bots import create_bot
 
 app = Flask(__name__, static_folder='../client', static_url_path='')
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode=None)
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'games.db')
 
@@ -399,13 +399,13 @@ def ensure_room_loaded(password):
         if db: db.close()
     return False
 
-@socketio.on('enterRoom')
-def enter_room(data):
+@app.route('/enter_room', methods=['POST'])
+def enter_room():
+    data = request.get_json()
     password = data.get('password')
     if not password or not ensure_room_loaded(password):
-        emit('prisonError', {'message': 'Invalid room password'})
-        return
-    emit('roomEntered')
+        return jsonify({'error': 'Invalid room password'}), 404
+    return jsonify({'message': 'Room found'})
 
 @socketio.on('joinPrison')
 def join_prison(data):
