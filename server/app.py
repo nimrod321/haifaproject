@@ -518,45 +518,47 @@ def request_bot(data):
     # but the background task handles it automatically now.
     pass
 
-@socketio.on('prisonChooseRow')
-def prison_choose_row(data):
+@app.route('/submit_choice', methods=['POST'])
+def submit_choice():
   with game_lock:
     try:
+        data = request.get_json()
         game_id = data.get('gameId')
-        row = data.get('row') # 'A' or 'B'
+        row = data.get('row')
+        username = data.get('username')
         if not game_id or not row:
-            return
+            return jsonify({'error': 'Missing data'}), 400
 
         game = None
+        room = None
         for r in rooms.values():
             if game_id in r['active']:
                 game = r['active'][game_id]
+                room = r
                 break
         if not game:
-            print(f"[Game] Error: Game {game_id} not found in active games")
-            return
+            return jsonify({'error': 'Game not found'}), 404
 
-        sid = request.sid
-        # Determine human slot
-        if game['sockets'][0] == sid:
+        # Determine player slot by username
+        if game['players'][0] == username:
             player_slot = 'p1'
-        elif len(game['sockets']) > 1 and game['sockets'][1] == sid:
+        elif game['players'][1] == username:
             player_slot = 'p2'
         else:
-            return
+            return jsonify({'error': 'Player not in game'}), 403
 
-        print(f"[Game] Player {player_slot} chose {row}")
+        print(f"[Game] Player {player_slot} ({username}) chose {row}")
         game['choices'][player_slot] = row
+        game['last_result'] = None  # Clear previous round result
 
         # If it's a bot game, trigger bot decision immediately
         if game.get('is_bot'):
             try:
                 print(f"[Game] Bot game detected, getting bot choice...")
-                bot_eval = game['bot_obj'].get_choice() # Returns 'C' or 'D'
+                bot_eval = game['bot_obj'].get_choice()
                 bot_row = 'A' if bot_eval == 'C' else 'B'
                 game['choices']['p2'] = bot_row
                 
-                # Apply Unified Distribution Bot Delay: t ~ U(-2,2), delay = max(t, 0)
                 t_val = random.uniform(-2, 2)
                 bot_delay = max(t_val, 0)
                 if bot_delay > 0:
@@ -565,113 +567,147 @@ def prison_choose_row(data):
                 print(f"[Game] Bot (p2) chose {bot_row} (Eval: {bot_eval}) after {bot_delay:.2f}s delay.")
             except Exception as e:
                 print(f"[Game] Bot Logic Error: {e}")
-                game['choices']['p2'] = 'B' # Default to Defect if bot crashes
+                game['choices']['p2'] = 'B'
 
         # Resolve round if both selections exist
         if game['choices']['p1'] and game['choices']['p2']:
-            p1_choice = game['choices']['p1']
-            p2_choice = game['choices']['p2']
-            print(f"[Game] Resolving Round: p1={p1_choice}, p2={p2_choice}")
-
-            room = rooms[game['room']]
-            sessions_list = room.get('sessions') or prison_sessions
-            session_idx = game['session']
-            if session_idx >= len(sessions_list):
-                session_idx = len(sessions_list) - 1
-            session = sessions_list[session_idx]
-
-            p1_score, p2_score = get_prison_value(session, p1_choice, p2_choice)
-            p1_code = 'C' if p1_choice == 'A' else 'D'
-            p2_code = 'C' if p2_choice == 'A' else 'D'
-            code = p1_code + p2_code
-
-            game['codes'].append(code)
-            player1 = game['players'][0]
-            player2 = game['players'][1]
-            game['total'][player1] += p1_score
-            game['total'][player2] += p2_score
-
-            # DB Log
-            db = None
-            try:
-                db = get_db()
-                room_pwd = game.get('room', '')
-                mat_id = str(session.get('MATRIX_ID', ''))
-                db.execute('''INSERT INTO prison_games (game_id, session_index, player1, player2, p1_choice, p2_choice, code, p1_points, p2_points, room_password, matrix_id)
-                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                           (game_id, session_idx + 1, player1, player2, p1_choice, p2_choice, code, p1_score, p2_score, room_pwd, mat_id))
-                db.commit()
-            except Exception as e:
-                print(f"[Game] DB Error: {e}")
-            finally:
-                if db: db.close()
-
-            # Bot Update
-            if game.get('is_bot'):
-                bot_my_eval = 'C' if p2_choice == 'A' else 'D'
-                bot_op_eval = 'C' if p1_choice == 'A' else 'D'
-                game['bot_obj'].record_result(bot_my_eval, bot_op_eval)
-
-            game['session'] += 1
-            game['choices'] = {'p1': None, 'p2': None}
-
-            done = (game['session'] >= room['settings']['num_sessions'])
-            
-            if done:
-                db = None
-                try:
-                    db = get_db()
-                    db.execute('UPDATE users SET session_counter = session_counter + 1 WHERE username IN (?, ?)', (player1, player2))
-                    db.commit()
-                except:
-                    pass
-                finally:
-                    if db: db.close()
-            
-            # Emit Result - Tailored for perspective
-            if len(game['sockets']) > 0:
-                s_id_p1 = game['sockets'][0]
-                socketio.emit('prisonRoundResult', {
-                    'op_choice': p2_choice,
-                    'code': code,
-                    'my_score': p1_score,
-                    'op_score': p2_score,
-                    'done': done
-                }, to=s_id_p1)
-                
-            if len(game['sockets']) > 1:
-                s_id_p2 = game['sockets'][1]
-                # For P2, op_choice is p1_choice.
-                socketio.emit('prisonRoundResult', {
-                    'op_choice': p1_choice,
-                    'code': code,
-                    'my_score': p2_score,
-                    'op_score': p1_score,
-                    'done': done
-                }, to=s_id_p2)
-
-            if done:
-                print(f"[Game] Session {game_id} Complete")
-                for s_id in game['sockets']:
-                    socketio.emit('prisonGameEnd', {'codes': game['codes']}, to=s_id)
-                del room['active'][game_id]
-                return
-
-            # Prepare for next round
-            next_session = sessions_list[min(game['session'], len(sessions_list)-1)]
-            next_p1_matrix = prison_matrix_for_player(next_session, 'p1')
-            next_p2_matrix = prison_matrix_for_player(next_session, 'p2')
-            
-            if len(game['sockets']) > 0:
-                socketio.emit('prisonNextRound', {'session': game['session'] + 1, 'matrix': next_p1_matrix}, to=game['sockets'][0])
-            if len(game['sockets']) > 1:
-                socketio.emit('prisonNextRound', {'session': game['session'] + 1, 'matrix': next_p2_matrix}, to=game['sockets'][1])
+            result = resolve_round(game, game_id, room)
+            # Return the result tailored for the submitting player
+            if player_slot == 'p1':
+                return jsonify({'status': 'resolved', 'result': result['p1']})
+            else:
+                return jsonify({'status': 'resolved', 'result': result['p2']})
         else:
-            # Only one player chose
-            socketio.emit('prisonWaitOpponent', {'chosen': player_slot}, to=sid)
+            return jsonify({'status': 'waiting'})
             
     except Exception as e:
         print(f"[Game] Fatal Execution Error: {e}")
+        return jsonify({'error': 'Server error'}), 500
+
+@app.route('/check_round', methods=['POST'])
+def check_round():
+  with game_lock:
+    data = request.get_json()
+    game_id = data.get('gameId')
+    username = data.get('username')
+    
+    game = None
+    for r in rooms.values():
+        if game_id in r['active']:
+            game = r['active'][game_id]
+            break
+    
+    if not game:
+        # Game might have ended
+        return jsonify({'status': 'resolved', 'result': {'done': True, 'game_ended': True}})
+    
+    # Check if there's a pending result for this player
+    if game.get('last_result'):
+        if game['players'][0] == username:
+            return jsonify({'status': 'resolved', 'result': game['last_result']['p1']})
+        else:
+            return jsonify({'status': 'resolved', 'result': game['last_result']['p2']})
+    
+    return jsonify({'status': 'waiting'})
+
+def resolve_round(game, game_id, room):
+    p1_choice = game['choices']['p1']
+    p2_choice = game['choices']['p2']
+    print(f"[Game] Resolving Round: p1={p1_choice}, p2={p2_choice}")
+
+    sessions_list = room.get('sessions') or prison_sessions
+    session_idx = game['session']
+    if session_idx >= len(sessions_list):
+        session_idx = len(sessions_list) - 1
+    session = sessions_list[session_idx]
+
+    p1_score, p2_score = get_prison_value(session, p1_choice, p2_choice)
+    p1_code = 'C' if p1_choice == 'A' else 'D'
+    p2_code = 'C' if p2_choice == 'A' else 'D'
+    code = p1_code + p2_code
+
+    game['codes'].append(code)
+    player1 = game['players'][0]
+    player2 = game['players'][1]
+    game['total'][player1] += p1_score
+    game['total'][player2] += p2_score
+
+    # DB Log
+    db = None
+    try:
+        db = get_db()
+        room_pwd = game.get('room', '')
+        mat_id = str(session.get('MATRIX_ID', ''))
+        db.execute('''INSERT INTO prison_games (game_id, session_index, player1, player2, p1_choice, p2_choice, code, p1_points, p2_points, room_password, matrix_id)
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                   (game_id, session_idx + 1, player1, player2, p1_choice, p2_choice, code, p1_score, p2_score, room_pwd, mat_id))
+        db.commit()
+    except Exception as e:
+        print(f"[Game] DB Error: {e}")
+    finally:
+        if db: db.close()
+
+    # Bot Update
+    if game.get('is_bot'):
+        bot_my_eval = 'C' if p2_choice == 'A' else 'D'
+        bot_op_eval = 'C' if p1_choice == 'A' else 'D'
+        game['bot_obj'].record_result(bot_my_eval, bot_op_eval)
+
+    game['session'] += 1
+    game['choices'] = {'p1': None, 'p2': None}
+
+    done = (game['session'] >= room['settings']['num_sessions'])
+    
+    if done:
+        db = None
+        try:
+            db = get_db()
+            db.execute('UPDATE users SET session_counter = session_counter + 1 WHERE username IN (?, ?)', (player1, player2))
+            db.commit()
+        except:
+            pass
+        finally:
+            if db: db.close()
+
+    # Prepare next round matrix
+    next_p1_matrix = None
+    next_p2_matrix = None
+    if not done:
+        next_session = sessions_list[min(game['session'], len(sessions_list)-1)]
+        next_p1_matrix = prison_matrix_for_player(next_session, 'p1')
+        next_p2_matrix = prison_matrix_for_player(next_session, 'p2')
+
+    # Build result for both players
+    result = {
+        'p1': {
+            'op_choice': p2_choice,
+            'code': code,
+            'my_score': p1_score,
+            'op_score': p2_score,
+            'done': done,
+            'next_matrix': next_p1_matrix,
+            'next_session': game['session'] + 1
+        },
+        'p2': {
+            'op_choice': p1_choice,
+            'code': code,
+            'my_score': p2_score,
+            'op_score': p1_score,
+            'done': done,
+            'next_matrix': next_p2_matrix,
+            'next_session': game['session'] + 1
+        }
+    }
+    
+    # Store result so the other player can fetch it via polling
+    game['last_result'] = result
+
+    if done:
+        print(f"[Game] Session {game_id} Complete")
+        # Don't delete the game yet - let the other player poll for the result
+        # It will be cleaned up on next game start or disconnect
+    
+    return result
 
 
 

@@ -481,15 +481,53 @@
             }
         }
 
-        function submitChoice() { 
+        let roundPollInterval = null;
+
+        async function submitChoice() { 
             if(!selectedMove || choiceLocked) return; 
             choiceLocked = true;
             document.getElementById('submit-choice-btn').disabled = true; 
-            socket.emit('prisonChooseRow', { gameId: currentGid, row: selectedMove }); 
             document.getElementById('prison-message').textContent = 'Submitting Move...'; 
+            
+            try {
+                const res = await fetch('/submit_choice', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ gameId: currentGid, row: selectedMove, username: currentUsername })
+                });
+                const data = await res.json();
+                
+                if(data.status === 'resolved') {
+                    handleRoundResult(data.result);
+                } else if(data.status === 'waiting') {
+                    document.getElementById('prison-message').textContent = 'Waiting for opponent...';
+                    // Poll for the result
+                    roundPollInterval = setInterval(async () => {
+                        try {
+                            const pollRes = await fetch('/check_round', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({ gameId: currentGid, username: currentUsername })
+                            });
+                            const pollData = await pollRes.json();
+                            if(pollData.status === 'resolved') {
+                                clearInterval(roundPollInterval);
+                                handleRoundResult(pollData.result);
+                            }
+                        } catch(e) { console.log('Poll error:', e); }
+                    }, 2000);
+                }
+            } catch(e) {
+                document.getElementById('prison-message').textContent = 'Connection error. Retrying...';
+                choiceLocked = false;
+                document.getElementById('submit-choice-btn').disabled = false;
+            }
         }
 
-        socket.on('prisonRoundResult', d => {
+        async function handleRoundResult(d) {
+            // Clear any last_result on server for next round
+            clearInterval(roundPollInterval);
+            
             const sequence = async () => {
                 const overlay = document.getElementById('reveal-countdown-overlay'); const text = document.getElementById('countdown-text');
                 overlay.style.display = 'flex';
@@ -513,10 +551,22 @@
                 closeAllDoors();
                 await new Promise(r => setTimeout(r, 1000));
 
-                if(d.done) { customAlert('Game Over!'); location.reload(); }
+                if(d.done) { customAlert('Game Over!'); location.reload(); return; }
+                
+                // Load next round from the result data
+                if(d.next_matrix) {
+                    renderMatrix(d.next_matrix);
+                }
+                selectedMove = null; 
+                document.getElementById('row-btn-A').classList.remove('selected'); 
+                document.getElementById('row-btn-B').classList.remove('selected');
+                document.getElementById('submit-choice-btn').disabled = true; 
+                document.getElementById('prison-message').textContent = '';
+                openAllDoors();
+                choiceLocked = false;
             };
             sequence();
-        });
+        }
 
         let floatingScores = [];
 
@@ -531,7 +581,6 @@
         }
 
         function updateChestQueue(chest) {
-            // Drop oldest into chest if length > 3
             while (floatingScores.length > 3) {
                 const oldest = floatingScores.shift();
                 oldest.style.transform = `translate(-50%, 60px) scale(0)`;
@@ -539,7 +588,6 @@
                 setTimeout(() => { if (oldest.parentNode) oldest.remove(); }, 500);
             }
             
-            // Adjust remaining
             floatingScores.forEach((bubble, idx) => {
                 const verticalOffset = -50 - ((floatingScores.length - 1 - idx) * 50); 
                 if (!bubble.parentNode) {
@@ -552,20 +600,6 @@
                 });
             });
         }
-
-        socket.on('prisonNextRound', d => {
-            // Wait for the reveal sequence (3s countdown + 3s result + 1s close) to finish before opening fresh
-            setTimeout(() => {
-                renderMatrix(d.matrix);
-                selectedMove = null; 
-                document.getElementById('row-btn-A').classList.remove('selected'); 
-                document.getElementById('row-btn-B').classList.remove('selected');
-                document.getElementById('submit-choice-btn').disabled = true; 
-                document.getElementById('prison-message').textContent = '';
-                openAllDoors();
-                choiceLocked = false;
-            }, 8500); // Increased to match reveal sequence length
-        });
 
         async function loadAdminPlayers() {
             const res = await fetch('/get_players', { method: 'POST' }); 
