@@ -6,7 +6,10 @@ import os
 import time
 import json
 import random
+import threading
 from game_bots import create_bot
+
+game_lock = threading.Lock()
 
 app = Flask(__name__, static_folder='../client', static_url_path='')
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
@@ -462,6 +465,10 @@ def start_game_human_vs_human(room, opp1, opp2, pw):
     p1_matrix = prison_matrix_for_player(session, 'p1')
     p2_matrix = prison_matrix_for_player(session, 'p2')
     
+    # Notify both players that a match was found
+    socketio.emit('prisonMatchFound', to=opp1['sid'])
+    socketio.emit('prisonMatchFound', to=opp2['sid'])
+    
     socketio.emit('prisonStart', {
         'gameId': game_id,
         'session': 1,
@@ -494,6 +501,8 @@ def start_game_human_vs_bot(room, player, pw):
     session = sessions_list[0]
     p1_matrix = prison_matrix_for_player(session, 'p1')
     
+    socketio.emit('prisonMatchFound', to=player['sid'])
+    
     socketio.emit('prisonStart', {
         'gameId': game_id,
         'session': 1,
@@ -511,6 +520,7 @@ def request_bot(data):
 
 @socketio.on('prisonChooseRow')
 def prison_choose_row(data):
+  with game_lock:
     try:
         game_id = data.get('gameId')
         row = data.get('row') # 'A' or 'B'
