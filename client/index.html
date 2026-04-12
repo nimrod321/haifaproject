@@ -273,9 +273,9 @@
         <div id="popup-op-score" style="font-size:46px; color:#e74c3c; margin-top:10px;">Opponent: 0</div>
     </div>
 
-    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+
     <script>
-        const socket = io();
+
         let selectedMove = null, currentGid = null, currentUsername = null, currentUserRole = null, choiceLocked = false;
 
         function showLoading(t) { const o=document.querySelector('#loading-overlay'); o.style.display='flex'; o.querySelector('#loading-text').textContent=t; }
@@ -414,55 +414,92 @@
             }
         }
         
-        socket.on('prisonError', d => {
-            hideLoading();
-            customAlert(d.message || 'Cannot join room. Please check the password.');
-        });
+        let queuePollInterval = null;
+        let botMatchTimeout = null;
 
-        function queueForGame() { 
+        async function queueForGame() { 
             const pw = document.getElementById('prison-password').value; 
             document.getElementById('start-game-btn').style.display = 'none';
             document.getElementById('lobby-message').innerHTML = '<div style="font-size: 22px; color: #aaa;">Connecting...</div>';
-            socket.emit('joinPrison', { username: currentUsername, password: pw }); 
+            
+            try {
+                const res = await fetch('/join_queue', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ username: currentUsername, password: pw })
+                });
+                const data = await res.json();
+                
+                if(data.status === 'matched') {
+                    startGameFromData(data.gameData);
+                } else {
+                    // Show waiting UI and start polling
+                    document.getElementById('lobby-message').innerHTML = `
+                        <div style="font-size: 28px; color: #f1c40f; margin-bottom: 20px;">
+                            <div style="display:inline-block; border: 5px solid rgba(255,255,255,0.2); border-top: 5px solid #f1c40f; border-radius: 50%; width: 25px; height: 25px; animation: spin 1s linear infinite; vertical-align: middle; margin-right: 15px;"></div>
+                            Looking for partner...
+                        </div>
+                    `;
+                    
+                    // Poll every 2 seconds for a human match
+                    queuePollInterval = setInterval(async () => {
+                        try {
+                            const pollRes = await fetch('/check_queue', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({ username: currentUsername, password: pw })
+                            });
+                            const pollData = await pollRes.json();
+                            if(pollData.status === 'matched') {
+                                clearInterval(queuePollInterval);
+                                clearTimeout(botMatchTimeout);
+                                startGameFromData(pollData.gameData);
+                            }
+                        } catch(e) { console.log('Queue poll error:', e); }
+                    }, 2000);
+                    
+                    // After 10 seconds, trigger a bot match
+                    botMatchTimeout = setTimeout(async () => {
+                        clearInterval(queuePollInterval);
+                        try {
+                            const botRes = await fetch('/trigger_bot', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({ username: currentUsername, password: pw })
+                            });
+                            const botData = await botRes.json();
+                            if(botData.status === 'matched') {
+                                startGameFromData(botData.gameData);
+                            }
+                        } catch(e) { console.log('Bot trigger error:', e); }
+                    }, 10000);
+                }
+            } catch(e) {
+                customAlert('Connection error. Please try again.');
+                document.getElementById('start-game-btn').style.display = 'block';
+            }
         }
 
-        let botMatchTimeout;
-        socket.on('prisonWaiting', () => {
-            document.getElementById('start-game-btn').style.display = 'none';
+        function startGameFromData(d) {
+            clearInterval(queuePollInterval);
+            clearTimeout(botMatchTimeout);
+            
+            // Show "Match Found!" briefly
             document.getElementById('lobby-message').innerHTML = `
-                <div style="font-size: 28px; color: #f1c40f; margin-bottom: 20px;">
-                    <div style="display:inline-block; border: 5px solid rgba(255,255,255,0.2); border-top: 5px solid #f1c40f; border-radius: 50%; width: 25px; height: 25px; animation: spin 1s linear infinite; vertical-align: middle; margin-right: 15px;"></div>
-                    Looking for partner...
+                <div style="font-size: 34px; color: #2ecc71; animation: pulse 1s infinite alternate;">
+                    Match Found!
                 </div>
             `;
             
-            // Pulse the server after 10 seconds to inject a bot
-            clearTimeout(botMatchTimeout);
-            botMatchTimeout = setTimeout(() => {
-                const pw = document.getElementById('prison-password').value;
-                if(document.getElementById('room-lobby').classList.contains('hidden')) return; // already in game
-                socket.emit('triggerBotMatch', { password: pw });
-            }, 10000);
-        });
-
-        socket.on('prisonMatchFound', () => {
-             clearTimeout(botMatchTimeout);
-             document.getElementById('start-game-btn').style.display = 'none';
-             document.getElementById('lobby-message').innerHTML = `
-                 <div style="font-size: 34px; color: #2ecc71; animation: pulse 1s infinite alternate;">
-                     Match Found!
-                 </div>
-             `;
-        });
-        
-        socket.on('prisonStart', d => {
-            currentGid = d.gameId;
-            renderMatrix(d.matrix);
-            document.getElementById('room-lobby').classList.add('hidden'); 
-            document.getElementById('prison').classList.remove('hidden');
-            openAllDoors();
-            choiceLocked = false; 
-        });
+            setTimeout(() => {
+                currentGid = d.gameId;
+                renderMatrix(d.matrix);
+                document.getElementById('room-lobby').classList.add('hidden'); 
+                document.getElementById('prison').classList.remove('hidden');
+                openAllDoors();
+                choiceLocked = false; 
+            }, 1500);
+        }
 
         function renderMatrix(m) { ['AA','AB','BA','BB'].forEach(c => { const cell = document.getElementById(`cell-${c}`); cell.querySelector('.cell-content').innerHTML = `<span class="p1-val">${m[c+'1']}</span><span class="val-separator">|</span><span class="p2-val">${m[c+'2']}</span>`; }); }
         function openAllDoors() { document.querySelectorAll('.matrix-cell').forEach(c => c.classList.remove('cell-closed')); }

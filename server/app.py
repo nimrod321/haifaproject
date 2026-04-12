@@ -410,84 +410,141 @@ def enter_room():
         return jsonify({'error': 'Invalid room password'}), 404
     return jsonify({'message': 'Room found'})
 
-@socketio.on('joinPrison')
-def join_prison(data):
+@app.route('/join_queue', methods=['POST'])
+def join_queue():
+  with game_lock:
+    data = request.get_json()
     username = data.get('username')
     password = data.get('password')
     if not password or not ensure_room_loaded(password):
-        socketio.emit('prisonError', {'message': 'Invalid or missing password'}, to=request.sid)
-        return
+        return jsonify({'error': 'Invalid or missing password'}), 404
     
     room = rooms[password]
     waiting = room['waiting']
-    player_obj = {'username': username, 'sid': request.sid}
+    
+    # Check if already in queue
+    for p in waiting:
+        if p['username'] == username:
+            return jsonify({'status': 'waiting'})
+    
+    # Check if already in an active game
+    for gid, game in room['active'].items():
+        if username in game['players']:
+            return jsonify({'status': 'matched', 'gameData': build_game_data(game, gid, room, username)})
     
     if len(waiting) >= 1:
         p1 = waiting.pop(0)
         print(f"[Queue] Matching human {p1['username']} with human {username}")
-        start_game_human_vs_human(room, p1, player_obj, password)
+        game_id, game_data_p1, game_data_p2 = start_game_human_vs_human(room, p1['username'], username, password)
+        # Store pending game data for the OTHER player (p1) to pick up via polling
+        room['active'][game_id]['pending_start'] = {p1['username']: game_data_p1}
+        return jsonify({'status': 'matched', 'gameData': game_data_p2})
     else:
-        waiting.append(player_obj)
-        socketio.emit('prisonWaiting', to=request.sid)
+        waiting.append({'username': username})
+        return jsonify({'status': 'waiting'})
 
-@socketio.on('triggerBotMatch')
-def trigger_bot_match(data):
+@app.route('/check_queue', methods=['POST'])
+def check_queue():
+  with game_lock:
+    data = request.get_json()
+    username = data.get('username')
     password = data.get('password')
-    if ensure_room_loaded(password):
-        room = rooms[password]
-        for p in list(room['waiting']):
-            if p['sid'] == request.sid:
-                room['waiting'].remove(p)
-                print(f"[Queue] 10s passed via client pulse. Matching {p['username']} with bot.")
-                start_game_human_vs_bot(room, p, password)
-                return
+    if not password or not ensure_room_loaded(password):
+        return jsonify({'status': 'waiting'})
+    
+    room = rooms[password]
+    
+    # Check if matched into a game
+    for gid, game in room['active'].items():
+        if username in game['players']:
+            # Check if there's pending start data
+            pending = game.get('pending_start', {})
+            if username in pending:
+                data = pending.pop(username)
+                return jsonify({'status': 'matched', 'gameData': data})
+            else:
+                return jsonify({'status': 'matched', 'gameData': build_game_data(game, gid, room, username)})
+    
+    return jsonify({'status': 'waiting'})
 
-def setup_game_state(room, p1_username, p2_username, sockets, pw, is_bot=False, bot_obj=None):
+@app.route('/trigger_bot', methods=['POST'])
+def trigger_bot():
+  with game_lock:
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+    if not password or not ensure_room_loaded(password):
+        return jsonify({'error': 'Room not found'}), 404
+    
+    room = rooms[password]
+    for p in list(room['waiting']):
+        if p['username'] == username:
+            room['waiting'].remove(p)
+            print(f"[Queue] 10s passed. Matching {username} with bot.")
+            game_id, game_data = start_game_human_vs_bot(room, username, password)
+            return jsonify({'status': 'matched', 'gameData': game_data})
+    
+    # Maybe already matched
+    for gid, game in room['active'].items():
+        if username in game['players']:
+            return jsonify({'status': 'matched', 'gameData': build_game_data(game, gid, room, username)})
+    
+    return jsonify({'status': 'waiting'})
+
+def build_game_data(game, game_id, room, username):
+    """Build game start data for a specific player."""
+    sessions_list = room.get('sessions') or prison_sessions
+    session = sessions_list[0]
+    if game['players'][0] == username:
+        role = 'p1'
+        matrix = prison_matrix_for_player(session, 'p1')
+    else:
+        role = 'p2'
+        matrix = prison_matrix_for_player(session, 'p2')
+    return {
+        'gameId': game_id,
+        'session': 1,
+        'total_sessions': room['settings']['num_sessions'],
+        'matrix': matrix,
+        'role': role,
+        'opponent': 'Player 2'
+    }
+
+def setup_game_state(room, p1_username, p2_username, pw, is_bot=False, bot_obj=None):
     game_id = str(os.urandom(16).hex())
     room['active'][game_id] = {
         'id': game_id,
         'players': [p1_username, p2_username],
-        'sockets': sockets,
+        'sockets': [],
         'session': 0,
         'total': {p1_username: 0, p2_username: 0},
         'choices': {'p1': None, 'p2': None},
         'codes': [],
         'room': pw,
         'is_bot': is_bot,
-        'bot_obj': bot_obj
+        'bot_obj': bot_obj,
+        'last_result': None
     }
     return game_id
 
-def start_game_human_vs_human(room, opp1, opp2, pw):
-    game_id = setup_game_state(room, opp1['username'], opp2['username'], [opp1['sid'], opp2['sid']], pw)
+def start_game_human_vs_human(room, p1_username, p2_username, pw):
+    game_id = setup_game_state(room, p1_username, p2_username, pw)
     sessions_list = room.get('sessions') or prison_sessions
     session = sessions_list[0]
     p1_matrix = prison_matrix_for_player(session, 'p1')
     p2_matrix = prison_matrix_for_player(session, 'p2')
     
-    # Notify both players that a match was found
-    socketio.emit('prisonMatchFound', to=opp1['sid'])
-    socketio.emit('prisonMatchFound', to=opp2['sid'])
-    
-    socketio.emit('prisonStart', {
-        'gameId': game_id,
-        'session': 1,
-        'total_sessions': room['settings']['num_sessions'],
-        'matrix': p1_matrix,
-        'role': 'p1',
-        'opponent': 'Player 2'
-    }, to=opp1['sid'])
-    
-    socketio.emit('prisonStart', {
-        'gameId': game_id,
-        'session': 1,
-        'total_sessions': room['settings']['num_sessions'],
-        'matrix': p2_matrix,
-        'role': 'p2',
-        'opponent': 'Player 2'
-    }, to=opp2['sid'])
+    game_data_p1 = {
+        'gameId': game_id, 'session': 1, 'total_sessions': room['settings']['num_sessions'],
+        'matrix': p1_matrix, 'role': 'p1', 'opponent': 'Player 2'
+    }
+    game_data_p2 = {
+        'gameId': game_id, 'session': 1, 'total_sessions': room['settings']['num_sessions'],
+        'matrix': p2_matrix, 'role': 'p2', 'opponent': 'Player 2'
+    }
+    return game_id, game_data_p1, game_data_p2
 
-def start_game_human_vs_bot(room, player, pw):
+def start_game_human_vs_bot(room, username, pw):
     bot_types = room['settings'].get('allowed_bots', ['Random'])
     if not bot_types: bot_types = ['Random']
     bot_type = random.choice(bot_types)
@@ -496,27 +553,16 @@ def start_game_human_vs_bot(room, player, pw):
     sessions_list = room.get('sessions') or prison_sessions
     bot_obj = create_bot(bot_type, False, sessions_list[0])
     
-    game_id = setup_game_state(room, player['username'], bots_name, [player['sid']], pw, True, bot_obj)
+    game_id = setup_game_state(room, username, bots_name, pw, True, bot_obj)
     
     session = sessions_list[0]
     p1_matrix = prison_matrix_for_player(session, 'p1')
     
-    socketio.emit('prisonMatchFound', to=player['sid'])
-    
-    socketio.emit('prisonStart', {
-        'gameId': game_id,
-        'session': 1,
-        'total_sessions': room['settings']['num_sessions'],
-        'matrix': p1_matrix,
-        'role': 'p1',
-        'opponent': 'Player 2'
-    }, to=player['sid'])
-
-@socketio.on('requestBot')
-def request_bot(data):
-    # This remains for backward compatibility or direct client requests, 
-    # but the background task handles it automatically now.
-    pass
+    game_data = {
+        'gameId': game_id, 'session': 1, 'total_sessions': room['settings']['num_sessions'],
+        'matrix': p1_matrix, 'role': 'p1', 'opponent': 'Player 2'
+    }
+    return game_id, game_data
 
 @app.route('/submit_choice', methods=['POST'])
 def submit_choice():
@@ -554,17 +600,10 @@ def submit_choice():
         # If it's a bot game, trigger bot decision immediately
         if game.get('is_bot'):
             try:
-                print(f"[Game] Bot game detected, getting bot choice...")
                 bot_eval = game['bot_obj'].get_choice()
                 bot_row = 'A' if bot_eval == 'C' else 'B'
                 game['choices']['p2'] = bot_row
-                
-                t_val = random.uniform(-2, 2)
-                bot_delay = max(t_val, 0)
-                if bot_delay > 0:
-                    time.sleep(bot_delay)
-                    
-                print(f"[Game] Bot (p2) chose {bot_row} (Eval: {bot_eval}) after {bot_delay:.2f}s delay.")
+                print(f"[Game] Bot (p2) chose {bot_row} (Eval: {bot_eval})")
             except Exception as e:
                 print(f"[Game] Bot Logic Error: {e}")
                 game['choices']['p2'] = 'B'
@@ -713,18 +752,7 @@ def resolve_round(game, game_id, room):
 
 @socketio.on('disconnect')
 def disconnect():
-    for pw, room in list(rooms.items()):
-        for player in list(room['waiting']):
-            if player['sid'] == request.sid:
-                room['waiting'].remove(player)
-                break
-        for game_id, game in list(room['active'].items()):
-            if request.sid in game['sockets']:
-                for sid in game['sockets']:
-                    if sid != request.sid:
-                        socketio.emit('opponentDisconnected', to=sid)
-                del room['active'][game_id]
-                break
+    pass  # Game state is now managed via HTTP, no cleanup needed
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=3000, debug=True)
