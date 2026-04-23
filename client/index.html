@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Dilemma Street</title>
     <link href="https://fonts.googleapis.com/css2?family=Bubblegum+Sans&display=swap" rel="stylesheet">
     <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
@@ -23,18 +23,21 @@
 
         h1 {
             color: #fff; text-shadow: 0 0 10px rgba(46, 204, 113, 0.8), 3.5px 3.5px 7px rgba(0,0,0,1);
-            font-size: 64px; margin: 15px 0 25px 0; font-weight: bold;
+            font-size: clamp(36px, 8vw, 64px); margin: 15px 0 25px 0; font-weight: bold;
         }
 
-        h2, h3 { color: #f1c40f; text-shadow: 2px 2px 4px #000; font-size: 34px; }
+        h2, h3 { color: #f1c40f; text-shadow: 2px 2px 4px #000; font-size: clamp(22px, 5vw, 34px); }
         .hidden { display: none !important; }
 
-        .glass-panel { background: rgba(0,0,0,0.1); padding: 30px; margin: 15px auto; border-radius: 30px; max-width: 600px; backdrop-filter: blur(5px); }
+        /* Fix #1: bigger "account created" message — h2 is already 34px, bumped from 22px */
+        #login-section h2 { font-size: clamp(28px, 6vw, 42px); }
+
+        .glass-panel { background: rgba(0,0,0,0.1); padding: 20px; margin: 15px auto; border-radius: 30px; max-width: 600px; backdrop-filter: blur(5px); box-sizing: border-box; width: 95%; }
 
         input {
             margin: 10px auto; padding: 12px 25px; border: 3px solid #2ecc71; border-radius: 50px;
             font-size: 18px; font-family: 'Bubblegum Sans', cursive; background: white; color: #333; outline: none;
-            display: block; width: 300px; font-weight: bold;
+            display: block; width: min(300px, 85%); font-weight: bold; box-sizing: border-box;
         }
 
         button:not(.row-btn):not(.submit-btn) {
@@ -43,19 +46,21 @@
             box-shadow: 0 8px 20px rgba(0,0,0,0.4); transition: all 0.2s;
         }
 
-        /* SYMMETRIC BOARD */
+        /* SYMMETRIC BOARD — mobile responsive */
         .game-board-panel {
             background: #4e342e; border: 10px solid #3e2723; border-radius: 20px;
             box-shadow: 0 20px 50px rgba(0,0,0,0.9), inset 0 0 40px rgba(0,0,0,0.6);
-            padding: 40px; position: relative; margin: 20px auto; width: 680px; box-sizing: border-box;
+            padding: 20px; position: relative; margin: 20px auto;
+            width: min(680px, 98vw); box-sizing: border-box;
             display: flex; justify-content: center; align-items: center;
+            overflow-x: auto;
         }
 
         .board-layout {
             display: grid;
-            grid-template-columns: 80px 220px 220px;
-            grid-template-rows: 60px 150px 150px;
-            gap: 20px;
+            grid-template-columns: clamp(50px,10vw,80px) minmax(100px,220px) minmax(100px,220px);
+            grid-template-rows: clamp(40px,7vw,60px) minmax(90px,150px) minmax(90px,150px);
+            gap: clamp(8px,2.5vw,20px);
             align-items: center;
             justify-content: center;
         }
@@ -82,9 +87,10 @@
 
         .matrix-cell {
             background: #3e2723; border: 5px solid #2d1b11; border-radius: 15px;
-            position: relative; overflow: hidden; height: 150px; width: 220px;
+            position: relative; overflow: hidden;
+            height: minmax(90px, 150px); width: minmax(100px, 220px);
             display: flex; align-items: center; justify-content: center;
-            font-size: 52px; font-weight: bold; font-family: 'Bubblegum Sans', cursive;
+            font-size: clamp(28px, 5vw, 52px); font-weight: bold; font-family: 'Bubblegum Sans', cursive;
         }
         #cell-AA { grid-column: 2; grid-row: 2; }
         #cell-AB { grid-column: 3; grid-row: 2; }
@@ -107,18 +113,26 @@
         .cell-closed .door-right { transform: translateX(0) !important; }
 
         .submit-btn {
-            background: #5d4037; color: #f1c40f; font-size: 36px; padding: 18px 70px;
+            background: #5d4037; color: #f1c40f; font-size: clamp(22px, 4.5vw, 36px); padding: 14px clamp(30px, 8vw, 70px);
             border: 5px solid #3e2723; border-radius: 20px; cursor: pointer;
             box-shadow: 0 10px 0 #2d1b11, 0 15px 30px rgba(0,0,0,0.5);
             transition: all 0.2s; font-family: 'Bubblegum Sans', cursive; margin-top:20px;
+        }
+        /* Fix #6: grayed-out state after pressing שלח */
+        .submit-btn.pressed {
+            background: #3a2820 !important;
+            color: #8a7060 !important;
+            box-shadow: 0 3px 0 #1a0f08, 0 5px 15px rgba(0,0,0,0.4) !important;
+            transform: translateY(4px);
+            cursor: not-allowed;
         }
 
         /* RE-ADDED BOT SELECTION AREA (CLEAN) */
         .bot-selection { background: rgba(0,0,0,0.4); padding: 15px; border-radius: 15px; text-align: left; margin: 10px 0; font-size: 14px; }
         .bot-line { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
 
-        /* PURPLE MAGICAL CHEST */
-        .chest-float { position: fixed; bottom: 40px; left: 40px; width: 140px; height: 120px; z-index: 1000; }
+        /* PURPLE MAGICAL CHEST — Fix #3: bigger */
+        .chest-float { position: fixed; bottom: 30px; left: 20px; width: 190px; height: 160px; z-index: 1000; }
         .magical-chest {
             width: 100%; height: 100%; background: #8e44ad; border: 4px solid #f1c40f;
             border-radius: 15px 15px 10px 10px; position: relative;
@@ -136,19 +150,22 @@
             content: ''; width: 8px; height: 12px; background: #333; border-radius: 50% 50% 0 0; position: relative; top: -5px;
         }
 
+        /* Fix #4 & #5: player-score-only bubble, stacks upward from chest top */
         .queued-point-bubble {
-            padding: 5px 20px; border-radius: 30px;
-            background: rgba(0,0,0,0.6); backdrop-filter: blur(10px);
+            padding: 6px 22px; border-radius: 30px;
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(10px);
             border: 2px solid #f1c40f; 
-            color: #fff; font-weight: bold; font-size: 22px;
+            color: #2ecc71; font-weight: bold; font-size: 24px;
             display: flex; align-items: center; justify-content: center;
-            position: absolute; left: 50%; 
+            position: absolute; left: 50%;
+            bottom: 100%;             /* anchor at top of chest, grow upward */
             transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             box-shadow: 0 0 15px rgba(241, 196, 15, 0.5);
             opacity: 0;
             transform: translateX(-50%) scale(0);
             z-index: 200;
             white-space: nowrap;
+            text-shadow: 0 0 10px #2ecc71;
         }
 
 
@@ -168,6 +185,198 @@
             font-size: 20px; font-weight: bold; z-index: 10000; display: none; opacity: 0; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             transition: opacity 0.3s ease-in-out; white-space: pre-wrap;
         }
+
+        /* ====== GAME OVER SCREEN ====== */
+        #gameover-screen {
+            position: fixed; inset: 0; z-index: 50000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background-image: url('bg.png'); background-size: cover; background-position: center;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.8s ease;
+        }
+        #gameover-screen.go-active { opacity: 1; pointer-events: all; }
+        #gameover-screen::before {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(180deg,rgba(10,60,10,0.12) 0%,rgba(30,100,30,0.22) 60%,rgba(10,60,10,0.50) 100%);
+            z-index: 0;
+        }
+        #go-title {
+            position: relative; z-index: 10;
+            font-size: 100px; color: #fff;
+            text-shadow: 0 0 20px rgba(255,80,80,0.9),0 0 40px rgba(255,80,80,0.5),5px 5px 0 #8b0000,3px 3px 0 #c0392b;
+            opacity: 0; transform: scale(0.2) rotate(-10deg);
+            transition: transform 0.7s cubic-bezier(0.175,0.885,0.32,1.275),opacity 0.5s ease;
+            margin-bottom: 8px; letter-spacing: 4px;
+        }
+        #go-title.show { opacity: 1; transform: scale(1) rotate(0deg); }
+        #go-title .exclaim { color: #f1c40f; text-shadow: 0 0 20px rgba(255,200,0,0.9),5px 5px 0 #8b6914; }
+        #go-coin-stage { position: relative; z-index: 10; width: 600px; height: 220px; margin: 0 auto; }
+        #go-coin-pile {
+            position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+            width: 280px; display: flex; flex-wrap: wrap-reverse; align-items: flex-end;
+            justify-content: center; gap: 3px;
+        }
+        .go-pile-coin {
+            width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+            background: radial-gradient(circle at 35% 35%, #ffe066, #f1c40f 50%, #b8860b 100%);
+            border: 3px solid #8b6914;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.4);
+            display: flex; align-items: center; justify-content: center; font-size: 16px;
+            animation: go-pile-land 0.3s cubic-bezier(0.175,0.885,0.32,1.275);
+        }
+        @keyframes go-pile-land {
+            0%  { transform: scaleX(0.5) scaleY(0.1); opacity: 0; }
+            100%{ transform: scale(1); opacity: 1; }
+        }
+        .go-flying-coin {
+            position: fixed; width: 52px; height: 52px; border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, #ffe066, #f1c40f 50%, #b8860b 100%);
+            border: 3px solid #8b6914;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5), inset 0 2px 5px rgba(255,255,255,0.5);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px; z-index: 49999; pointer-events: none;
+            animation: go-coin-spin 0.35s linear infinite;
+        }
+        @keyframes go-coin-spin {
+            0%,50%,100% { transform: scaleX(1); }
+            25%,75%     { transform: scaleX(0.15); }
+        }
+        #go-score-label {
+            position: relative; z-index: 10; font-size: 42px;
+            color: #f1c40f; text-shadow: 3px 3px 0 #8b6914, 0 0 20px rgba(255,200,0,0.8);
+            margin-top: 6px; opacity: 0; transform: translateY(20px);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+        #go-score-label.show { opacity: 1; transform: translateY(0); }
+        #go-score-count { color: #fff; text-shadow: 3px 3px 0 #27ae60, 0 0 20px rgba(46,204,113,0.8); }
+        #go-banner {
+            position: relative; z-index: 10;
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(10px);
+            border: 5px solid #f1c40f; border-radius: 30px;
+            padding: 14px 48px; margin-top: 12px;
+            opacity: 0; transform: scale(0.5);
+            transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.175,0.885,0.32,1.275);
+            box-shadow: 0 0 40px rgba(241,196,15,0.5), 0 20px 40px rgba(0,0,0,0.5);
+        }
+        #go-banner.show { opacity: 1; transform: scale(1); }
+        #go-banner .go-bl { font-size: 28px; color: #ddd; display: block; margin-bottom: 4px; }
+        #go-banner .go-bv {
+            font-size: 72px; color: #f1c40f;
+            text-shadow: 4px 4px 0 #8b6914, 0 0 30px rgba(255,200,0,0.8); display: block;
+        }
+        #go-chest-wrap {
+            position: relative; z-index: 10;
+            width: 180px; height: 160px; margin-top: 18px;
+            opacity: 0; transform: scale(0.5);
+            transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.175,0.885,0.32,1.275);
+        }
+        #go-chest-wrap.show { opacity: 1; transform: scale(1); }
+        .go-chest-body {
+            width: 180px; height: 120px;
+            background: linear-gradient(180deg,#7d3c00 0%,#4a2000 100%);
+            border: 5px solid #3e1f00; border-radius: 0 0 20px 20px;
+            position: absolute; bottom: 0; left: 0;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.6), inset 0 0 20px rgba(0,0,0,0.3);
+        }
+        .go-chest-lid {
+            width: 180px; height: 52px;
+            background: linear-gradient(180deg,#9c4400 0%,#5d2800 100%);
+            border: 5px solid #3e1f00; border-radius: 20px 20px 0 0;
+            position: absolute; top: 0; left: 0; z-index: 2;
+            transform-origin: bottom center;
+            transition: transform 0.6s cubic-bezier(0.175,0.885,0.32,1.275);
+            box-shadow: 0 -5px 15px rgba(0,0,0,0.3);
+        }
+        .go-chest-lid.open { transform: rotateX(-120deg); }
+        .go-chest-band { position: absolute; background: #f1c40f; box-shadow: 0 0 8px rgba(241,196,15,0.5); }
+        .go-band-h  { width: 100%; height: 12px; top: 50%; transform: translateY(-50%); }
+        .go-band-vl { width: 14px; height: 100%; left: 30px; top: 0; }
+        .go-band-vr { width: 14px; height: 100%; right: 30px; top: 0; }
+        .go-lid-band{ width: 100%; height: 10px; top: 50%; transform: translateY(-50%); }
+        .go-chest-lock {
+            position: absolute; width: 34px; height: 42px; background: #f1c40f;
+            border-radius: 6px; left: 50%; top: 50%; transform: translate(-50%,-50%);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4); z-index: 3;
+        }
+        .go-chest-lock::before {
+            content: ''; width: 16px; height: 16px;
+            border: 5px solid #3e2723; border-radius: 50% 50% 0 0;
+            position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+        }
+        #go-chest-coins { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); width: 0; height: 0; z-index: 3; }
+        .go-overflow-coin {
+            position: absolute; width: 30px; height: 30px; border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, #ffe066, #f1c40f 50%, #b8860b 100%);
+            border: 2px solid #8b6914; font-size: 13px;
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0;
+            animation: go-overflow-pop 0.5s ease forwards;
+            animation-delay: var(--gd, 0s);
+        }
+        @keyframes go-overflow-pop {
+            0%  { transform: translate(0,0) scale(0); opacity: 0; }
+            60% { opacity: 1; }
+            100%{ transform: translate(var(--tx,0px),var(--ty,-30px)) scale(1); opacity: 1; }
+        }
+        .go-sparkle {
+            position: fixed; pointer-events: none; font-size: 22px; z-index: 49998;
+            animation: go-sparkle-float 2s ease-out forwards;
+        }
+        @keyframes go-sparkle-float {
+            0%  { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); }
+            100%{ opacity: 0; transform: translateY(-120px) scale(0.3) rotate(360deg); }
+        }
+        .go-animal {
+            position: fixed; bottom: -80px; font-size: 55px; z-index: 49997;
+            animation: go-animal-bounce 0.8s cubic-bezier(0.175,0.885,0.32,1.275) forwards;
+        }
+        @keyframes go-animal-bounce {
+            0%  { bottom: -80px; }
+            60% { bottom: 30px; }
+            80% { bottom: 12px; }
+            100%{ bottom: 18px; }
+        }
+        #go-grass-strip {
+            position: fixed; bottom: 0; left: 0; right: 0; height: 70px;
+            background: linear-gradient(180deg,#27ae60 0%,#1e8449 50%,#196f3d 100%);
+            z-index: 4; border-top: 5px solid #2ecc71;
+        }
+        #go-grass-blades {
+            position: fixed; bottom: 60px; left: 0; right: 0; height: 35px;
+            z-index: 5; display: flex; justify-content: space-around; align-items: flex-end;
+        }
+        .go-grass-blade {
+            border-radius: 50% 50% 0 0; transform-origin: bottom center;
+            animation: go-grass-sway 2s ease-in-out infinite alternate;
+            animation-delay: var(--gd, 0s);
+        }
+        @keyframes go-grass-sway {
+            0%  { transform: rotate(-14deg) scaleX(0.9); }
+            100%{ transform: rotate(14deg) scaleX(1.1); }
+        }
+        .go-cloud {
+            position: fixed; z-index: 3; opacity: 0.8; font-size: 65px;
+            animation: go-cloud-drift linear infinite;
+        }
+        @keyframes go-cloud-drift {
+            0%  { transform: translateX(0); }
+            100%{ transform: translateX(110vw); }
+        }
+        #go-play-again {
+            position: relative; z-index: 10;
+            background: #27ae60; color: #fff;
+            font-family: 'Bubblegum Sans', cursive; font-size: 30px;
+            padding: 14px 55px; border: 5px solid #fff; border-radius: 50px;
+            cursor: pointer; margin-top: 20px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4), 0 0 30px rgba(46,204,113,0.4);
+            opacity: 0; transform: translateY(20px);
+            transition: opacity 0.5s ease, transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        #go-play-again.show { opacity: 1; transform: translateY(0); }
+        #go-play-again:hover {
+            background: #2ecc71; transform: translateY(-4px);
+            box-shadow: 0 14px 30px rgba(0,0,0,0.4), 0 0 40px rgba(46,204,113,0.6);
+        }
     </style>
 </head>
 
@@ -186,8 +395,8 @@
                 <h2>Login / Register</h2>
                 <input type="text" id="login-username" placeholder="Username">
                 <input type="password" id="login-password" placeholder="Password" onkeypress="if(event.keyCode===13) login()">
-                <button onclick="login()">Login</button>
-                <button onclick="signup()" style="background:#3498db; margin-top:10px;">Create Account</button>
+                <button onclick="login()" style="font-size:clamp(18px,4vw,24px);">Login</button>
+                <button onclick="signup()" style="background:#3498db; margin-top:10px; font-size:clamp(18px,4vw,24px);">Create Account</button>
             </div>
         </div>
 
@@ -267,6 +476,30 @@
         </div>
     </div>
 
+    <!-- ====== GAME OVER ANIMATED SCREEN ====== -->
+    <div id="gameover-screen">
+        <div id="go-grass-blades"></div>
+        <div id="go-grass-strip"></div>
+        <div id="go-title">GAME OVER<span class="exclaim">!</span></div>
+        <div id="go-coin-stage"><div id="go-coin-pile"></div></div>
+        <div id="go-score-label">COINS COLLECTED: <span id="go-score-count">0</span></div>
+        <div id="go-banner">
+            <span class="go-bl">TOTAL SCORE EARNED:</span>
+            <span class="go-bv" id="go-total-val">0</span>
+        </div>
+        <div id="go-chest-wrap">
+            <div class="go-chest-lid" id="go-chest-lid"><div class="go-chest-band go-lid-band"></div></div>
+            <div class="go-chest-body">
+                <div class="go-chest-band go-band-vl"></div>
+                <div class="go-chest-band go-band-vr"></div>
+                <div class="go-chest-band go-band-h"></div>
+                <div class="go-chest-lock"></div>
+            </div>
+            <div id="go-chest-coins"></div>
+        </div>
+        <button id="go-play-again" onclick="location.reload()">🎮 Play Again!</button>
+    </div>
+
     <div id="reveal-countdown-overlay"><div id="countdown-text">3</div></div>
     <div id="result-popup">
         <div id="popup-my-score" style="font-size:46px; color:#2ecc71;">Your: 0</div>
@@ -276,7 +509,7 @@
 
     <script>
 
-        let selectedMove = null, currentGid = null, currentUsername = null, currentUserRole = null, choiceLocked = false;
+        let selectedMove = null, currentGid = null, currentUsername = null, currentUserRole = null, choiceLocked = false, sessionTotalScore = 0;
 
         function showLoading(t) { const o=document.querySelector('#loading-overlay'); o.style.display='flex'; o.querySelector('#loading-text').textContent=t; }
         function hideLoading() { document.querySelector('#loading-overlay').style.display='none'; }
@@ -387,7 +620,32 @@
             XLSX.writeFile(workbook, `Room_${pw}_Logs.csv`);
         }
 
-        async function deleteRoom(pw) { await fetch('/delete_room', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({password: pw}) }); loadAdminRooms(); }
+        async function deleteRoom(pw) {
+            // Fix #7: styled confirmation modal instead of native confirm()
+            const confirmed = await showDeleteConfirm(pw);
+            if (!confirmed) return;
+            await fetch('/delete_room', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({password: pw}) });
+            loadAdminRooms();
+        }
+        function showDeleteConfirm(pw) {
+            return new Promise(resolve => {
+                const overlay = document.createElement('div');
+                overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:99999;display:flex;align-items:center;justify-content:center;';
+                overlay.innerHTML = `
+                    <div style="background:#1a1a2e;border:4px solid #e74c3c;border-radius:24px;padding:40px 50px;text-align:center;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.8);">
+                        <div style="font-size:52px;margin-bottom:12px;">⚠️</div>
+                        <div style="font-family:'Bubblegum Sans',cursive;font-size:24px;color:#fff;margin-bottom:8px;">Delete Room?</div>
+                        <div style="font-family:'Bubblegum Sans',cursive;font-size:18px;color:#f1c40f;margin-bottom:28px;">"${pw}"<br><span style="color:#aaa;font-size:15px;">This will permanently remove the room and all its settings.</span></div>
+                        <div style="display:flex;gap:16px;justify-content:center;">
+                            <button id="del-cancel" style="font-family:'Bubblegum Sans',cursive;font-size:20px;padding:12px 32px;background:#555;border:3px solid #888;border-radius:40px;color:#fff;cursor:pointer;">Cancel</button>
+                            <button id="del-confirm" style="font-family:'Bubblegum Sans',cursive;font-size:20px;padding:12px 32px;background:#e74c3c;border:3px solid #c0392b;border-radius:40px;color:#fff;cursor:pointer;">Yes, Delete</button>
+                        </div>
+                    </div>`;
+                document.body.appendChild(overlay);
+                overlay.querySelector('#del-cancel').onclick  = () => { overlay.remove(); resolve(false); };
+                overlay.querySelector('#del-confirm').onclick = () => { overlay.remove(); resolve(true); };
+            });
+        }
 
         async function enterRoom() { 
             const pw = document.getElementById('prison-password').value;
@@ -523,7 +781,9 @@
         async function submitChoice() { 
             if(!selectedMove || choiceLocked) return; 
             choiceLocked = true;
-            document.getElementById('submit-choice-btn').disabled = true; 
+            const btn = document.getElementById('submit-choice-btn');
+            btn.disabled = true;
+            btn.classList.add('pressed');   /* Fix #6: gray pressed state */
             document.getElementById('prison-message').textContent = 'Submitting Move...'; 
             
             try {
@@ -566,6 +826,8 @@
             clearInterval(roundPollInterval);
             
             const sequence = async () => {
+                // Accumulate the player's running total
+                sessionTotalScore += (d.my_score || 0);
                 const overlay = document.getElementById('reveal-countdown-overlay'); const text = document.getElementById('countdown-text');
                 overlay.style.display = 'flex';
                 for(let i=3; i>0; i--) { text.textContent = i; await new Promise(r => setTimeout(r, 1000)); }
@@ -588,7 +850,7 @@
                 closeAllDoors();
                 await new Promise(r => setTimeout(r, 1000));
 
-                if(d.done) { customAlert('Game Over!'); location.reload(); return; }
+                if(d.done) { showGameOver(sessionTotalScore); return; }
                 
                 // Load next round from the result data
                 if(d.next_matrix) {
@@ -597,7 +859,9 @@
                 selectedMove = null; 
                 document.getElementById('row-btn-A').classList.remove('selected'); 
                 document.getElementById('row-btn-B').classList.remove('selected');
-                document.getElementById('submit-choice-btn').disabled = true; 
+                const sbtn = document.getElementById('submit-choice-btn');
+                sbtn.disabled = true;
+                sbtn.classList.remove('pressed');  /* Fix #6: restore button for next round */
                 document.getElementById('prison-message').textContent = '';
                 openAllDoors();
                 choiceLocked = false;
@@ -607,33 +871,34 @@
 
         let floatingScores = [];
 
+        /* Fix #4: only show player's own score in bubble */
         function spawnPointBubbles(my_score, op_score) {
             const chest = document.getElementById('treasure-chest');
             const b = document.createElement('div'); 
             b.className = 'queued-point-bubble';
-            b.innerHTML = `<span style="color:#2ecc71; text-shadow:0 0 10px #2ecc71;">${my_score}</span><span style="color:#fff; margin:0 5px;">,</span><span style="color:#e74c3c; text-shadow:0 0 10px #e74c3c;">${op_score}</span>`;
-            
+            b.textContent = `+${my_score}`;
             floatingScores.push(b);
             updateChestQueue(chest);
         }
 
+        /* Fix #5: bubbles now stack upward correctly from chest top */
         function updateChestQueue(chest) {
             while (floatingScores.length > 3) {
                 const oldest = floatingScores.shift();
-                oldest.style.transform = `translate(-50%, 60px) scale(0)`;
                 oldest.style.opacity = '0';
+                oldest.style.transform = `translateX(-50%) scale(0)`;
                 setTimeout(() => { if (oldest.parentNode) oldest.remove(); }, 500);
             }
             
             floatingScores.forEach((bubble, idx) => {
-                const verticalOffset = -50 - ((floatingScores.length - 1 - idx) * 50); 
-                if (!bubble.parentNode) {
-                    chest.appendChild(bubble);
-                }
-                
+                /* idx 0 = oldest (highest), idx length-1 = newest (closest to chest) */
+                /* Each bubble sits 54px above the previous one, base is 10px above chest */
+                const upwardOffset = -(10 + idx * 54);
+                if (!bubble.parentNode) chest.appendChild(bubble);
                 requestAnimationFrame(() => {
                     bubble.style.opacity = '1';
-                    bubble.style.transform = `translate(-50%, ${verticalOffset}px) scale(1)`;
+                    bubble.style.bottom = -upwardOffset + 'px'; /* positive bottom = upward */
+                    bubble.style.transform = `translateX(-50%) scale(1)`;
                 });
             });
         }
@@ -654,6 +919,138 @@
             if(!confirm(`Are you sure you want to completely ban ${u}?`)) return;
             const res = await fetch('/ban_player', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username: u}) });
             if (res.ok) { customAlert('Player banned.'); loadAdminPlayers(); }
+        }
+
+        // =====================================================
+        // GAME OVER ANIMATION
+        // =====================================================
+        const goWait = ms => new Promise(r => setTimeout(r, ms));
+        const goRnd  = (a,b) => a + Math.random()*(b-a);
+
+        function goBuildGrass() {
+            const c = document.getElementById('go-grass-blades');
+            for(let i=0;i<90;i++){
+                const b=document.createElement('div'); b.className='go-grass-blade';
+                b.style.setProperty('--gd', goRnd(0,2)+'s');
+                b.style.height=goRnd(18,42)+'px'; b.style.width=goRnd(7,15)+'px';
+                b.style.background=`hsl(${goRnd(100,140)},60%,38%)`;  c.appendChild(b);
+            }
+        }
+        function goLaunchCloud(top,delay,dur){
+            const emojis=['☁️','⛅','🌤️'];
+            const c=document.createElement('div'); c.className='go-cloud';
+            c.textContent=emojis[Math.floor(Math.random()*emojis.length)];
+            c.style.top=top+'px'; c.style.left='-80px';
+            c.style.animationDuration=dur+'s'; c.style.animationDelay=delay+'s';
+            document.body.appendChild(c);
+            setTimeout(()=>c.remove(),(delay+dur+1)*1000);
+        }
+        function goStartClouds(){
+            [0,40,80,20,60].forEach((top,i)=>goLaunchCloud(top,i*3.5,goRnd(18,28)));
+        }
+        function goSpawnSparkles(x,y,n){
+            const em=['✨','⭐','💛','🌟','💫'];
+            for(let i=0;i<n;i++){
+                const s=document.createElement('div'); s.className='go-sparkle';
+                s.textContent=em[Math.floor(Math.random()*em.length)];
+                s.style.left=(x+goRnd(-40,40))+'px'; s.style.top=(y+goRnd(-30,10))+'px';
+                s.style.animationDelay=goRnd(0,0.4)+'s';
+                document.body.appendChild(s); setTimeout(()=>s.remove(),2500);
+            }
+        }
+        function goSpawnFlyingCoin(pileEl,onLand){
+            const coin=document.createElement('div'); coin.className='go-flying-coin';
+            coin.textContent='🪙';
+            const sx=goRnd(window.innerWidth*0.05,window.innerWidth*0.95), sy=goRnd(-80,20);
+            coin.style.left=sx+'px'; coin.style.top=sy+'px';
+            document.body.appendChild(coin);
+            const rect=pileEl.getBoundingClientRect();
+            const tx=rect.left+rect.width/2-26, ty=rect.bottom-52;
+            const cpx=(sx+tx)/2+goRnd(-100,100), cpy=Math.min(sy,ty)-goRnd(80,200);
+            const dur=goRnd(480,900), t0=performance.now();
+            const frame=now=>{
+                const t=Math.min((now-t0)/dur,1);
+                coin.style.left=((1-t)*(1-t)*sx+2*(1-t)*t*cpx+t*t*tx)+'px';
+                coin.style.top =((1-t)*(1-t)*sy+2*(1-t)*t*cpy+t*t*ty)+'px';
+                if(t<1) requestAnimationFrame(frame);
+                else{ coin.remove(); goSpawnSparkles(tx+26,ty+26,3); onLand(); }
+            };
+            requestAnimationFrame(frame);
+        }
+        async function goCoinSequence(total,pileEl,countEl){
+            const visual=Math.min(total,36); let landed=0;
+            for(let i=0;i<visual;i++){
+                await goWait(goRnd(55,155));
+                goSpawnFlyingCoin(pileEl,()=>{ pileEl.appendChild(Object.assign(document.createElement('div'),{className:'go-pile-coin',textContent:'🪙'})); landed++; countEl.textContent=Math.round((landed/visual)*total); });
+            }
+            await goWait(1100); countEl.textContent=total;
+        }
+        async function goCoinsIntoChest(pileEl,chestEl,lidEl,coinsEl){
+            lidEl.classList.add('open'); await goWait(550);
+            const coins=Array.from(pileEl.querySelectorAll('.go-pile-coin'));
+            const cr=chestEl.getBoundingClientRect(), cx=cr.left+cr.width/2, cy=cr.top+10;
+            for(let i=coins.length-1;i>=0;i--){
+                const pc=coins[i], pr=pc.getBoundingClientRect(); pc.remove();
+                const cl=document.createElement('div'); cl.className='go-flying-coin'; cl.textContent='🪙';
+                cl.style.left=pr.left+'px'; cl.style.top=pr.top+'px'; cl.style.width='40px'; cl.style.height='40px'; cl.style.fontSize='17px';
+                document.body.appendChild(cl);
+                const sx=pr.left,sy=pr.top,tx=cx-20,ty=cy,dur=goRnd(280,560),t0=performance.now();
+                const cpx=(sx+tx)/2+goRnd(-60,60),cpy=Math.min(sy,ty)-goRnd(30,100);
+                (function go(){
+                    const now=performance.now(),t=Math.min((now-t0)/dur,1);
+                    cl.style.left=((1-t)*(1-t)*sx+2*(1-t)*t*cpx+t*t*tx)+'px';
+                    cl.style.top =((1-t)*(1-t)*sy+2*(1-t)*t*cpy+t*t*ty)+'px';
+                    cl.style.opacity=String(1-t*0.8);
+                    if(t<1) requestAnimationFrame(go); else cl.remove();
+                })();
+                await goWait(goRnd(35,80));
+            }
+            await goWait(600);
+            ['🪙','💛','⭐','🪙','🌟','🪙','💫','🪙'].forEach((e,i)=>{
+                const oc=document.createElement('div'); oc.className='go-overflow-coin'; oc.textContent=e;
+                const a=goRnd(-60,60)*Math.PI/180,d=goRnd(30,90);
+                oc.style.setProperty('--tx',Math.sin(a)*d+'px'); oc.style.setProperty('--ty',(-Math.cos(a)*d-20)+'px');
+                oc.style.setProperty('--gd',(i*0.07)+'s'); oc.style.left=goRnd(-15,15)+'px'; oc.style.top='0px';
+                coinsEl.appendChild(oc);
+            });
+            chestEl.animate([{transform:'scale(1) rotate(0deg)'},{transform:'scale(1.14) rotate(-5deg)'},{transform:'scale(1.14) rotate(5deg)'},{transform:'scale(1.08) rotate(-2deg)'},{transform:'scale(1) rotate(0deg)'}],{duration:550,easing:'ease-out'});
+            await goWait(650); lidEl.classList.remove('open');
+        }
+        function goSummonAnimals(){
+            ['🐇','🦔','🦋','🐿️','🐢'].forEach((a,i)=>{
+                const el=document.createElement('div'); el.className='go-animal';
+                el.textContent=a; el.style.left=(8+i*18)+'vw';
+                el.style.animationDelay=(i*0.14)+'s'; document.body.appendChild(el);
+            });
+        }
+        async function showGameOver(score){
+            score = score || 0;
+            goBuildGrass(); goStartClouds();
+            const screen=document.getElementById('gameover-screen');
+            screen.classList.add('go-active');
+            await goWait(300);
+            document.getElementById('go-title').classList.add('show');
+            goSpawnSparkles(window.innerWidth/2,window.innerHeight*0.18,10);
+            await goWait(900);
+            const pileEl  =document.getElementById('go-coin-pile');
+            const countEl =document.getElementById('go-score-count');
+            document.getElementById('go-score-label').classList.add('show');
+            await goCoinSequence(score,pileEl,countEl);
+            await goWait(350);
+            document.getElementById('go-total-val').textContent=score;
+            document.getElementById('go-banner').classList.add('show');
+            goSpawnSparkles(window.innerWidth/2,window.innerHeight*0.55,12);
+            await goWait(1100);
+            const chestEl =document.getElementById('go-chest-wrap');
+            const lidEl   =document.getElementById('go-chest-lid');
+            const coinsEl =document.getElementById('go-chest-coins');
+            chestEl.classList.add('show');
+            await goWait(650);
+            await goCoinsIntoChest(pileEl,chestEl,lidEl,coinsEl);
+            goSpawnSparkles(window.innerWidth/2,window.innerHeight*0.65,16);
+            goSummonAnimals();
+            await goWait(500);
+            document.getElementById('go-play-again').classList.add('show');
         }
     </script>
 </body>

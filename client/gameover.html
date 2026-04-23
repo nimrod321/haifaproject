@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Game Over - Dilemma Street</title>
+<link href="https://fonts.googleapis.com/css2?family=Bubblegum+Sans&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Bubblegum Sans', cursive;
+    overflow: hidden;
+    background: #5ec8f0;
+  }
+
+  /* ========== GAME OVER OVERLAY ========== */
+  #gameover-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-image: url('bg.png');
+    background-size: cover;
+    background-position: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.8s ease;
+  }
+  #gameover-screen.active {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  /* Gentle green overlay to match nature theme */
+  #gameover-screen::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      180deg,
+      rgba(10, 60, 10, 0.12) 0%,
+      rgba(30, 100, 30, 0.22) 60%,
+      rgba(10, 60, 10, 0.50) 100%
+    );
+    z-index: 0;
+  }
+
+  /* ========== GAME OVER TITLE ========== */
+  #gameover-title {
+    position: relative;
+    z-index: 10;
+    font-size: 100px;
+    color: #fff;
+    text-shadow:
+      0 0 20px rgba(255,80,80,0.9),
+      0 0 40px rgba(255,80,80,0.5),
+      5px 5px 0 #8b0000,
+      3px 3px 0 #c0392b;
+    opacity: 0;
+    transform: scale(0.2) rotate(-10deg);
+    transition: transform 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.5s ease;
+    margin-bottom: 10px;
+    letter-spacing: 4px;
+  }
+  #gameover-title.show {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+  #gameover-title .exclaim {
+    color: #f1c40f;
+    text-shadow:
+      0 0 20px rgba(255,200,0,0.9),
+      5px 5px 0 #8b6914;
+  }
+
+  /* ========== COIN STAGE ========== */
+  #coin-stage {
+    position: relative;
+    z-index: 10;
+    width: 600px;
+    height: 230px;
+    margin: 0 auto;
+  }
+
+  #coin-pile {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 280px;
+    display: flex;
+    flex-wrap: wrap-reverse;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 3px;
+  }
+
+  .pile-coin {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #ffe066, #f1c40f 50%, #b8860b 100%);
+    border: 3px solid #8b6914;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    flex-shrink: 0;
+    animation: pile-land 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  @keyframes pile-land {
+    0% { transform: scaleX(0.5) scaleY(0.1); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* Flying coins */
+  .flying-coin {
+    position: fixed;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #ffe066, #f1c40f 50%, #b8860b 100%);
+    border: 3px solid #8b6914;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5), inset 0 2px 5px rgba(255,255,255,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    color: #8b6914;
+    z-index: 9998;
+    pointer-events: none;
+    animation: coin-spin 0.35s linear infinite;
+  }
+  @keyframes coin-spin {
+    0%   { transform: scaleX(1);   }
+    25%  { transform: scaleX(0.15); }
+    50%  { transform: scaleX(1);   }
+    75%  { transform: scaleX(0.15); }
+    100% { transform: scaleX(1);   }
+  }
+
+  /* ========== SCORE LABEL ========== */
+  #score-label {
+    position: relative;
+    z-index: 10;
+    font-size: 42px;
+    color: #f1c40f;
+    text-shadow: 3px 3px 0 #8b6914, 0 0 20px rgba(255,200,0,0.8);
+    margin-top: 6px;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+  #score-label.show { opacity: 1; transform: translateY(0); }
+  #score-count {
+    color: #fff;
+    text-shadow: 3px 3px 0 #27ae60, 0 0 20px rgba(46,204,113,0.8);
+  }
+
+  /* ========== TOTAL SCORE BANNER ========== */
+  #total-score-banner {
+    position: relative;
+    z-index: 10;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(10px);
+    border: 5px solid #f1c40f;
+    border-radius: 30px;
+    padding: 16px 50px;
+    margin-top: 14px;
+    opacity: 0;
+    transform: scale(0.5);
+    transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 0 40px rgba(241,196,15,0.5), 0 20px 40px rgba(0,0,0,0.5);
+  }
+  #total-score-banner.show { opacity: 1; transform: scale(1); }
+  #total-score-banner .label {
+    font-size: 28px;
+    color: #ddd;
+    display: block;
+    margin-bottom: 4px;
+  }
+  #total-score-banner .value {
+    font-size: 72px;
+    color: #f1c40f;
+    text-shadow: 4px 4px 0 #8b6914, 0 0 30px rgba(255,200,0,0.8);
+    display: block;
+  }
+
+  /* ========== TREASURE CHEST ========== */
+  #end-chest-container {
+    position: relative;
+    z-index: 10;
+    width: 180px;
+    height: 160px;
+    margin-top: 20px;
+    opacity: 0;
+    transform: scale(0.5);
+    transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  #end-chest-container.show { opacity: 1; transform: scale(1); }
+
+  .end-chest-body {
+    width: 180px;
+    height: 120px;
+    background: linear-gradient(180deg, #7d3c00 0%, #4a2000 100%);
+    border: 5px solid #3e1f00;
+    border-radius: 0 0 20px 20px;
+    position: absolute;
+    bottom: 0; left: 0;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.6), inset 0 0 20px rgba(0,0,0,0.3);
+  }
+  .end-chest-lid {
+    width: 180px;
+    height: 52px;
+    background: linear-gradient(180deg, #9c4400 0%, #5d2800 100%);
+    border: 5px solid #3e1f00;
+    border-radius: 20px 20px 0 0;
+    position: absolute;
+    top: 0; left: 0;
+    z-index: 2;
+    transform-origin: bottom center;
+    transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 -5px 15px rgba(0,0,0,0.3);
+  }
+  .end-chest-lid.open { transform: rotateX(-120deg); }
+
+  .end-chest-band {
+    position: absolute;
+    background: #f1c40f;
+    box-shadow: 0 0 8px rgba(241,196,15,0.5);
+  }
+  .band-h { width: 100%; height: 12px; top: 50%; transform: translateY(-50%); }
+  .band-vl { width: 14px; height: 100%; left: 30px; top: 0; }
+  .band-vr { width: 14px; height: 100%; right: 30px; top: 0; }
+  .lid-band { width: 100%; height: 10px; top: 50%; transform: translateY(-50%); }
+
+  .end-chest-lock {
+    position: absolute;
+    width: 34px; height: 42px;
+    background: #f1c40f;
+    border-radius: 6px;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    z-index: 3;
+  }
+  .end-chest-lock::before {
+    content: '';
+    width: 16px; height: 16px;
+    border: 5px solid #3e2723;
+    border-radius: 50% 50% 0 0;
+    position: absolute;
+    top: -10px; left: 50%; transform: translateX(-50%);
+  }
+
+  #chest-coins {
+    position: absolute;
+    top: 15px; left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    z-index: 3;
+  }
+  .chest-overflow-coin {
+    position: absolute;
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #ffe066, #f1c40f 50%, #b8860b 100%);
+    border: 2px solid #8b6914;
+    font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0;
+    animation: overflow-pop 0.5s ease forwards;
+    animation-delay: var(--delay, 0s);
+  }
+  @keyframes overflow-pop {
+    0% { transform: translate(0, 0) scale(0); opacity: 0; }
+    60% { opacity: 1; }
+    100% { transform: translate(var(--tx, 0px), var(--ty, -30px)) scale(1); opacity: 1; }
+  }
+
+  /* ========== SPARKLES ========== */
+  .sparkle {
+    position: fixed;
+    pointer-events: none;
+    font-size: 22px;
+    z-index: 9997;
+    animation: sparkle-float 2s ease-out forwards;
+  }
+  @keyframes sparkle-float {
+    0% { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); }
+    100% { opacity: 0; transform: translateY(-120px) scale(0.3) rotate(360deg); }
+  }
+
+  /* ========== BOUNCING ANIMALS ========== */
+  .bounce-animal {
+    position: fixed;
+    bottom: -80px;
+    font-size: 55px;
+    z-index: 9996;
+    animation: animal-bounce 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  }
+  @keyframes animal-bounce {
+    0% { bottom: -80px; }
+    60% { bottom: 30px; }
+    80% { bottom: 12px; }
+    100% { bottom: 18px; }
+  }
+
+  /* ========== GRASS STRIP ========== */
+  #grass-strip {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 70px;
+    background: linear-gradient(180deg, #27ae60 0%, #1e8449 50%, #196f3d 100%);
+    z-index: 4;
+    border-top: 5px solid #2ecc71;
+  }
+  #grass-blades {
+    position: fixed;
+    bottom: 60px; left: 0; right: 0;
+    height: 35px;
+    z-index: 5;
+    display: flex;
+    justify-content: space-around;
+    align-items: flex-end;
+  }
+  .grass-blade {
+    border-radius: 50% 50% 0 0;
+    transform-origin: bottom center;
+    animation: grass-sway 2s ease-in-out infinite alternate;
+    animation-delay: var(--gd, 0s);
+  }
+  @keyframes grass-sway {
+    0% { transform: rotate(-14deg) scaleX(0.9); }
+    100% { transform: rotate(14deg) scaleX(1.1); }
+  }
+
+  /* ========== CLOUDS ========== */
+  .cloud-deco {
+    position: fixed;
+    z-index: 3;
+    opacity: 0.8;
+    font-size: 65px;
+    animation: cloud-drift linear infinite;
+  }
+  @keyframes cloud-drift {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(110vw); }
+  }
+
+  /* ========== PLAY AGAIN ========== */
+  #play-again-btn {
+    position: relative;
+    z-index: 10;
+    background: #27ae60;
+    color: #fff;
+    font-family: 'Bubblegum Sans', cursive;
+    font-size: 30px;
+    padding: 14px 55px;
+    border: 5px solid #fff;
+    border-radius: 50px;
+    cursor: pointer;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4), 0 0 30px rgba(46,204,113,0.4);
+    margin-top: 22px;
+    opacity: 0;
+    transition: opacity 0.5s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    transform: translateY(20px);
+  }
+  #play-again-btn.show { opacity: 1; transform: translateY(0); }
+  #play-again-btn:hover {
+    background: #2ecc71;
+    transform: translateY(-4px);
+    box-shadow: 0 14px 30px rgba(0,0,0,0.4), 0 0 40px rgba(46,204,113,0.6);
+  }
+</style>
+</head>
+<body>
+
+<div id="gameover-screen">
+
+  <div id="grass-blades"></div>
+  <div id="grass-strip"></div>
+
+  <div id="gameover-title">GAME OVER<span class="exclaim">!</span></div>
+
+  <div id="coin-stage">
+    <div id="coin-pile"></div>
+  </div>
+
+  <div id="score-label">COINS COLLECTED: <span id="score-count">0</span></div>
+
+  <div id="total-score-banner">
+    <span class="label">TOTAL SCORE EARNED:</span>
+    <span class="value" id="total-score-value">0</span>
+  </div>
+
+  <div id="end-chest-container">
+    <div class="end-chest-lid" id="chest-lid">
+      <div class="end-chest-band lid-band"></div>
+    </div>
+    <div class="end-chest-body">
+      <div class="end-chest-band band-vl"></div>
+      <div class="end-chest-band band-vr"></div>
+      <div class="end-chest-band band-h"></div>
+      <div class="end-chest-lock"></div>
+    </div>
+    <div id="chest-coins"></div>
+  </div>
+
+  <button id="play-again-btn" onclick="location.reload()">Play Again!</button>
+</div>
+
+<script>
+// ============================================================
+// CONFIG  ← change PLAYER_SESSION_SCORE when integrating
+// ============================================================
+const PLAYER_SESSION_SCORE = 47;
+const DEMO_MODE = true;
+
+// ============================================================
+// HELPERS
+// ============================================================
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const rnd  = (a, b) => a + Math.random() * (b - a);
+
+// ============================================================
+// GRASS BLADES
+// ============================================================
+function buildGrass() {
+  const c = document.getElementById('grass-blades');
+  for (let i = 0; i < 90; i++) {
+    const b = document.createElement('div');
+    b.className = 'grass-blade';
+    b.style.setProperty('--gd', rnd(0, 2) + 's');
+    b.style.height = rnd(18, 42) + 'px';
+    b.style.width  = rnd(7, 15) + 'px';
+    b.style.background = `hsl(${rnd(100, 140)}, 60%, 38%)`;
+    c.appendChild(b);
+  }
+}
+
+// ============================================================
+// CLOUDS
+// ============================================================
+function launchCloud(top, delay, dur) {
+  const emojis = ['☁️', '⛅', '🌤️'];
+  const c = document.createElement('div');
+  c.className = 'cloud-deco';
+  c.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+  c.style.top = top + 'px';
+  c.style.left = '-80px';
+  c.style.animationDuration = dur + 's';
+  c.style.animationDelay = delay + 's';
+  document.body.appendChild(c);
+  setTimeout(() => c.remove(), (delay + dur + 1) * 1000);
+}
+function startClouds() {
+  [0, 40, 80, 20, 60].forEach((top, i) =>
+    launchCloud(top, i * 3.5, rnd(18, 28))
+  );
+}
+
+// ============================================================
+// SPARKLES
+// ============================================================
+function spawnSparkles(x, y, n = 5) {
+  const emojis = ['✨','⭐','💛','🌟','💫'];
+  for (let i = 0; i < n; i++) {
+    const s = document.createElement('div');
+    s.className = 'sparkle';
+    s.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    s.style.left = (x + rnd(-40, 40)) + 'px';
+    s.style.top  = (y + rnd(-30,  10)) + 'px';
+    s.style.animationDelay = rnd(0, 0.4) + 's';
+    document.body.appendChild(s);
+    setTimeout(() => s.remove(), 2500);
+  }
+}
+
+// ============================================================
+// FLY A SINGLE COIN → PILE  (quadratic bezier)
+// ============================================================
+function spawnFlyingCoin(pileEl, onLand) {
+  const coin = document.createElement('div');
+  coin.className = 'flying-coin';
+  coin.textContent = '🪙';
+
+  const sx = rnd(window.innerWidth * 0.05, window.innerWidth * 0.95);
+  const sy = rnd(-80, 20);
+  coin.style.left = sx + 'px';
+  coin.style.top  = sy + 'px';
+  document.body.appendChild(coin);
+
+  const rect = pileEl.getBoundingClientRect();
+  const tx = rect.left + rect.width  / 2 - 26;
+  const ty = rect.bottom - 52;
+
+  const cpx = (sx + tx) / 2 + rnd(-100, 100);
+  const cpy = Math.min(sy, ty) - rnd(80, 200);
+  const dur = rnd(480, 900);
+  const t0  = performance.now();
+
+  const frame = now => {
+    const t = Math.min((now - t0) / dur, 1);
+    coin.style.left = ((1-t)*(1-t)*sx + 2*(1-t)*t*cpx + t*t*tx) + 'px';
+    coin.style.top  = ((1-t)*(1-t)*sy + 2*(1-t)*t*cpy + t*t*ty) + 'px';
+    if (t < 1) requestAnimationFrame(frame);
+    else { coin.remove(); spawnSparkles(tx + 26, ty + 26, 3); onLand(); }
+  };
+  requestAnimationFrame(frame);
+}
+
+// ============================================================
+// ADD COIN TO PILE
+// ============================================================
+function addCoinToPile(pileEl) {
+  const c = document.createElement('div');
+  c.className = 'pile-coin';
+  c.textContent = '🪙';
+  pileEl.appendChild(c);
+}
+
+// ============================================================
+// COIN SEQUENCE  (slot-machine style rain → pile)
+// ============================================================
+async function runCoinSequence(total, pileEl, countEl) {
+  // Limit visual coins to 36 for perf; still show correct count
+  const visual = Math.min(total, 36);
+  let landed = 0;
+
+  for (let i = 0; i < visual; i++) {
+    await wait(rnd(55, 155));
+    spawnFlyingCoin(pileEl, () => {
+      addCoinToPile(pileEl);
+      landed++;
+      // Scale displayed count proportionally if we capped visuals
+      countEl.textContent = Math.round((landed / visual) * total);
+    });
+  }
+  await wait(1100);
+  countEl.textContent = total;
+}
+
+// ============================================================
+// COINS INTO CHEST
+// ============================================================
+async function animateCoinsIntoChest(pileEl, chestEl, lidEl, coinsEl) {
+  lidEl.classList.add('open');
+  await wait(550);
+
+  const coins = Array.from(pileEl.querySelectorAll('.pile-coin'));
+  const cr = chestEl.getBoundingClientRect();
+  const cx = cr.left + cr.width / 2;
+  const cy = cr.top + 10;
+
+  for (let i = coins.length - 1; i >= 0; i--) {
+    const pc = coins[i];
+    const pr = pc.getBoundingClientRect();
+    pc.remove();
+
+    const clone = document.createElement('div');
+    clone.className = 'flying-coin';
+    clone.textContent = '🪙';
+    clone.style.left = pr.left + 'px';
+    clone.style.top  = pr.top  + 'px';
+    clone.style.width  = '40px';
+    clone.style.height = '40px';
+    clone.style.fontSize = '17px';
+    document.body.appendChild(clone);
+
+    const sx = pr.left, sy = pr.top;
+    const tx = cx - 20,  ty = cy;
+    const dur = rnd(280, 560);
+    const t0  = performance.now();
+    const cpx = (sx + tx) / 2 + rnd(-60, 60);
+    const cpy = Math.min(sy, ty) - rnd(30, 100);
+
+    (function go() {
+      const now = performance.now();
+      const t = Math.min((now - t0) / dur, 1);
+      clone.style.left    = ((1-t)*(1-t)*sx + 2*(1-t)*t*cpx + t*t*tx) + 'px';
+      clone.style.top     = ((1-t)*(1-t)*sy + 2*(1-t)*t*cpy + t*t*ty) + 'px';
+      clone.style.opacity = String(1 - t * 0.8);
+      if (t < 1) requestAnimationFrame(go); else clone.remove();
+    })();
+
+    await wait(rnd(35, 80));
+  }
+
+  await wait(600);
+
+  // Overflow sparkle coins
+  ['🪙','💛','⭐','🪙','🌟','🪙','💫','🪙'].forEach((e, i) => {
+    const oc = document.createElement('div');
+    oc.className = 'chest-overflow-coin';
+    oc.textContent = e;
+    const a = rnd(-60, 60) * Math.PI / 180;
+    const d = rnd(30, 90);
+    oc.style.setProperty('--tx', Math.sin(a) * d + 'px');
+    oc.style.setProperty('--ty', (-Math.cos(a) * d - 20) + 'px');
+    oc.style.setProperty('--delay', (i * 0.07) + 's');
+    oc.style.left = rnd(-15, 15) + 'px';
+    oc.style.top  = '0px';
+    coinsEl.appendChild(oc);
+  });
+
+  chestEl.animate([
+    { transform: 'scale(1) rotate(0deg)' },
+    { transform: 'scale(1.14) rotate(-5deg)' },
+    { transform: 'scale(1.14) rotate(5deg)' },
+    { transform: 'scale(1.08) rotate(-2deg)' },
+    { transform: 'scale(1) rotate(0deg)' },
+  ], { duration: 550, easing: 'ease-out' });
+
+  await wait(650);
+  lidEl.classList.remove('open');
+}
+
+// ============================================================
+// ANIMALS
+// ============================================================
+function summonAnimals() {
+  ['🐇','🦔','🦋','🐿️','🐢'].forEach((a, i) => {
+    const el = document.createElement('div');
+    el.className = 'bounce-animal';
+    el.textContent = a;
+    el.style.left  = (8 + i * 18) + 'vw';
+    el.style.animationDelay = (i * 0.14) + 's';
+    document.body.appendChild(el);
+  });
+}
+
+// ============================================================
+// MAIN SEQUENCE
+// ============================================================
+async function runGameOverSequence(score) {
+  buildGrass();
+  startClouds();
+
+  const screen = document.getElementById('gameover-screen');
+  screen.classList.add('active');
+
+  // ① Title pop-in
+  await wait(300);
+  document.getElementById('gameover-title').classList.add('show');
+  spawnSparkles(window.innerWidth / 2, window.innerHeight * 0.18, 10);
+  await wait(900);
+
+  // ② Coin rain → pile
+  const pileEl    = document.getElementById('coin-pile');
+  const countEl   = document.getElementById('score-count');
+  document.getElementById('score-label').classList.add('show');
+  await runCoinSequence(score, pileEl, countEl);
+  await wait(350);
+
+  // ③ Total score banner
+  document.getElementById('total-score-value').textContent = score;
+  document.getElementById('total-score-banner').classList.add('show');
+  spawnSparkles(window.innerWidth / 2, window.innerHeight * 0.55, 12);
+  await wait(1100);
+
+  // ④ Chest appears
+  const chestEl  = document.getElementById('end-chest-container');
+  const lidEl    = document.getElementById('chest-lid');
+  const coinsEl  = document.getElementById('chest-coins');
+  chestEl.classList.add('show');
+  await wait(650);
+
+  // ⑤ Coins fly into chest
+  await animateCoinsIntoChest(pileEl, chestEl, lidEl, coinsEl);
+
+  // ⑥ Celebration
+  spawnSparkles(window.innerWidth / 2, window.innerHeight * 0.65, 16);
+  summonAnimals();
+
+  // ⑦ Play again
+  await wait(500);
+  document.getElementById('play-again-btn').classList.add('show');
+}
+
+// ============================================================
+// AUTO-START (demo mode) + integration hook
+// ============================================================
+if (DEMO_MODE) {
+  window.addEventListener('load', () => runGameOverSequence(PLAYER_SESSION_SCORE));
+}
+
+// Integrate in index.html with:
+//   window.showGameOver(totalScore)
+window.showGameOver = score => runGameOverSequence(score);
+</script>
+</body>
+</html>
