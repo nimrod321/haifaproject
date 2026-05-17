@@ -131,42 +131,25 @@
         .bot-selection { background: rgba(0,0,0,0.4); padding: 15px; border-radius: 15px; text-align: left; margin: 10px 0; font-size: 14px; }
         .bot-line { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
 
-        /* PURPLE MAGICAL CHEST — Fix #3: bigger */
-        .chest-float { position: fixed; bottom: 30px; left: 20px; width: 190px; height: 160px; z-index: 1000; }
-        .magical-chest {
-            width: 100%; height: 100%; background: #8e44ad; border: 4px solid #f1c40f;
-            border-radius: 15px 15px 10px 10px; position: relative;
-            box-shadow: 0 15px 40px rgba(0,0,0,0.9), inset 0 0 30px rgba(0,0,0,0.5);
-        }
-        .chest-band { position: absolute; width: 15px; height: 100%; background: #f1c40f; top: 0; box-shadow: 2px 0 5px rgba(0,0,0,0.3); }
-        .band-left { left: 25px; }
-        .band-right { right: 25px; }
-        .chest-lock-logo {
-            position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
-            width: 40px; height: 50px; background: #f1c40f; border-radius: 5px;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .chest-lock-logo::after {
-            content: ''; width: 8px; height: 12px; background: #333; border-radius: 50% 50% 0 0; position: relative; top: -5px;
-        }
+        /* IN-GAME CHEST — uses chest.png */
+        .chest-float { position: fixed; bottom: 30px; left: 20px; width: 190px; z-index: 1000; }
+        .chest-float img { width: 100%; height: auto; filter: drop-shadow(0 10px 30px rgba(241,196,15,0.5)) drop-shadow(0 15px 40px rgba(0,0,0,0.8)); }
 
-        /* Fix #4 & #5: player-score-only bubble, stacks upward from chest top */
+        /* Score bubbles: coin image + points, stack ABOVE chest */
         .queued-point-bubble {
-            padding: 6px 22px; border-radius: 30px;
-            background: rgba(0,0,0,0.7); backdrop-filter: blur(10px);
-            border: 2px solid #f1c40f; 
+            display: flex; align-items: center; gap: 8px;
+            padding: 5px 18px 5px 5px; border-radius: 30px;
+            background: rgba(0,0,0,0.75); backdrop-filter: blur(10px);
+            border: 2px solid #f1c40f;
             color: #2ecc71; font-weight: bold; font-size: 24px;
-            display: flex; align-items: center; justify-content: center;
             position: absolute; left: 50%;
-            bottom: 100%;             /* anchor at top of chest, grow upward */
+            bottom: 100%;
             transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            box-shadow: 0 0 15px rgba(241, 196, 15, 0.5);
-            opacity: 0;
-            transform: translateX(-50%) scale(0);
-            z-index: 200;
-            white-space: nowrap;
-            text-shadow: 0 0 10px #2ecc71;
+            box-shadow: 0 0 15px rgba(241,196,15,0.5);
+            opacity: 0; transform: translateX(-50%) scale(0);
+            z-index: 1200; white-space: nowrap; text-shadow: 0 0 10px #2ecc71;
         }
+        .bubble-coin-img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
 
 
         #reveal-countdown-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 2500; display: none; align-items: center; justify-content: center; pointer-events: none; }
@@ -216,30 +199,38 @@
             width: 280px; display: flex; flex-wrap: wrap-reverse; align-items: flex-end;
             justify-content: center; gap: 3px;
         }
+        /* Game-over pile coins — use coin.png */
         .go-pile-coin {
             width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
-            background: radial-gradient(circle at 35% 35%, #ffe066, #f1c40f 50%, #b8860b 100%);
-            border: 3px solid #8b6914;
-            box-shadow: 0 3px 8px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.4);
-            display: flex; align-items: center; justify-content: center; font-size: 16px;
+            background-image: url('coin.png'); background-size: cover; background-position: center;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.5);
             animation: go-pile-land 0.3s cubic-bezier(0.175,0.885,0.32,1.275);
         }
         @keyframes go-pile-land {
             0%  { transform: scaleX(0.5) scaleY(0.1); opacity: 0; }
             100%{ transform: scale(1); opacity: 1; }
         }
+        /* Game-over flying coins — use coin.png, slot-machine spin */
         .go-flying-coin {
             position: fixed; width: 52px; height: 52px; border-radius: 50%;
-            background: radial-gradient(circle at 35% 35%, #ffe066, #f1c40f 50%, #b8860b 100%);
-            border: 3px solid #8b6914;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5), inset 0 2px 5px rgba(255,255,255,0.5);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 22px; z-index: 49999; pointer-events: none;
-            animation: go-coin-spin 0.35s linear infinite;
+            background-image: url('coin.png'); background-size: cover; background-position: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            z-index: 49999; pointer-events: none;
+            animation: go-coin-spin 0.3s linear infinite;
         }
         @keyframes go-coin-spin {
             0%,50%,100% { transform: scaleX(1); }
-            25%,75%     { transform: scaleX(0.15); }
+            25%,75%     { transform: scaleX(0.08); }
+        }
+        /* Slot machine border flash */
+        #gameover-screen.go-active {
+            animation: slot-flash 0.2s linear infinite;
+        }
+        @keyframes slot-flash {
+            0%  { box-shadow: inset 0 0 0 14px #f1c40f; }
+            33% { box-shadow: inset 0 0 0 14px #e74c3c; }
+            66% { box-shadow: inset 0 0 0 14px #2ecc71; }
+            100%{ box-shadow: inset 0 0 0 14px #f1c40f; }
         }
         #go-score-label {
             position: relative; z-index: 10; font-size: 42px;
@@ -264,51 +255,27 @@
             font-size: 72px; color: #f1c40f;
             text-shadow: 4px 4px 0 #8b6914, 0 0 30px rgba(255,200,0,0.8); display: block;
         }
+        /* Game-over chest — uses chest.png */
         #go-chest-wrap {
             position: relative; z-index: 10;
-            width: 180px; height: 160px; margin-top: 18px;
+            width: 240px; margin-top: 18px;
             opacity: 0; transform: scale(0.5);
-            transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.175,0.885,0.32,1.275);
+            transition: opacity 0.5s ease, transform 0.6s cubic-bezier(0.175,0.885,0.32,1.275);
         }
         #go-chest-wrap.show { opacity: 1; transform: scale(1); }
-        .go-chest-body {
-            width: 180px; height: 120px;
-            background: linear-gradient(180deg,#7d3c00 0%,#4a2000 100%);
-            border: 5px solid #3e1f00; border-radius: 0 0 20px 20px;
-            position: absolute; bottom: 0; left: 0;
-            box-shadow: 0 15px 40px rgba(0,0,0,0.6), inset 0 0 20px rgba(0,0,0,0.3);
+        #go-chest-img {
+            width: 240px; height: auto;
+            filter: drop-shadow(0 10px 30px rgba(241,196,15,0.6)) drop-shadow(0 20px 40px rgba(0,0,0,0.8));
         }
-        .go-chest-lid {
-            width: 180px; height: 52px;
-            background: linear-gradient(180deg,#9c4400 0%,#5d2800 100%);
-            border: 5px solid #3e1f00; border-radius: 20px 20px 0 0;
-            position: absolute; top: 0; left: 0; z-index: 2;
-            transform-origin: bottom center;
-            transition: transform 0.6s cubic-bezier(0.175,0.885,0.32,1.275);
-            box-shadow: 0 -5px 15px rgba(0,0,0,0.3);
+        /* Coins stream ABOVE chest into opening */
+        #go-chest-coins {
+            position: absolute; top: -10px; left: 50%;
+            transform: translateX(-50%);
+            width: 0; height: 0; z-index: 3;
         }
-        .go-chest-lid.open { transform: rotateX(-120deg); }
-        .go-chest-band { position: absolute; background: #f1c40f; box-shadow: 0 0 8px rgba(241,196,15,0.5); }
-        .go-band-h  { width: 100%; height: 12px; top: 50%; transform: translateY(-50%); }
-        .go-band-vl { width: 14px; height: 100%; left: 30px; top: 0; }
-        .go-band-vr { width: 14px; height: 100%; right: 30px; top: 0; }
-        .go-lid-band{ width: 100%; height: 10px; top: 50%; transform: translateY(-50%); }
-        .go-chest-lock {
-            position: absolute; width: 34px; height: 42px; background: #f1c40f;
-            border-radius: 6px; left: 50%; top: 50%; transform: translate(-50%,-50%);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.4); z-index: 3;
-        }
-        .go-chest-lock::before {
-            content: ''; width: 16px; height: 16px;
-            border: 5px solid #3e2723; border-radius: 50% 50% 0 0;
-            position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
-        }
-        #go-chest-coins { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); width: 0; height: 0; z-index: 3; }
         .go-overflow-coin {
-            position: absolute; width: 30px; height: 30px; border-radius: 50%;
-            background: radial-gradient(circle at 35% 35%, #ffe066, #f1c40f 50%, #b8860b 100%);
-            border: 2px solid #8b6914; font-size: 13px;
-            display: flex; align-items: center; justify-content: center;
+            position: absolute; width: 32px; height: 32px; border-radius: 50%;
+            background-image: url('coin.png'); background-size: cover; background-position: center;
             opacity: 0;
             animation: go-overflow-pop 0.5s ease forwards;
             animation-delay: var(--gd, 0s);
@@ -466,12 +433,7 @@
                 <div id="prison-message" style="margin-top:15px; font-weight:bold; color:#f1c40f; font-size:22px;"></div>
                 
                 <div class="chest-float" id="treasure-chest">
-                    <div class="magical-chest">
-                        <div class="chest-band band-left"></div>
-                        <div class="chest-band band-right"></div>
-                        <div class="chest-lock-logo"></div>
-                    </div>
-                </div>
+                    <img src="chest.png" alt="chest" style="width:100%;height:auto;">
             </div>
         </div>
     </div>
@@ -488,13 +450,7 @@
             <span class="go-bv" id="go-total-val">0</span>
         </div>
         <div id="go-chest-wrap">
-            <div class="go-chest-lid" id="go-chest-lid"><div class="go-chest-band go-lid-band"></div></div>
-            <div class="go-chest-body">
-                <div class="go-chest-band go-band-vl"></div>
-                <div class="go-chest-band go-band-vr"></div>
-                <div class="go-chest-band go-band-h"></div>
-                <div class="go-chest-lock"></div>
-            </div>
+            <img id="go-chest-img" src="chest.png" alt="chest">
             <div id="go-chest-coins"></div>
         </div>
         <button id="go-play-again" onclick="location.reload()">🎮 Play Again!</button>
@@ -874,9 +830,10 @@
         /* Fix #4: only show player's own score in bubble */
         function spawnPointBubbles(my_score, op_score) {
             const chest = document.getElementById('treasure-chest');
-            const b = document.createElement('div'); 
+            const b = document.createElement('div');
             b.className = 'queued-point-bubble';
-            b.textContent = `+${my_score}`;
+            // Coin image + score text inside bubble
+            b.innerHTML = `<img class="bubble-coin-img" src="coin.png" alt="coin"> +${my_score}`;
             floatingScores.push(b);
             updateChestQueue(chest);
         }
@@ -960,18 +917,20 @@
         }
         function goSpawnFlyingCoin(pileEl,onLand){
             const coin=document.createElement('div'); coin.className='go-flying-coin';
-            coin.textContent='🪙';
-            const sx=goRnd(window.innerWidth*0.05,window.innerWidth*0.95), sy=goRnd(-80,20);
+            // Slot machine style: spawn near center top, fall straight down
+            const sx=window.innerWidth/2+goRnd(-140,140), sy=goRnd(-90,-10);
             coin.style.left=sx+'px'; coin.style.top=sy+'px';
             document.body.appendChild(coin);
             const rect=pileEl.getBoundingClientRect();
-            const tx=rect.left+rect.width/2-26, ty=rect.bottom-52;
-            const cpx=(sx+tx)/2+goRnd(-100,100), cpy=Math.min(sy,ty)-goRnd(80,200);
-            const dur=goRnd(480,900), t0=performance.now();
+            const tx=rect.left+rect.width/2-26+goRnd(-70,70), ty=rect.bottom-52;
+            // Mostly straight down with slight arc
+            const cpx=sx+goRnd(-25,25), cpy=sy+(ty-sy)*0.3;
+            const dur=goRnd(500,800), t0=performance.now();
             const frame=now=>{
                 const t=Math.min((now-t0)/dur,1);
-                coin.style.left=((1-t)*(1-t)*sx+2*(1-t)*t*cpx+t*t*tx)+'px';
-                coin.style.top =((1-t)*(1-t)*sy+2*(1-t)*t*cpy+t*t*ty)+'px';
+                const e=1-Math.pow(1-t,3); // cubic ease-out (gravity feel)
+                coin.style.left=((1-e)*(1-e)*sx+2*(1-e)*e*cpx+e*e*tx)+'px';
+                coin.style.top =((1-e)*(1-e)*sy+2*(1-e)*e*cpy+e*e*ty)+'px';
                 if(t<1) requestAnimationFrame(frame);
                 else{ coin.remove(); goSpawnSparkles(tx+26,ty+26,3); onLand(); }
             };
@@ -981,7 +940,7 @@
             const visual=Math.min(total,36); let landed=0;
             for(let i=0;i<visual;i++){
                 await goWait(goRnd(55,155));
-                goSpawnFlyingCoin(pileEl,()=>{ pileEl.appendChild(Object.assign(document.createElement('div'),{className:'go-pile-coin',textContent:'🪙'})); landed++; countEl.textContent=Math.round((landed/visual)*total); });
+                goSpawnFlyingCoin(pileEl,()=>{ pileEl.appendChild(Object.assign(document.createElement('div'),{className:'go-pile-coin'})); landed++; countEl.textContent=Math.round((landed/visual)*total); });
             }
             await goWait(1100); countEl.textContent=total;
         }
@@ -991,8 +950,8 @@
             const cr=chestEl.getBoundingClientRect(), cx=cr.left+cr.width/2, cy=cr.top+10;
             for(let i=coins.length-1;i>=0;i--){
                 const pc=coins[i], pr=pc.getBoundingClientRect(); pc.remove();
-                const cl=document.createElement('div'); cl.className='go-flying-coin'; cl.textContent='🪙';
-                cl.style.left=pr.left+'px'; cl.style.top=pr.top+'px'; cl.style.width='40px'; cl.style.height='40px'; cl.style.fontSize='17px';
+                const cl=document.createElement('div'); cl.className='go-flying-coin';
+                cl.style.left=pr.left+'px'; cl.style.top=pr.top+'px'; cl.style.width='40px'; cl.style.height='40px';
                 document.body.appendChild(cl);
                 const sx=pr.left,sy=pr.top,tx=cx-20,ty=cy,dur=goRnd(280,560),t0=performance.now();
                 const cpx=(sx+tx)/2+goRnd(-60,60),cpy=Math.min(sy,ty)-goRnd(30,100);
@@ -1006,13 +965,14 @@
                 await goWait(goRnd(35,80));
             }
             await goWait(600);
-            ['🪙','💛','⭐','🪙','🌟','🪙','💫','🪙'].forEach((e,i)=>{
-                const oc=document.createElement('div'); oc.className='go-overflow-coin'; oc.textContent=e;
-                const a=goRnd(-60,60)*Math.PI/180,d=goRnd(30,90);
-                oc.style.setProperty('--tx',Math.sin(a)*d+'px'); oc.style.setProperty('--ty',(-Math.cos(a)*d-20)+'px');
+            // Stream coins ABOVE chest into opening
+            for(let i=0;i<10;i++){
+                const oc=document.createElement('div'); oc.className='go-overflow-coin';
+                const a=goRnd(-40,40)*Math.PI/180,d=goRnd(40,100);
+                oc.style.setProperty('--tx',Math.sin(a)*d+'px'); oc.style.setProperty('--ty',(-Math.cos(a)*d-30)+'px');
                 oc.style.setProperty('--gd',(i*0.07)+'s'); oc.style.left=goRnd(-15,15)+'px'; oc.style.top='0px';
                 coinsEl.appendChild(oc);
-            });
+            }
             chestEl.animate([{transform:'scale(1) rotate(0deg)'},{transform:'scale(1.14) rotate(-5deg)'},{transform:'scale(1.14) rotate(5deg)'},{transform:'scale(1.08) rotate(-2deg)'},{transform:'scale(1) rotate(0deg)'}],{duration:550,easing:'ease-out'});
             await goWait(650); lidEl.classList.remove('open');
         }
