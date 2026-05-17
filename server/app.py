@@ -42,7 +42,7 @@ def init_db():
             db.execute('''CREATE TABLE IF NOT EXISTS prison_games (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 game_id TEXT,
-                session_index INTEGER,
+                trial INTEGER,
                 player1 TEXT,
                 player2 TEXT,
                 p1_choice TEXT,
@@ -59,6 +59,10 @@ def init_db():
             try: db.execute('ALTER TABLE prison_games ADD COLUMN timestamp DATETIME DEFAULT CURRENT_TIMESTAMP')
             except: pass
             try: db.execute('ALTER TABLE prison_games ADD COLUMN matrix_id TEXT')
+            except: pass
+            try: db.execute('ALTER TABLE prison_games ADD COLUMN trial INTEGER')
+            except: pass
+            try: db.execute('ALTER TABLE prison_games ADD COLUMN file_id TEXT')
             except: pass
             try: db.execute('ALTER TABLE users ADD COLUMN session_counter INTEGER DEFAULT 0')
             except: pass
@@ -227,7 +231,7 @@ def get_room_logs():
         for r in rows:
             logs.append({
                 'game_id': r['game_id'],
-                'session_index': r['session_index'],
+                'trial': r['trial'] if 'trial' in r.keys() else '',
                 'player1': r['player1'],
                 'player2': r['player2'],
                 'p1_choice': r['p1_choice'],
@@ -235,6 +239,7 @@ def get_room_logs():
                 'code': r['code'],
                 'p1_points': r['p1_points'],
                 'p2_points': r['p2_points'],
+                'file_id': r['file_id'] if 'file_id' in r.keys() else '',
                 'matrix_id': r['matrix_id'] if 'matrix_id' in r.keys() else '',
                 'timestamp': r['timestamp'] if 'timestamp' in r.keys() else ''
             })
@@ -511,7 +516,7 @@ def build_game_data(game, game_id, room, username):
     }
 
 def setup_game_state(room, p1_username, p2_username, pw, is_bot=False, bot_obj=None):
-    game_id = str(os.urandom(16).hex())
+    game_id = str(os.urandom(8).hex())
     room['active'][game_id] = {
         'id': game_id,
         'players': [p1_username, p2_username],
@@ -677,9 +682,10 @@ def resolve_round(game, game_id, room):
         db = get_db()
         room_pwd = game.get('room', '')
         mat_id = str(session.get('MATRIX_ID', ''))
-        db.execute('''INSERT INTO prison_games (game_id, session_index, player1, player2, p1_choice, p2_choice, code, p1_points, p2_points, room_password, matrix_id)
-                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                   (game_id, session_idx + 1, player1, player2, p1_choice, p2_choice, code, p1_score, p2_score, room_pwd, mat_id))
+        file_id = str(session.get('FILE_ID', ''))
+        db.execute('''INSERT INTO prison_games (game_id, trial, player1, player2, p1_choice, p2_choice, code, p1_points, p2_points, room_password, matrix_id, file_id)
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                   (game_id, session_idx + 1, player1, player2, p1_choice, p2_choice, code, p1_score, p2_score, room_pwd, mat_id, file_id))
         db.commit()
     except Exception as e:
         print(f"[Game] DB Error: {e}")

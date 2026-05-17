@@ -103,13 +103,11 @@
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: radial-gradient(circle at 35% 35%, #ffe066, #f1c40f 50%, #b8860b 100%);
-    border: 3px solid #8b6914;
+    background-image: url('coin.png');
+    background-size: cover;
+    background-position: center;
+    border: 1px solid #8b6914;
     box-shadow: 0 3px 8px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.4);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 17px;
     flex-shrink: 0;
     animation: pile-land 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   }
@@ -124,14 +122,11 @@
     width: 52px;
     height: 52px;
     border-radius: 50%;
-    background: radial-gradient(circle at 35% 35%, #ffe066, #f1c40f 50%, #b8860b 100%);
-    border: 3px solid #8b6914;
+    background-image: url('coin.png');
+    background-size: cover;
+    background-position: center;
+    border: 1px solid #8b6914;
     box-shadow: 0 4px 12px rgba(0,0,0,0.5), inset 0 2px 5px rgba(255,255,255,0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 22px;
-    color: #8b6914;
     z-index: 9998;
     pointer-events: none;
     animation: coin-spin 0.35s linear infinite;
@@ -269,10 +264,10 @@
     position: absolute;
     width: 30px; height: 30px;
     border-radius: 50%;
-    background: radial-gradient(circle at 35% 35%, #ffe066, #f1c40f 50%, #b8860b 100%);
-    border: 2px solid #8b6914;
-    font-size: 13px;
-    display: flex; align-items: center; justify-content: center;
+    background-image: url('coin.png');
+    background-size: cover;
+    background-position: center;
+    border: 1px solid #8b6914;
     opacity: 0;
     animation: overflow-pop 0.5s ease forwards;
     animation-delay: var(--delay, 0s);
@@ -483,32 +478,38 @@ function spawnSparkles(x, y, n = 5) {
 }
 
 // ============================================================
-// FLY A SINGLE COIN → PILE  (quadratic bezier)
+// FLY A SINGLE COIN → PILE  (Slot Machine Jackpot style)
 // ============================================================
 function spawnFlyingCoin(pileEl, onLand) {
   const coin = document.createElement('div');
   coin.className = 'flying-coin';
-  coin.textContent = '🪙';
 
-  const sx = rnd(window.innerWidth * 0.05, window.innerWidth * 0.95);
-  const sy = rnd(-80, 20);
+  // Spawn near the top, slightly randomized horizontal
+  const sx = window.innerWidth / 2 + rnd(-150, 150);
+  const sy = rnd(-100, -20);
   coin.style.left = sx + 'px';
   coin.style.top  = sy + 'px';
   document.body.appendChild(coin);
 
   const rect = pileEl.getBoundingClientRect();
-  const tx = rect.left + rect.width  / 2 - 26;
-  const ty = rect.bottom - 52;
+  const tx = rect.left + rect.width  / 2 - 26 + rnd(-80, 80);
+  const ty = rect.bottom - 52 - rnd(0, 40);
 
-  const cpx = (sx + tx) / 2 + rnd(-100, 100);
-  const cpy = Math.min(sy, ty) - rnd(80, 200);
-  const dur = rnd(480, 900);
+  // Slot machine style drop - mostly falling straight down with a little arc
+  const cpx = sx + rnd(-30, 30);
+  const cpy = sy + (ty - sy) * 0.3; // Slight pull
+  
+  const dur = rnd(600, 900); // slightly faster drop for jackpot feel
   const t0  = performance.now();
 
   const frame = now => {
     const t = Math.min((now - t0) / dur, 1);
-    coin.style.left = ((1-t)*(1-t)*sx + 2*(1-t)*t*cpx + t*t*tx) + 'px';
-    coin.style.top  = ((1-t)*(1-t)*sy + 2*(1-t)*t*cpy + t*t*ty) + 'px';
+    // Add easing out bounce effect to the t value for gravity feel
+    const easeT = t < 1 ? 1 - Math.pow(1 - t, 3) : 1;
+    
+    coin.style.left = ((1-easeT)*(1-easeT)*sx + 2*(1-easeT)*easeT*cpx + easeT*easeT*tx) + 'px';
+    coin.style.top  = ((1-easeT)*(1-easeT)*sy + 2*(1-easeT)*easeT*cpy + easeT*easeT*ty) + 'px';
+    
     if (t < 1) requestAnimationFrame(frame);
     else { coin.remove(); spawnSparkles(tx + 26, ty + 26, 3); onLand(); }
   };
@@ -521,7 +522,6 @@ function spawnFlyingCoin(pileEl, onLand) {
 function addCoinToPile(pileEl) {
   const c = document.createElement('div');
   c.className = 'pile-coin';
-  c.textContent = '🪙';
   pileEl.appendChild(c);
 }
 
@@ -565,12 +565,10 @@ async function animateCoinsIntoChest(pileEl, chestEl, lidEl, coinsEl) {
 
     const clone = document.createElement('div');
     clone.className = 'flying-coin';
-    clone.textContent = '🪙';
     clone.style.left = pr.left + 'px';
     clone.style.top  = pr.top  + 'px';
     clone.style.width  = '40px';
     clone.style.height = '40px';
-    clone.style.fontSize = '17px';
     document.body.appendChild(clone);
 
     const sx = pr.left, sy = pr.top;
@@ -595,12 +593,11 @@ async function animateCoinsIntoChest(pileEl, chestEl, lidEl, coinsEl) {
   await wait(600);
 
   // Overflow sparkle coins
-  ['🪙','💛','⭐','🪙','🌟','🪙','💫','🪙'].forEach((e, i) => {
+  [1,2,3,4,5,6,7,8].forEach((e, i) => {
     const oc = document.createElement('div');
     oc.className = 'chest-overflow-coin';
-    oc.textContent = e;
     const a = rnd(-60, 60) * Math.PI / 180;
-    const d = rnd(30, 90);
+    const d = rnd(40, 100);
     oc.style.setProperty('--tx', Math.sin(a) * d + 'px');
     oc.style.setProperty('--ty', (-Math.cos(a) * d - 20) + 'px');
     oc.style.setProperty('--delay', (i * 0.07) + 's');
