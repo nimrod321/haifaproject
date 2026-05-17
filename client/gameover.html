@@ -7,250 +7,147 @@
 <link href="https://fonts.googleapis.com/css2?family=Bubblegum+Sans&display=swap" rel="stylesheet">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-
 body {
   font-family: 'Bubblegum Sans', cursive;
   overflow: hidden;
-  background: #1a0a2e;
+  background: #0a0a0a;
   width: 100vw; height: 100vh;
 }
 
-/* ── BACKGROUND ── */
+/* BG */
 #bg {
   position: fixed; inset: 0;
   background-image: url('bg.png');
   background-size: cover; background-position: center;
   z-index: 0;
-}
-#bg::after {
-  content: '';
-  position: absolute; inset: 0;
-  background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(10,40,10,0.35) 60%, rgba(0,0,0,0.6) 100%);
+  filter: brightness(0.6);
 }
 
-/* ── CANVAS (coins) ── */
+/* SLOT MACHINE LIGHTS - border of screen */
+#slot-lights {
+  position: fixed; inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  border: 18px solid transparent;
+  animation: none;
+}
+#slot-lights.active {
+  animation: light-cycle 0.18s linear infinite;
+}
+@keyframes light-cycle {
+  0%   { border-color: #f1c40f; box-shadow: inset 0 0 20px rgba(241,196,15,0.4), 0 0 30px rgba(241,196,15,0.5); }
+  25%  { border-color: #e74c3c; box-shadow: inset 0 0 20px rgba(231,76,60,0.4),  0 0 30px rgba(231,76,60,0.5); }
+  50%  { border-color: #f1c40f; box-shadow: inset 0 0 20px rgba(241,196,15,0.4), 0 0 30px rgba(241,196,15,0.5); }
+  75%  { border-color: #27ae60; box-shadow: inset 0 0 20px rgba(39,174,96,0.4),  0 0 30px rgba(39,174,96,0.5); }
+  100% { border-color: #f1c40f; box-shadow: inset 0 0 20px rgba(241,196,15,0.4), 0 0 30px rgba(241,196,15,0.5); }
+}
+
+/* SCREEN FLASH */
+#flash {
+  position: fixed; inset: 0; z-index: 3;
+  background: #fff;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.08s ease;
+}
+
+/* CANVAS */
 #coin-canvas {
-  position: fixed; inset: 0;
-  z-index: 5;
+  position: fixed; inset: 0; z-index: 5;
   pointer-events: none;
 }
 
-/* ── UI LAYER ── */
-#ui {
-  position: fixed; inset: 0;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  padding-top: 40px;
-  pointer-events: none;
-}
-
-/* ── GAME OVER TITLE ── */
-#gameover-title {
-  font-size: clamp(60px, 10vw, 110px);
-  color: #fff;
-  letter-spacing: 6px;
-  text-shadow:
-    0 0 20px rgba(255,100,0,0.9),
-    0 0 50px rgba(255,60,0,0.5),
-    5px 6px 0 #6b0000,
-    3px 4px 0 #b02a00;
-  opacity: 0;
-  transform: scale(0.1) translateY(-60px);
-  transition: opacity 0.5s ease, transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  text-align: center;
-}
-#gameover-title span { color: #f1c40f; text-shadow: 0 0 20px rgba(255,200,0,0.9), 4px 5px 0 #7a5200; }
-#gameover-title.show { opacity: 1; transform: scale(1) translateY(0); }
-
-/* ── SCORE BANNER ── */
-#score-banner {
-  margin-top: 18px;
-  background: rgba(0,0,0,0.7);
-  backdrop-filter: blur(12px);
-  border: 4px solid #f1c40f;
-  border-radius: 24px;
-  padding: 14px 48px;
-  text-align: center;
-  opacity: 0;
-  transform: scale(0.6);
-  transition: opacity 0.5s ease, transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  box-shadow: 0 0 40px rgba(241,196,15,0.5), 0 10px 30px rgba(0,0,0,0.5);
-}
-#score-banner.show { opacity: 1; transform: scale(1); }
-#score-banner .lbl { font-size: 22px; color: #ccc; display: block; }
-#score-banner .val { font-size: 68px; color: #f1c40f; text-shadow: 3px 3px 0 #7a5200, 0 0 30px rgba(255,200,0,0.8); display: block; }
-
-/* ── 3D TREASURE CHEST ── */
-#chest-wrap {
+/* JACKPOT TEXT */
+#jackpot-text {
   position: fixed;
-  bottom: 80px;
+  top: 10%;
+  left: 50%;
+  transform: translateX(-50%) scale(0) rotate(-8deg);
+  z-index: 20;
+  font-size: clamp(70px, 12vw, 130px);
+  color: #f1c40f;
+  letter-spacing: 6px;
+  white-space: nowrap;
+  text-shadow:
+    0 0 30px rgba(255,200,0,1),
+    0 0 60px rgba(255,150,0,0.8),
+    5px 7px 0 #7a3d00,
+    3px 5px 0 #b86000;
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.6s cubic-bezier(0.175,0.885,0.32,1.275);
+  pointer-events: none;
+}
+#jackpot-text.show { opacity: 1; transform: translateX(-50%) scale(1) rotate(0deg); }
+
+/* SCORE BANNER */
+#score-banner {
+  position: fixed;
+  top: 32%;
+  left: 50%;
+  transform: translateX(-50%) scale(0.4);
+  z-index: 20;
+  background: rgba(0,0,0,0.82);
+  backdrop-filter: blur(14px);
+  border: 5px solid #f1c40f;
+  border-radius: 26px;
+  padding: 16px 54px;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.5s ease, transform 0.6s cubic-bezier(0.175,0.885,0.32,1.275);
+  box-shadow: 0 0 50px rgba(241,196,15,0.6), 0 10px 40px rgba(0,0,0,0.6);
+  pointer-events: none;
+}
+#score-banner.show { opacity: 1; transform: translateX(-50%) scale(1); }
+#score-banner .lbl { font-size: 22px; color: #aaa; display: block; margin-bottom: 4px; }
+#score-banner .val { font-size: 76px; color: #f1c40f; text-shadow: 4px 4px 0 #7a3d00, 0 0 30px rgba(255,200,0,0.9); display: block; }
+
+/* CHEST IMAGE */
+#chest-container {
+  position: fixed;
+  bottom: 50px;
   left: 50%;
   transform: translateX(-50%) scale(0);
-  z-index: 20;
-  transition: transform 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  z-index: 25;
+  transition: transform 0.7s cubic-bezier(0.175,0.885,0.32,1.275);
   transform-origin: bottom center;
   pointer-events: none;
+  width: 220px;
 }
-#chest-wrap.show { transform: translateX(-50%) scale(1); }
-
-.chest {
-  position: relative;
-  width: 200px;
-  height: 170px;
-  perspective: 600px;
-}
-
-/* BODY */
-.chest-body {
-  position: absolute;
-  bottom: 0; left: 0;
-  width: 200px; height: 110px;
-  background: linear-gradient(135deg, #9c5a1d 0%, #6b3a0f 40%, #3e1f00 100%);
-  border-radius: 0 0 16px 16px;
-  border: 3px solid #2a1200;
-  box-shadow: 0 12px 35px rgba(0,0,0,0.7), inset 0 2px 8px rgba(255,180,80,0.15);
-}
-/* Body side depth */
-.chest-body::after {
-  content: '';
-  position: absolute;
-  right: -14px; bottom: 0;
-  width: 14px; height: 100%;
-  background: linear-gradient(90deg, #3e1f00, #1a0900);
-  border-radius: 0 0 6px 0;
-  transform-origin: left;
-  border-right: 2px solid #1a0900;
-  border-bottom: 2px solid #1a0900;
+#chest-container.show { transform: translateX(-50%) scale(1); }
+#chest-img {
+  width: 220px;
+  height: auto;
+  filter: drop-shadow(0 10px 30px rgba(241,196,15,0.6)) drop-shadow(0 20px 40px rgba(0,0,0,0.7));
 }
 
-/* LID */
-.chest-lid {
-  position: absolute;
-  top: 0; left: 0;
-  width: 200px; height: 65px;
-  background: linear-gradient(135deg, #b86820 0%, #7d3c00 50%, #4a2000 100%);
-  border-radius: 16px 16px 0 0;
-  border: 3px solid #2a1200;
-  transform-origin: bottom center;
-  transform-style: preserve-3d;
-  transition: transform 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  box-shadow: 0 -4px 12px rgba(0,0,0,0.4), inset 0 3px 8px rgba(255,180,80,0.2);
-  z-index: 2;
+/* COINS FLYING INTO CHEST */
+#chest-coin-stream {
+  position: fixed;
+  bottom: 200px;
+  left: 50%;
+  z-index: 26;
+  pointer-events: none;
 }
-.chest-lid.open { transform: rotateX(-130deg); }
-/* Lid side depth */
-.chest-lid::after {
-  content: '';
+.stream-coin {
   position: absolute;
-  right: -14px; top: 0;
-  width: 14px; height: 100%;
-  background: linear-gradient(90deg, #4a2000, #1a0900);
-  border-radius: 0 6px 0 0;
-  border-right: 2px solid #1a0900;
-  border-top: 2px solid #1a0900;
-}
-
-/* Inside of chest (visible when open) */
-.chest-inside {
-  position: absolute;
-  top: 60px; left: 5px;
-  width: 190px; height: 50px;
-  background: linear-gradient(180deg, #1a0a00 0%, #0d0500 100%);
-  border-radius: 2px;
-  z-index: 1;
-  overflow: hidden;
-}
-.chest-inside::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(ellipse at 50% 0%, rgba(241,196,15,0.3) 0%, transparent 70%);
-}
-
-/* GOLD BANDS */
-.band { position: absolute; background: linear-gradient(180deg, #ffe066, #c8960c, #ffe066); box-shadow: 0 0 6px rgba(241,196,15,0.6); }
-.body-band-h  { width: 100%; height: 13px; top: 44%; transform: translateY(-50%); border-radius: 2px; }
-.body-band-vl { width: 13px; height: 100%; left: 28px; top: 0; border-radius: 2px; }
-.body-band-vr { width: 13px; height: 100%; right: 28px; top: 0; border-radius: 2px; }
-.lid-band-h   { width: 100%; height: 11px; top: 50%; transform: translateY(-50%); border-radius: 2px; }
-
-/* LOCK */
-.chest-lock {
-  position: absolute;
-  width: 36px; height: 38px;
-  background: linear-gradient(135deg, #ffe066, #c8960c);
-  border-radius: 6px;
-  left: 50%; top: 52%; transform: translate(-50%, -50%);
-  box-shadow: 0 3px 10px rgba(0,0,0,0.5), inset 0 1px 3px rgba(255,255,255,0.4);
-  z-index: 3;
-}
-.chest-lock::before {
-  content: '';
-  width: 18px; height: 18px;
-  border: 5px solid #6b3a0f;
-  border-radius: 50% 50% 0 0;
-  position: absolute;
-  top: -12px; left: 50%; transform: translateX(-50%);
-}
-.chest-lock::after {
-  content: '♦';
-  position: absolute;
-  inset: 0; display: flex; align-items: center; justify-content: center;
-  font-size: 16px; color: #7a5200;
-  line-height: 38px; text-align: center;
-}
-
-/* STUDS */
-.stud {
-  position: absolute;
-  width: 9px; height: 9px;
-  background: radial-gradient(circle at 35% 35%, #ffe066, #c8960c);
-  border-radius: 50%;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
-}
-
-/* ── SCORE COINS INTO CHEST ── */
-#chest-score-coins {
-  position: absolute;
-  top: -10px; left: 50%;
-  transform: translateX(-50%);
-  width: 0; height: 0;
-  z-index: 25;
-}
-.score-fly-coin {
-  position: absolute;
-  width: 34px; height: 34px;
+  width: 40px; height: 40px;
   border-radius: 50%;
   background-image: url('coin.png');
   background-size: cover;
   opacity: 0;
-  animation: coinIntoChest 0.7s ease-in forwards;
+  transform: translateX(-50%);
+  animation: streamDown 0.5s ease-in forwards;
   animation-delay: var(--d, 0s);
 }
-@keyframes coinIntoChest {
-  0%   { transform: translate(var(--sx,0px), -80px) scale(1.2); opacity: 1; }
-  70%  { opacity: 1; }
-  100% { transform: translate(0px, 10px) scale(0.3); opacity: 0; }
+@keyframes streamDown {
+  0%   { transform: translateX(calc(-50% + var(--sx,0px))) translateY(-120px) scaleX(1) rotate(0deg); opacity: 1; }
+  40%  { scaleX: 0.15; }
+  100% { transform: translateX(-50%) translateY(80px) scaleX(1) rotate(720deg); opacity: 0; }
 }
 
-/* ── GLOW FLASH ── */
-#flash {
-  position: fixed; inset: 0;
-  background: radial-gradient(ellipse at 50% 60%, rgba(241,196,15,0.7) 0%, transparent 70%);
-  z-index: 15;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s ease;
-}
-#flash.show { opacity: 1; }
-
-/* ── PLAY AGAIN ── */
+/* PLAY AGAIN */
 #play-again-btn {
   position: fixed;
-  bottom: 22px; left: 50%;
+  bottom: 18px; left: 50%;
   transform: translateX(-50%) translateY(30px);
   z-index: 30;
   background: linear-gradient(135deg, #27ae60, #1e8449);
@@ -262,17 +159,14 @@ body {
   border-radius: 50px;
   cursor: pointer;
   pointer-events: none;
-  box-shadow: 0 8px 25px rgba(0,0,0,0.4), 0 0 30px rgba(46,204,113,0.4);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.5), 0 0 30px rgba(46,204,113,0.4);
   opacity: 0;
-  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s ease;
+  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.175,0.885,0.32,1.275), box-shadow 0.2s ease;
 }
-#play-again-btn.show {
-  opacity: 1; pointer-events: all;
-  transform: translateX(-50%) translateY(0);
-}
+#play-again-btn.show { opacity: 1; pointer-events: all; transform: translateX(-50%) translateY(0); }
 #play-again-btn:hover {
   background: linear-gradient(135deg, #2ecc71, #27ae60);
-  box-shadow: 0 12px 35px rgba(0,0,0,0.4), 0 0 45px rgba(46,204,113,0.6);
+  box-shadow: 0 14px 40px rgba(0,0,0,0.5), 0 0 50px rgba(46,204,113,0.7);
   transform: translateX(-50%) translateY(-4px);
 }
 </style>
@@ -280,47 +174,34 @@ body {
 <body>
 
 <div id="bg"></div>
-<canvas id="coin-canvas"></canvas>
+<div id="slot-lights"></div>
 <div id="flash"></div>
+<canvas id="coin-canvas"></canvas>
 
-<div id="ui">
-  <div id="gameover-title">GAME OVER<span>!</span></div>
-  <div id="score-banner">
-    <span class="lbl">TOTAL SCORE EARNED:</span>
-    <span class="val" id="score-val">0</span>
-  </div>
+<div id="jackpot-text">🎰 GAME OVER!</div>
+<div id="score-banner">
+  <span class="lbl">TOTAL SCORE EARNED:</span>
+  <span class="val" id="score-val">0</span>
 </div>
 
-<!-- 3D CHEST -->
-<div id="chest-wrap">
-  <div class="chest">
-    <!-- Lid -->
-    <div class="chest-lid" id="chest-lid">
-      <div class="band lid-band-h"></div>
-      <!-- studs top row -->
-      <div class="stud" style="left:10px;top:8px"></div>
-      <div class="stud" style="right:10px;top:8px"></div>
+<!-- Chest: swap chest.png with your image file -->
+<div id="chest-container">
+  <img id="chest-img" src="chest.png" alt="chest"
+       onerror="this.style.display='none'; document.getElementById('chest-fallback').style.display='block'">
+  <!-- Fallback CSS chest if image not found -->
+  <div id="chest-fallback" style="display:none; width:220px; height:160px; position:relative;">
+    <div style="position:absolute;bottom:0;left:0;width:220px;height:115px;background:linear-gradient(135deg,#9c5a1d,#4a2000);border-radius:0 0 18px 18px;border:4px solid #2a1200;box-shadow:0 15px 40px rgba(0,0,0,0.7);">
+      <div style="position:absolute;width:100%;height:13px;top:45%;background:linear-gradient(#ffe066,#c8960c,#ffe066);"></div>
+      <div style="position:absolute;width:13px;height:100%;left:28px;background:linear-gradient(#ffe066,#c8960c,#ffe066);"></div>
+      <div style="position:absolute;width:13px;height:100%;right:28px;background:linear-gradient(#ffe066,#c8960c,#ffe066);"></div>
+      <div style="position:absolute;width:38px;height:40px;background:linear-gradient(135deg,#ffe066,#c8960c);border-radius:6px;left:50%;top:50%;transform:translate(-50%,-50%);box-shadow:0 3px 10px rgba(0,0,0,0.5);"></div>
     </div>
-
-    <!-- Inside (gold glow) -->
-    <div class="chest-inside"></div>
-
-    <!-- Body -->
-    <div class="chest-body">
-      <div class="band body-band-h"></div>
-      <div class="band body-band-vl"></div>
-      <div class="band body-band-vr"></div>
-      <div class="chest-lock"></div>
-      <div class="stud" style="left:10px;top:8px"></div>
-      <div class="stud" style="right:10px;top:8px"></div>
-      <div class="stud" style="left:10px;bottom:8px"></div>
-      <div class="stud" style="right:10px;bottom:8px"></div>
+    <div id="chest-lid-fb" style="position:absolute;top:0;left:0;width:220px;height:68px;background:linear-gradient(135deg,#b86820,#4a2000);border-radius:18px 18px 0 0;border:4px solid #2a1200;transform-origin:bottom center;transition:transform 0.7s cubic-bezier(0.175,0.885,0.32,1.275);box-shadow:0 -4px 15px rgba(0,0,0,0.4);">
+      <div style="position:absolute;width:100%;height:11px;top:50%;transform:translateY(-50%);background:linear-gradient(#ffe066,#c8960c,#ffe066);"></div>
     </div>
-
-    <!-- Score coins container (above chest) -->
-    <div id="chest-score-coins"></div>
   </div>
 </div>
+<div id="chest-coin-stream"></div>
 
 <button id="play-again-btn" onclick="location.reload()">🎮 Play Again!</button>
 
@@ -328,233 +209,247 @@ body {
 // ─────────────────────────────────────────
 // CONFIG
 // ─────────────────────────────────────────
-const SCORE      = 5000;   // ← integrate: pass real score here
-const DEMO_MODE  = true;
+const SCORE     = 5000;
+const DEMO_MODE = true;
 
-// ─────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const rnd  = (a, b) => a + Math.random() * (b - a);
 
 // ─────────────────────────────────────────
-// CANVAS COIN PHYSICS
+// CANVAS + COIN PHYSICS (slot machine rain)
 // ─────────────────────────────────────────
 const canvas = document.getElementById('coin-canvas');
 const ctx    = canvas.getContext('2d');
-let W, H, FLOOR;
+let W, H;
 const coins  = [];
-const GRAVITY   = 0.45;
-const BOUNCE    = 0.28;
-const FRICTION  = 0.82;
-const COIN_R    = 22;
+
+const GRAVITY  = 0.55;
+const BOUNCE   = 0.25;
+const FRICTION = 0.78;
+const COIN_R   = 24;
+const FLOOR_Y  = () => H - 80;
 
 const coinImg = new Image();
 coinImg.src   = 'coin.png';
 
-function resize() {
-  W = canvas.width  = window.innerWidth;
-  H = canvas.height = window.innerHeight;
-  FLOOR = H - 90; // above the grass strip
-}
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
 window.addEventListener('resize', resize);
 resize();
 
 class Coin {
-  constructor() {
-    this.x  = rnd(W * 0.25, W * 0.75);
-    this.y  = rnd(-120, -20);
-    this.vx = rnd(-1.2, 1.2);
-    this.vy = rnd(2, 5);
-    this.r  = COIN_R + rnd(-4, 6);
-    this.rot   = rnd(0, Math.PI * 2);
-    this.rotV  = rnd(-0.12, 0.12);
-    this.scaleX = 1; // for flip
-    this.flipDir = 1;
-    this.landed = false;
-    this.alpha  = 1;
+  constructor(burst) {
+    // Slot machine style: spawn from near center top
+    this.x   = W / 2 + rnd(-80, 80);
+    this.y   = rnd(-60, -10);
+    // Mostly downward, slight spread — slot machine burst feel
+    const angle = burst
+      ? rnd(-Math.PI * 0.6, Math.PI * 0.6)  // burst: wide spread
+      : rnd(-Math.PI * 0.18, Math.PI * 0.18); // normal: tight column
+    const speed = burst ? rnd(8, 18) : rnd(10, 16);
+    this.vx  = Math.sin(angle) * speed * 0.3;
+    this.vy  = Math.cos(angle) * speed * (burst ? 0.5 : 1);
+    if (this.vy < 0) this.vy = -this.vy;
+    this.r   = COIN_R + rnd(-5, 8);
+    this.scaleX  = 1;
+    this.flipDir = Math.random() > 0.5 ? 1 : -1;
+    this.flipSpd = rnd(0.08, 0.18);
+    this.landed  = false;
+    this.alpha   = 1;
+    this.settle  = false;
   }
 
-  update(pileTop) {
+  update(pileY) {
     if (this.landed) return;
     this.vy += GRAVITY;
     this.x  += this.vx;
     this.y  += this.vy;
-    this.rot += this.rotV;
 
-    // Flip animation
-    this.scaleX += this.flipDir * 0.07;
-    if (this.scaleX >= 1)  { this.scaleX = 1;  this.flipDir = -1; }
+    // Flip
+    this.scaleX += this.flipDir * this.flipSpd;
+    if (this.scaleX >=  1) { this.scaleX =  1; this.flipDir = -1; }
     if (this.scaleX <= -1) { this.scaleX = -1; this.flipDir =  1; }
 
-    const floor = Math.min(pileTop, FLOOR);
+    const floor = Math.min(pileY, FLOOR_Y());
     if (this.y + this.r >= floor) {
       this.y  = floor - this.r;
       this.vy = -Math.abs(this.vy) * BOUNCE;
       this.vx *= FRICTION;
-      this.rotV *= 0.7;
-      if (Math.abs(this.vy) < 1.2) {
-        this.vy = 0; this.vx = 0; this.rotV = 0;
+      if (Math.abs(this.vy) < 1.5 && Math.abs(this.vx) < 0.5) {
+        this.vy = 0; this.vx = 0; this.flipDir = 0;
         this.landed = true;
       }
     }
-    // Side walls
-    if (this.x - this.r < 0)  { this.x = this.r;  this.vx = Math.abs(this.vx) * 0.5; }
-    if (this.x + this.r > W)  { this.x = W - this.r; this.vx = -Math.abs(this.vx) * 0.5; }
+    if (this.x - this.r < 0)  { this.x = this.r;     this.vx =  Math.abs(this.vx) * 0.4; }
+    if (this.x + this.r > W)  { this.x = W - this.r; this.vx = -Math.abs(this.vx) * 0.4; }
   }
 
   draw() {
     ctx.save();
     ctx.translate(this.x, this.y);
-    ctx.rotate(this.rot);
     ctx.scale(this.scaleX, 1);
     ctx.globalAlpha = this.alpha;
     if (coinImg.complete && coinImg.naturalWidth) {
       ctx.drawImage(coinImg, -this.r, -this.r, this.r * 2, this.r * 2);
     } else {
-      // fallback circle
       ctx.beginPath(); ctx.arc(0, 0, this.r, 0, Math.PI * 2);
       ctx.fillStyle = '#f1c40f'; ctx.fill();
+      ctx.fillStyle = '#7a5200'; ctx.font = `${this.r}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('G', 0, 0);
     }
     ctx.restore();
   }
 }
 
-// Pile top tracker
-function getPileTop() {
-  const landed = coins.filter(c => c.landed);
-  if (!landed.length) return FLOOR;
-  return Math.min(...landed.map(c => c.y - c.r));
+function getPileY() {
+  const l = coins.filter(c => c.landed);
+  return l.length ? Math.min(...l.map(c => c.y - c.r)) : FLOOR_Y();
 }
 
-let animRunning = false;
-function gameLoop() {
-  if (!animRunning) return;
+let loopActive = false;
+function loop() {
+  if (!loopActive) return;
   ctx.clearRect(0, 0, W, H);
-  const pileTop = getPileTop();
-  for (const c of coins) { c.update(pileTop); c.draw(); }
-  requestAnimationFrame(gameLoop);
+  const py = getPileY();
+  for (const c of coins) { c.update(py); c.draw(); }
+  requestAnimationFrame(loop);
 }
 
-function spawnCoins(count) {
+// Spawn a wave of coins rapidly (slot machine burst)
+function burstCoins(n, burst = false) {
   return new Promise(resolve => {
-    let spawned = 0;
-    const interval = setInterval(() => {
-      if (spawned >= count) { clearInterval(interval); resolve(); return; }
-      const batch = Math.min(3, count - spawned);
-      for (let i = 0; i < batch; i++) coins.push(new Coin());
-      spawned += batch;
-    }, 60);
+    let s = 0;
+    const iv = setInterval(() => {
+      const batch = burst ? Math.min(5, n - s) : Math.min(2, n - s);
+      for (let i = 0; i < batch; i++) coins.push(new Coin(burst));
+      s += batch;
+      if (s >= n) { clearInterval(iv); setTimeout(resolve, 900); }
+    }, burst ? 30 : 55);
   });
 }
 
-async function drainCoinsToChest() {
-  // Fade out all coins
-  const duration = 1000;
-  const start = performance.now();
+function fadeCoins() {
   return new Promise(resolve => {
-    function fade(now) {
-      const t = Math.min((now - start) / duration, 1);
+    const t0  = performance.now();
+    const dur = 800;
+    (function fade(now) {
+      const t = Math.min((now - t0) / dur, 1);
       for (const c of coins) c.alpha = 1 - t;
       if (t < 1) requestAnimationFrame(fade);
-      else { coins.length = 0; animRunning = false; ctx.clearRect(0,0,W,H); resolve(); }
-    }
-    requestAnimationFrame(fade);
+      else { coins.length = 0; loopActive = false; ctx.clearRect(0,0,W,H); resolve(); }
+    })(performance.now());
   });
 }
 
 // ─────────────────────────────────────────
 // SCORE COUNTER
 // ─────────────────────────────────────────
-function animateCount(el, target, dur = 1800) {
-  const start = performance.now();
-  return new Promise(resolve => {
-    function step(now) {
-      const t = Math.min((now - start) / dur, 1);
-      const eased = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
-      el.textContent = Math.round(eased * target).toLocaleString();
-      if (t < 1) requestAnimationFrame(step); else resolve();
-    }
-    requestAnimationFrame(step);
+function animCount(el, target, dur = 1600) {
+  const t0 = performance.now();
+  return new Promise(res => {
+    (function step(now) {
+      const p = Math.min((now - t0) / dur, 1);
+      const e = p < 0.5 ? 2*p*p : -1+(4-2*p)*p;
+      el.textContent = Math.round(e * target).toLocaleString();
+      if (p < 1) requestAnimationFrame(step); else res();
+    })(performance.now());
   });
 }
 
 // ─────────────────────────────────────────
-// SCORE COINS INTO CHEST
+// FLASH
 // ─────────────────────────────────────────
-function launchScoreCoins() {
-  const container = document.getElementById('chest-score-coins');
-  container.innerHTML = '';
-  for (let i = 0; i < 10; i++) {
-    const c = document.createElement('div');
-    c.className = 'score-fly-coin';
-    c.style.setProperty('--sx', rnd(-60, 60) + 'px');
-    c.style.setProperty('--d', (i * 0.1) + 's');
-    container.appendChild(c);
+async function flash(times = 3) {
+  const el = document.getElementById('flash');
+  for (let i = 0; i < times; i++) {
+    el.style.opacity = '0.85';
+    await wait(80);
+    el.style.opacity = '0';
+    await wait(80);
   }
+}
+
+// ─────────────────────────────────────────
+// COIN STREAM INTO CHEST
+// ─────────────────────────────────────────
+function streamCoinsIntoChest() {
+  const c = document.getElementById('chest-coin-stream');
+  c.innerHTML = '';
+  for (let i = 0; i < 14; i++) {
+    const d = document.createElement('div');
+    d.className = 'stream-coin';
+    d.style.setProperty('--d', (i * 0.07) + 's');
+    d.style.setProperty('--sx', rnd(-60, 60) + 'px');
+    c.appendChild(d);
+  }
+}
+
+// ─────────────────────────────────────────
+// CHEST LID (for fallback CSS chest)
+// ─────────────────────────────────────────
+function openLid(open) {
+  const lid = document.getElementById('chest-lid-fb');
+  if (lid) lid.style.transform = open ? 'rotateX(-130deg)' : 'rotateX(0deg)';
 }
 
 // ─────────────────────────────────────────
 // MAIN SEQUENCE
 // ─────────────────────────────────────────
 async function runSequence(score) {
-  // ① GAME OVER title
+  // Phase 1: Slot machine lights ON + burst flash
+  await wait(200);
+  await flash(2);
+  document.getElementById('slot-lights').classList.add('active');
   await wait(300);
-  document.getElementById('gameover-title').classList.add('show');
-  await wait(900);
 
-  // ② Coin rain
-  animRunning = true;
-  gameLoop();
-  await spawnCoins(55);
-  await wait(800); // let them settle
-
-  // ③ Score banner
-  document.getElementById('score-banner').classList.add('show');
-  const valEl = document.getElementById('score-val');
-  await animateCount(valEl, score);
+  // Phase 2: GAME OVER text slams in
+  document.getElementById('jackpot-text').classList.add('show');
   await wait(600);
 
-  // ④ Drain coins, chest appears
-  await drainCoinsToChest();
+  // Phase 3: Massive coin burst from top — slot machine jackpot pour
+  loopActive = true;
+  loop();
+  await burstCoins(20, true);   // first burst: wide spread
+  await burstCoins(40, false);  // sustained rain: tight column
+  await wait(600);
 
-  const chestWrap = document.getElementById('chest-wrap');
-  const lid       = document.getElementById('chest-lid');
-  chestWrap.classList.add('show');
-  await wait(400);
-
-  // ⑤ Flash + lid opens
-  const flash = document.getElementById('flash');
-  flash.classList.add('show');
-  await wait(200);
-  flash.classList.remove('show');
-  lid.classList.add('open');
-  await wait(400);
-
-  // ⑥ Score coins fly into chest
-  launchScoreCoins();
-  await wait(1200);
-
-  // ⑦ Chest shakes and closes
-  const chest = chestWrap.querySelector('.chest');
-  chest.animate([
-    { transform: 'scale(1) rotate(0deg)' },
-    { transform: 'scale(1.12) rotate(-5deg)' },
-    { transform: 'scale(1.12) rotate(5deg)' },
-    { transform: 'scale(1.06) rotate(-2deg)' },
-    { transform: 'scale(1) rotate(0deg)' }
-  ], { duration: 500, easing: 'ease-out' });
-  await wait(250);
-  lid.classList.remove('open');
+  // Phase 4: Score banner + counter
+  document.getElementById('score-banner').classList.add('show');
+  await animCount(document.getElementById('score-val'), score);
   await wait(500);
 
-  // ⑧ Second flash
-  flash.classList.add('show');
-  await wait(150);
-  flash.classList.remove('show');
+  // Phase 5: Flash + coins drain
+  await flash(3);
+  document.getElementById('slot-lights').classList.remove('active');
+  await fadeCoins();
+  await wait(200);
 
-  // ⑨ Play again
+  // Phase 6: Chest slams in
+  document.getElementById('chest-container').classList.add('show');
+  await wait(300);
+  await flash(1);
+
+  // Phase 7: Lid opens (fallback), coins stream in
+  openLid(true);
+  await wait(350);
+  streamCoinsIntoChest();
+  await wait(1200);
+
+  // Phase 8: Chest shakes, lid closes
+  const chestEl = document.getElementById('chest-container');
+  chestEl.animate([
+    { transform: 'translateX(-50%) scale(1) rotate(0deg)' },
+    { transform: 'translateX(-50%) scale(1.1) rotate(-6deg)' },
+    { transform: 'translateX(-50%) scale(1.1) rotate(6deg)' },
+    { transform: 'translateX(-50%) scale(1.05) rotate(-2deg)' },
+    { transform: 'translateX(-50%) scale(1) rotate(0deg)' }
+  ], { duration: 500, easing: 'ease-out', fill: 'forwards' });
+  openLid(false);
   await wait(400);
+  await flash(2);
+
+  // Phase 9: Play again
+  await wait(300);
   document.getElementById('play-again-btn').classList.add('show');
 }
 
@@ -564,9 +459,6 @@ async function runSequence(score) {
 if (DEMO_MODE) {
   window.addEventListener('load', () => runSequence(SCORE));
 }
-
-// Integration hook for index.html:
-//   window.showGameOver(totalScore)
 window.showGameOver = score => runSequence(score);
 </script>
 </body>
