@@ -131,17 +131,18 @@
         .bot-selection { background: rgba(0,0,0,0.4); padding: 15px; border-radius: 15px; text-align: left; margin: 10px 0; font-size: 14px; }
         .bot-line { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
 
-        /* IN-GAME CHEST — uses chest.png */
-        .chest-float { position: fixed; bottom: 30px; left: 20px; width: 190px; z-index: 1000; }
-        .chest-float img { width: 100%; height: auto; filter: drop-shadow(0 10px 30px rgba(241,196,15,0.5)) drop-shadow(0 15px 40px rgba(0,0,0,0.8)); }
+        /* IN-GAME CHEST — uses chest.png with transparent blend */
+        .chest-float { position: fixed; bottom: 30px; left: 20px; width: 190px; z-index: 1000; background: transparent; }
+        .chest-float img { width: 100%; height: auto; background: transparent; display: block;
+            filter: drop-shadow(0 8px 20px rgba(241,196,15,0.4)) drop-shadow(0 12px 30px rgba(0,0,0,0.6)); }
 
-        /* Score bubbles: coin image + points, stack ABOVE chest */
+        /* Score bubbles: text-only, stack ABOVE chest */
         .queued-point-bubble {
-            display: flex; align-items: center; gap: 8px;
-            padding: 5px 18px 5px 5px; border-radius: 30px;
-            background: rgba(0,0,0,0.75); backdrop-filter: blur(10px);
+            padding: 6px 22px; border-radius: 30px;
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(10px);
             border: 2px solid #f1c40f;
             color: #2ecc71; font-weight: bold; font-size: 24px;
+            display: flex; align-items: center; justify-content: center;
             position: absolute; left: 50%;
             bottom: 100%;
             transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -149,7 +150,6 @@
             opacity: 0; transform: translateX(-50%) scale(0);
             z-index: 1200; white-space: nowrap; text-shadow: 0 0 10px #2ecc71;
         }
-        .bubble-coin-img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
 
 
         #reveal-countdown-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 2500; display: none; align-items: center; justify-content: center; pointer-events: none; }
@@ -222,16 +222,7 @@
             0%,50%,100% { transform: scaleX(1); }
             25%,75%     { transform: scaleX(0.08); }
         }
-        /* Slot machine border flash */
-        #gameover-screen.go-active {
-            animation: slot-flash 0.2s linear infinite;
-        }
-        @keyframes slot-flash {
-            0%  { box-shadow: inset 0 0 0 14px #f1c40f; }
-            33% { box-shadow: inset 0 0 0 14px #e74c3c; }
-            66% { box-shadow: inset 0 0 0 14px #2ecc71; }
-            100%{ box-shadow: inset 0 0 0 14px #f1c40f; }
-        }
+
         #go-score-label {
             position: relative; z-index: 10; font-size: 42px;
             color: #f1c40f; text-shadow: 3px 3px 0 #8b6914, 0 0 20px rgba(255,200,0,0.8);
@@ -255,21 +246,23 @@
             font-size: 72px; color: #f1c40f;
             text-shadow: 4px 4px 0 #8b6914, 0 0 30px rgba(255,200,0,0.8); display: block;
         }
-        /* Game-over chest — uses chest.png */
+        /* Game-over chest — transparent blend with background */
         #go-chest-wrap {
             position: relative; z-index: 10;
             width: 240px; margin-top: 18px;
+            background: transparent;
             opacity: 0; transform: scale(0.5);
             transition: opacity 0.5s ease, transform 0.6s cubic-bezier(0.175,0.885,0.32,1.275);
         }
         #go-chest-wrap.show { opacity: 1; transform: scale(1); }
         #go-chest-img {
             width: 240px; height: auto;
-            filter: drop-shadow(0 10px 30px rgba(241,196,15,0.6)) drop-shadow(0 20px 40px rgba(0,0,0,0.8));
+            background: transparent; display: block;
+            filter: drop-shadow(0 8px 25px rgba(241,196,15,0.5)) drop-shadow(0 15px 35px rgba(0,0,0,0.7));
         }
         /* Coins stream ABOVE chest into opening */
         #go-chest-coins {
-            position: absolute; top: -10px; left: 50%;
+            position: absolute; top: 0px; left: 50%;
             transform: translateX(-50%);
             width: 0; height: 0; z-index: 3;
         }
@@ -454,6 +447,7 @@
             <div id="go-chest-coins"></div>
         </div>
         <button id="go-play-again" onclick="location.reload()">🎮 Play Again!</button>
+        <!-- location.reload() brings user back to login screen -->
     </div>
 
     <div id="reveal-countdown-overlay"><div id="countdown-text">3</div></div>
@@ -832,8 +826,7 @@
             const chest = document.getElementById('treasure-chest');
             const b = document.createElement('div');
             b.className = 'queued-point-bubble';
-            // Coin image + score text inside bubble
-            b.innerHTML = `<img class="bubble-coin-img" src="coin.png" alt="coin"> +${my_score}`;
+            b.textContent = `+${my_score}`;
             floatingScores.push(b);
             updateChestQueue(chest);
         }
