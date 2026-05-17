@@ -131,10 +131,11 @@
         .bot-selection { background: rgba(0,0,0,0.4); padding: 15px; border-radius: 15px; text-align: left; margin: 10px 0; font-size: 14px; }
         .bot-line { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
 
-        /* IN-GAME CHEST — uses chest.png with transparent blend */
+        /* IN-GAME CHEST — uses chest.png, blend removes white bg */
         .chest-float { position: fixed; bottom: 30px; left: 20px; width: 190px; z-index: 1000; background: transparent; }
-        .chest-float img { width: 100%; height: auto; background: transparent; display: block;
-            filter: drop-shadow(0 8px 20px rgba(241,196,15,0.4)) drop-shadow(0 12px 30px rgba(0,0,0,0.6)); }
+        .chest-float img { width: 100%; height: auto; display: block;
+            mix-blend-mode: multiply;
+            filter: drop-shadow(0 8px 20px rgba(241,196,15,0.4)); }
 
         /* Score bubbles: text-only, stack ABOVE chest */
         .queued-point-bubble {
@@ -246,7 +247,7 @@
             font-size: 72px; color: #f1c40f;
             text-shadow: 4px 4px 0 #8b6914, 0 0 30px rgba(255,200,0,0.8); display: block;
         }
-        /* Game-over chest — transparent blend with background */
+        /* Game-over chest — blend removes white bg from PNG */
         #go-chest-wrap {
             position: relative; z-index: 10;
             width: 240px; margin-top: 18px;
@@ -257,8 +258,9 @@
         #go-chest-wrap.show { opacity: 1; transform: scale(1); }
         #go-chest-img {
             width: 240px; height: auto;
-            background: transparent; display: block;
-            filter: drop-shadow(0 8px 25px rgba(241,196,15,0.5)) drop-shadow(0 15px 35px rgba(0,0,0,0.7));
+            display: block; background: transparent;
+            mix-blend-mode: multiply;
+            filter: drop-shadow(0 8px 25px rgba(241,196,15,0.5));
         }
         /* Coins stream ABOVE chest into opening */
         #go-chest-coins {
@@ -937,28 +939,31 @@
             }
             await goWait(1100); countEl.textContent=total;
         }
-        async function goCoinsIntoChest(pileEl,chestEl,lidEl,coinsEl){
-            lidEl.classList.add('open'); await goWait(550);
+        async function goCoinsIntoChest(pileEl,chestEl,coinsEl){
+            // No lid on PNG chest — just animate coins flying into it
+            await goWait(200);
             const coins=Array.from(pileEl.querySelectorAll('.go-pile-coin'));
-            const cr=chestEl.getBoundingClientRect(), cx=cr.left+cr.width/2, cy=cr.top+10;
+            const cr=chestEl.getBoundingClientRect();
+            // Aim for top-center of chest image (the opening)
+            const cx=cr.left+cr.width/2, cy=cr.top+cr.height*0.25;
             for(let i=coins.length-1;i>=0;i--){
                 const pc=coins[i], pr=pc.getBoundingClientRect(); pc.remove();
                 const cl=document.createElement('div'); cl.className='go-flying-coin';
                 cl.style.left=pr.left+'px'; cl.style.top=pr.top+'px'; cl.style.width='40px'; cl.style.height='40px';
                 document.body.appendChild(cl);
-                const sx=pr.left,sy=pr.top,tx=cx-20,ty=cy,dur=goRnd(280,560),t0=performance.now();
-                const cpx=(sx+tx)/2+goRnd(-60,60),cpy=Math.min(sy,ty)-goRnd(30,100);
+                const sx=pr.left,sy=pr.top,tx=cx-20,ty=cy,dur=goRnd(280,500),t0=performance.now();
+                const cpx=(sx+tx)/2+goRnd(-40,40),cpy=Math.min(sy,ty)-goRnd(20,80);
                 (function go(){
                     const now=performance.now(),t=Math.min((now-t0)/dur,1);
                     cl.style.left=((1-t)*(1-t)*sx+2*(1-t)*t*cpx+t*t*tx)+'px';
                     cl.style.top =((1-t)*(1-t)*sy+2*(1-t)*t*cpy+t*t*ty)+'px';
-                    cl.style.opacity=String(1-t*0.8);
+                    cl.style.opacity=String(1-t*0.9);
                     if(t<1) requestAnimationFrame(go); else cl.remove();
                 })();
-                await goWait(goRnd(35,80));
+                await goWait(goRnd(25,60));
             }
-            await goWait(600);
-            // Stream coins ABOVE chest into opening
+            await goWait(400);
+            // Burst of coins out of chest top
             for(let i=0;i<10;i++){
                 const oc=document.createElement('div'); oc.className='go-overflow-coin';
                 const a=goRnd(-40,40)*Math.PI/180,d=goRnd(40,100);
@@ -967,7 +972,7 @@
                 coinsEl.appendChild(oc);
             }
             chestEl.animate([{transform:'scale(1) rotate(0deg)'},{transform:'scale(1.14) rotate(-5deg)'},{transform:'scale(1.14) rotate(5deg)'},{transform:'scale(1.08) rotate(-2deg)'},{transform:'scale(1) rotate(0deg)'}],{duration:550,easing:'ease-out'});
-            await goWait(650); lidEl.classList.remove('open');
+            await goWait(650);
         }
         function goSummonAnimals(){
             ['🐇','🦔','🦋','🐿️','🐢'].forEach((a,i)=>{
@@ -999,7 +1004,7 @@
             const coinsEl =document.getElementById('go-chest-coins');
             chestEl.classList.add('show');
             await goWait(650);
-            await goCoinsIntoChest(pileEl,chestEl,lidEl,coinsEl);
+            await goCoinsIntoChest(pileEl,chestEl,coinsEl);
             goSpawnSparkles(window.innerWidth/2,window.innerHeight*0.65,16);
             goSummonAnimals();
             await goWait(500);
