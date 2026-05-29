@@ -66,6 +66,8 @@ def init_db():
             except: pass
             try: db.execute('ALTER TABLE users ADD COLUMN session_counter INTEGER DEFAULT 0')
             except: pass
+            try: db.execute('ALTER TABLE users ADD COLUMN total_coins INTEGER DEFAULT 0')
+            except: pass
             
             db.execute('''CREATE TABLE IF NOT EXISTS banned_users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -382,6 +384,44 @@ def index():
     resp.headers['Pragma'] = 'no-cache'
     resp.headers['Expires'] = '0'
     return resp
+
+
+@app.route('/get_total_coins', methods=['GET'])
+def get_total_coins():
+    username = request.args.get('username')
+    if not username:
+        return jsonify({'error': 'username required'}), 400
+    db = None
+    try:
+        db = get_db()
+        row = db.execute('SELECT total_coins FROM users WHERE username = ?', (username,)).fetchone()
+        if not row:
+            return jsonify({'error': 'User not found'}), 404
+        return jsonify({'total_coins': row['total_coins'] or 0})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if db: db.close()
+
+
+@app.route('/add_coins', methods=['POST'])
+def add_coins():
+    data = request.get_json()
+    username = data.get('username')
+    amount = data.get('amount', 0)
+    if not username:
+        return jsonify({'error': 'username required'}), 400
+    db = None
+    try:
+        db = get_db()
+        db.execute('UPDATE users SET total_coins = total_coins + ? WHERE username = ?', (int(amount), username))
+        db.commit()
+        row = db.execute('SELECT total_coins FROM users WHERE username = ?', (username,)).fetchone()
+        return jsonify({'total_coins': row['total_coins'] or 0})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if db: db.close()
 
 
 

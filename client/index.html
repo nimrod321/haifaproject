@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Dilemma Street</title>
+    <title>Simplegames</title>
     <link href="https://fonts.googleapis.com/css2?family=Bubblegum+Sans&display=swap" rel="stylesheet">
     <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
     <style>
@@ -81,7 +81,7 @@
             position: relative; grid-column: 1;
         }
         .row-btn.selected { transform: translateY(10px); box-shadow: 0 0 0 #2d1b11; background: #c0392b; }
-        .row-btn::before { content: 'אני'; position: absolute; left: -55px; color: white; text-shadow: 2px 2px 4px #000; font-size: 22px; }
+        .row-btn::before { content: 'ME'; position: absolute; left: -55px; color: white; text-shadow: 2px 2px 4px #000; font-size: 22px; }
         #row-btn-A { grid-row: 2; }
         #row-btn-B { grid-row: 3; }
 
@@ -97,8 +97,8 @@
         #cell-BA { grid-column: 2; grid-row: 3; }
         #cell-BB { grid-column: 3; grid-row: 3; }
 
-        .p1-val { color: #ff4757; text-shadow: 2px 2px 6px rgba(0,0,0,0.8); }
-        .p2-val { color: #2e86de; text-shadow: 2px 2px 6px rgba(0,0,0,0.8); }
+        .p1-val { color: #f69500; text-shadow: 2px 2px 6px rgba(0,0,0,0.8); }
+        .p2-val { color: #cd3ace; text-shadow: 2px 2px 6px rgba(0,0,0,0.8); }
         .val-separator { color: #fff; margin: 0 12px; opacity: 0.3; }
 
         .door-container { position: absolute; inset: 0; z-index: 5; display: flex; pointer-events: none; }
@@ -118,7 +118,7 @@
             box-shadow: 0 10px 0 #2d1b11, 0 15px 30px rgba(0,0,0,0.5);
             transition: all 0.2s; font-family: 'Bubblegum Sans', cursive; margin-top:20px;
         }
-        /* Fix #6: grayed-out state after pressing שלח */
+        /* grayed-out state after pressing SEND */
         .submit-btn.pressed {
             background: #3a2820 !important;
             color: #8a7060 !important;
@@ -131,25 +131,24 @@
         .bot-selection { background: rgba(0,0,0,0.4); padding: 15px; border-radius: 15px; text-align: left; margin: 10px 0; font-size: 14px; }
         .bot-line { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
 
-        /* IN-GAME CHEST — uses chest.png, blend removes white bg */
+        /* IN-GAME CHEST — uses chest.png, transparent PNG via drop-shadow */
         .chest-float { position: fixed; bottom: 30px; left: 20px; width: 190px; z-index: 1000; background: transparent; }
         .chest-float img { width: 100%; height: auto; display: block;
-            mix-blend-mode: multiply;
             filter: drop-shadow(0 8px 20px rgba(241,196,15,0.4)); }
 
         /* Score bubbles: text-only, stack ABOVE chest */
         .queued-point-bubble {
             padding: 6px 22px; border-radius: 30px;
             background: rgba(0,0,0,0.7); backdrop-filter: blur(10px);
-            border: 2px solid #f1c40f;
-            color: #2ecc71; font-weight: bold; font-size: 24px;
+            border: 2px solid #f69500;
+            color: #f69500; font-weight: bold; font-size: 24px;
             display: flex; align-items: center; justify-content: center;
             position: absolute; left: 50%;
             bottom: 100%;
             transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            box-shadow: 0 0 15px rgba(241,196,15,0.5);
+            box-shadow: 0 0 15px rgba(246,149,0,0.5);
             opacity: 0; transform: translateX(-50%) scale(0);
-            z-index: 1200; white-space: nowrap; text-shadow: 0 0 10px #2ecc71;
+            z-index: 1200; white-space: nowrap; text-shadow: 0 0 10px #f69500;
         }
 
 
@@ -247,7 +246,7 @@
             font-size: 72px; color: #f1c40f;
             text-shadow: 4px 4px 0 #8b6914, 0 0 30px rgba(255,200,0,0.8); display: block;
         }
-        /* Game-over chest — blend removes white bg from PNG */
+        /* Game-over chest — transparent PNG via drop-shadow */
         #go-chest-wrap {
             position: relative; z-index: 10;
             width: 240px; margin-top: 18px;
@@ -259,7 +258,6 @@
         #go-chest-img {
             width: 240px; height: auto;
             display: block; background: transparent;
-            mix-blend-mode: multiply;
             filter: drop-shadow(0 8px 25px rgba(241,196,15,0.5));
         }
         /* Coins stream ABOVE chest into opening */
@@ -350,7 +348,7 @@
     </div>
 
     <div class="container">
-        <h1>Dilemma Street</h1>
+        <h1>Simplegames</h1>
         
         <div id="auth">
             <div id="login-section" class="glass-panel">
@@ -414,8 +412,8 @@
             <div id="prison" class="hidden">
                 <div class="game-board-panel">
                     <div class="board-layout">
-                        <div class="col-header" id="col-header-A">שחקן 2 A</div>
-                        <div class="col-header" id="col-header-B">שחקן 2 B</div>
+                        <div class="col-header" id="col-header-A">OTHER PLAYER A</div>
+                        <div class="col-header" id="col-header-B">OTHER PLAYER B</div>
                         <button id="row-btn-A" class="row-btn" onclick="selectRow('A')">A</button>
                         <div class="matrix-cell" id="cell-AA"><div class="cell-content"></div><div class="door-container"><div class="door-half door-left"></div><div class="door-half door-right"></div></div></div>
                         <div class="matrix-cell" id="cell-AB"><div class="cell-content"></div><div class="door-container"><div class="door-half door-left"></div><div class="door-half door-right"></div></div></div>
@@ -424,7 +422,7 @@
                         <div class="matrix-cell" id="cell-BB"><div class="cell-content"></div><div class="door-container"><div class="door-half door-left"></div><div class="door-half door-right"></div></div></div>
                     </div>
                 </div>
-                <button id="submit-choice-btn" class="submit-btn" onclick="submitChoice()" disabled>שלח</button>
+                <button id="submit-choice-btn" class="submit-btn" onclick="submitChoice()" disabled>SEND</button>
                 <div id="prison-message" style="margin-top:15px; font-weight:bold; color:#f1c40f; font-size:22px;"></div>
                 
                 <div class="chest-float" id="treasure-chest">
@@ -454,14 +452,52 @@
 
     <div id="reveal-countdown-overlay"><div id="countdown-text">3</div></div>
     <div id="result-popup">
-        <div id="popup-my-score" style="font-size:46px; color:#2ecc71;">Your: 0</div>
-        <div id="popup-op-score" style="font-size:46px; color:#e74c3c; margin-top:10px;">Opponent: 0</div>
+        <div id="popup-my-score" style="font-size:46px; color:#f69500;">YOU: 0</div>
+        <div id="popup-op-score" style="font-size:46px; color:#cd3ace; margin-top:10px;">OTHER: 0</div>
+    </div>
+
+    <!-- Total coins badge -->
+    <div id="total-coins-badge" style="
+        position:fixed; top:14px; right:18px; z-index:9990;
+        background:rgba(0,0,0,0.75); backdrop-filter:blur(8px);
+        border:3px solid #f69500; border-radius:50px;
+        padding:8px 20px; display:none; align-items:center; gap:10px;
+        font-family:'Bubblegum Sans',cursive; color:#f69500; font-size:22px;
+        box-shadow:0 0 20px rgba(246,149,0,0.4);
+    ">
+        💰 Total: <span id="total-coins-val">0</span>
     </div>
 
 
     <script>
 
         let selectedMove = null, currentGid = null, currentUsername = null, currentUserRole = null, choiceLocked = false, sessionTotalScore = 0;
+
+        async function loadTotalCoins() {
+            if (!currentUsername) return;
+            try {
+                const res = await fetch(`/get_total_coins?username=${encodeURIComponent(currentUsername)}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('total-coins-val').textContent = data.total_coins;
+                    const badge = document.getElementById('total-coins-badge');
+                    badge.style.display = 'flex';
+                }
+            } catch(e) { console.log('Failed to load total coins', e); }
+        }
+
+        async function addTotalCoins(amount) {
+            if (!currentUsername || !amount) return;
+            try {
+                await fetch('/add_coins', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ username: currentUsername, amount: amount })
+                });
+                // Refresh display
+                await loadTotalCoins();
+            } catch(e) { console.log('Failed to add coins', e); }
+        }
 
         function showLoading(t) { const o=document.querySelector('#loading-overlay'); o.style.display='flex'; o.querySelector('#loading-text').textContent=t; }
         function hideLoading() { document.querySelector('#loading-overlay').style.display='none'; }
@@ -485,7 +521,7 @@
                 hideLoading();
                 if (res.ok) { 
                     currentUsername = u; currentUserRole = data.user.role; document.getElementById('auth').classList.add('hidden');
-                    if(currentUserRole === 'admin') { document.getElementById('admin-panel').classList.remove('hidden'); loadAdminRooms(); loadAdminPlayers(); } else { document.getElementById('game').classList.remove('hidden'); }
+                    if(currentUserRole === 'admin') { document.getElementById('admin-panel').classList.remove('hidden'); loadAdminRooms(); loadAdminPlayers(); } else { document.getElementById('game').classList.remove('hidden'); loadTotalCoins(); }
                 } else customAlert(data.error);
             } catch (e) {
                 hideLoading();
@@ -790,8 +826,8 @@
                 document.querySelectorAll(`.matrix-cell[id$="${unchosenCol}"]`).forEach(c => c.classList.add('cell-closed'));
                 await new Promise(r => setTimeout(r, 800));
 
-                document.getElementById('popup-my-score').textContent = `Your: ${d.my_score}`;
-                document.getElementById('popup-op-score').textContent = `Opponent: ${d.op_score}`;
+                document.getElementById('popup-my-score').textContent = `YOU: ${d.my_score}`;
+                document.getElementById('popup-op-score').textContent = `OTHER: ${d.op_score}`;
                 document.getElementById('result-popup').classList.add('active');
                 
                 spawnPointBubbles(d.my_score, d.op_score);
@@ -802,7 +838,7 @@
                 closeAllDoors();
                 await new Promise(r => setTimeout(r, 1000));
 
-                if(d.done) { showGameOver(sessionTotalScore); return; }
+                if(d.done) { await addTotalCoins(sessionTotalScore); showGameOver(sessionTotalScore); return; }
                 
                 // Load next round from the result data
                 if(d.next_matrix) {
@@ -940,39 +976,70 @@
             await goWait(1100); countEl.textContent=total;
         }
         async function goCoinsIntoChest(pileEl,chestEl,coinsEl){
-            // No lid on PNG chest — just animate coins flying into it
-            await goWait(200);
+            // "Suck-in" animation: coins accelerate toward chest, shrink to zero
+            await goWait(100);
             const coins=Array.from(pileEl.querySelectorAll('.go-pile-coin'));
+            if(coins.length === 0){ await goWait(300); return; }
             const cr=chestEl.getBoundingClientRect();
-            // Aim for top-center of chest image (the opening)
-            const cx=cr.left+cr.width/2, cy=cr.top+cr.height*0.25;
-            for(let i=coins.length-1;i>=0;i--){
-                const pc=coins[i], pr=pc.getBoundingClientRect(); pc.remove();
+            // Target: top-center of chest (the opening)
+            const tx=cr.left+cr.width/2, ty=cr.top+cr.height*0.22;
+
+            // Animate each coin sucking in, staggered slightly so they form a stream
+            const promises = coins.map((pc, i) => new Promise(resolve => {
+                const pr=pc.getBoundingClientRect(); pc.remove();
                 const cl=document.createElement('div'); cl.className='go-flying-coin';
-                cl.style.left=pr.left+'px'; cl.style.top=pr.top+'px'; cl.style.width='40px'; cl.style.height='40px';
+                const sx=pr.left+pr.width/2-26, sy=pr.top+pr.height/2-26;
+                cl.style.left=sx+'px'; cl.style.top=sy+'px';
+                cl.style.width='40px'; cl.style.height='40px';
                 document.body.appendChild(cl);
-                const sx=pr.left,sy=pr.top,tx=cx-20,ty=cy,dur=goRnd(280,500),t0=performance.now();
-                const cpx=(sx+tx)/2+goRnd(-40,40),cpy=Math.min(sy,ty)-goRnd(20,80);
-                (function go(){
-                    const now=performance.now(),t=Math.min((now-t0)/dur,1);
-                    cl.style.left=((1-t)*(1-t)*sx+2*(1-t)*t*cpx+t*t*tx)+'px';
-                    cl.style.top =((1-t)*(1-t)*sy+2*(1-t)*t*cpy+t*t*ty)+'px';
-                    cl.style.opacity=String(1-t*0.9);
-                    if(t<1) requestAnimationFrame(go); else cl.remove();
-                })();
-                await goWait(goRnd(25,60));
-            }
-            await goWait(400);
-            // Burst of coins out of chest top
-            for(let i=0;i<10;i++){
+
+                // Delay stagger: coins farthest from chest start later for stream effect
+                const delay = i * 35;
+                const dur = goRnd(350, 600);
+
+                setTimeout(() => {
+                    const t0=performance.now();
+                    (function frame(){
+                        const now=performance.now(), t=Math.min((now-t0)/dur,1);
+                        // Ease-in (accelerate into chest) — cubic ease-in
+                        const e = t*t*t;
+                        const cx_interp = sx + (tx - sx) * e;
+                        const cy_interp = sy + (ty - sy) * e;
+                        const scale = Math.max(0, 1 - e);
+                        cl.style.left = cx_interp + 'px';
+                        cl.style.top  = cy_interp + 'px';
+                        cl.style.transform = `scale(${scale}) rotate(${t*720}deg)`;
+                        cl.style.opacity = String(Math.max(0, 1 - e * 1.2));
+                        if(t < 1) requestAnimationFrame(frame);
+                        else { cl.remove(); resolve(); }
+                    })();
+                }, delay);
+            }));
+
+            await Promise.all(promises);
+            await goWait(100);
+
+            // Chest shakes to acknowledge all coins absorbed
+            chestEl.animate([
+                {transform:'scale(1) rotate(0deg)'},
+                {transform:'scale(1.15) rotate(-6deg)'},
+                {transform:'scale(1.15) rotate(6deg)'},
+                {transform:'scale(1.08) rotate(-3deg)'},
+                {transform:'scale(1.04) rotate(2deg)'},
+                {transform:'scale(1) rotate(0deg)'}
+            ],{duration:600,easing:'ease-out'});
+
+            // Small burst of overflow coins to celebrate
+            for(let i=0;i<8;i++){
                 const oc=document.createElement('div'); oc.className='go-overflow-coin';
-                const a=goRnd(-40,40)*Math.PI/180,d=goRnd(40,100);
-                oc.style.setProperty('--tx',Math.sin(a)*d+'px'); oc.style.setProperty('--ty',(-Math.cos(a)*d-30)+'px');
-                oc.style.setProperty('--gd',(i*0.07)+'s'); oc.style.left=goRnd(-15,15)+'px'; oc.style.top='0px';
+                const a=goRnd(-50,50)*Math.PI/180, d=goRnd(35,85);
+                oc.style.setProperty('--tx',Math.sin(a)*d+'px');
+                oc.style.setProperty('--ty',(-Math.cos(a)*d-20)+'px');
+                oc.style.setProperty('--gd',(i*0.06)+'s');
+                oc.style.left=goRnd(-12,12)+'px'; oc.style.top='0px';
                 coinsEl.appendChild(oc);
             }
-            chestEl.animate([{transform:'scale(1) rotate(0deg)'},{transform:'scale(1.14) rotate(-5deg)'},{transform:'scale(1.14) rotate(5deg)'},{transform:'scale(1.08) rotate(-2deg)'},{transform:'scale(1) rotate(0deg)'}],{duration:550,easing:'ease-out'});
-            await goWait(650);
+            await goWait(700);
         }
         function goSummonAnimals(){
             ['🐇','🦔','🦋','🐿️','🐢'].forEach((a,i)=>{
