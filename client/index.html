@@ -158,11 +158,14 @@
         .bot-selection { background: rgba(0,0,0,0.4); padding: 15px; border-radius: 15px; text-align: left; margin: 10px 0; font-size: 14px; }
         .bot-line { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
 
-        /* IN-GAME CHEST — mix-blend-mode removes checkered/white background */
-        .chest-float { position: fixed; bottom: 30px; left: 20px; width: 190px; z-index: 1000; background: transparent; }
+        /* IN-GAME CHEST — filter on PARENT, blend-mode on IMG so both work together */
+        .chest-float {
+            position: fixed; bottom: 30px; left: 20px; width: 190px; z-index: 1000;
+            background: transparent;
+            filter: drop-shadow(0 8px 20px rgba(241,196,15,0.4));
+        }
         .chest-float img { width: 100%; height: auto; display: block;
-            mix-blend-mode: multiply;
-            filter: drop-shadow(0 8px 20px rgba(241,196,15,0.4)); }
+            mix-blend-mode: multiply; }
 
         /* Score bubbles: pop out above chest, then animate into it */
         .queued-point-bubble {
@@ -275,11 +278,12 @@
             font-size: 72px; color: #f1c40f;
             text-shadow: 4px 4px 0 #8b6914, 0 0 30px rgba(255,200,0,0.8); display: block;
         }
-        /* Game-over chest — transparent PNG via drop-shadow */
+        /* Game-over chest — filter on WRAPPER, blend on IMG */
         #go-chest-wrap {
             position: relative; z-index: 10;
             width: 240px; margin-top: 18px;
             background: transparent;
+            filter: drop-shadow(0 8px 25px rgba(241,196,15,0.5));
             opacity: 0; transform: scale(0.5);
             transition: opacity 0.5s ease, transform 0.6s cubic-bezier(0.175,0.885,0.32,1.275);
         }
@@ -288,7 +292,6 @@
             width: 240px; height: auto;
             display: block; background: transparent;
             mix-blend-mode: multiply;
-            filter: drop-shadow(0 8px 25px rgba(241,196,15,0.5));
         }
         /* Coins stream ABOVE chest into opening */
         #go-chest-coins {
@@ -897,62 +900,62 @@
             b.className = 'queued-point-bubble';
             b.textContent = `+${my_score}`;
             chest.appendChild(b);
-
-            // Pop in above the chest
-            const slot = floatingScores.length;
             floatingScores.push(b);
-            const popBottom = 10 + slot * 54; // px above chest bottom
-            requestAnimationFrame(() => {
-                b.style.opacity = '1';
-                b.style.bottom = popBottom + 'px';
-                b.style.transform = 'translateX(-50%) scale(1)';
-            });
 
-            // After 1.4 s, suck the bubble into the chest
-            setTimeout(() => suckBubbleIntoChest(b), 1400);
+            // If adding this bubble exceeds queue of 3, suck the oldest in first
+            if (floatingScores.length > 3) {
+                const oldest = floatingScores.shift();
+                suckBubbleIntoChest(oldest);
+            }
+
+            // Reposition all visible bubbles (pop-in + settling)
+            repositionBubbles();
+        }
+
+        function repositionBubbles() {
+            floatingScores.forEach((bubble, idx) => {
+                // idx 0 = oldest (bottom, closest to chest); idx 2 = newest (top)
+                const bottomPx = 10 + idx * 54;
+                requestAnimationFrame(() => {
+                    bubble.style.transition = 'opacity 0.4s ease, transform 0.4s cubic-bezier(0.175,0.885,0.32,1.275), bottom 0.4s ease';
+                    bubble.style.opacity = '1';
+                    bubble.style.bottom = bottomPx + 'px';
+                    bubble.style.transform = 'translateX(-50%) scale(1)';
+                });
+            });
         }
 
         function suckBubbleIntoChest(bubble) {
             if (!bubble.parentNode) return;
-            // Disable transition so JS can animate freely
-            bubble.style.transition = 'none';
+            bubble.style.transition = 'none'; // let JS drive the animation
             const chestEl = document.getElementById('treasure-chest');
             const chestRect = chestEl.getBoundingClientRect();
             const bubbleRect = bubble.getBoundingClientRect();
 
-            // Target = top-center of chest image (the opening)
             const targetX = chestRect.left + chestRect.width / 2;
-            const targetY = chestRect.top + chestRect.height * 0.25;
+            const targetY = chestRect.top  + chestRect.height * 0.25;
+            const startX  = bubbleRect.left + bubbleRect.width  / 2;
+            const startY  = bubbleRect.top  + bubbleRect.height / 2;
 
-            const startX = bubbleRect.left + bubbleRect.width / 2;
-            const startY = bubbleRect.top  + bubbleRect.height / 2;
-
-            // Lift bubble out of flow so we can position it freely
-            bubble.style.position = 'fixed';
-            bubble.style.left = startX - bubbleRect.width  / 2 + 'px';
-            bubble.style.top  = startY - bubbleRect.height / 2 + 'px';
-            bubble.style.bottom = 'auto';
+            // Pull out of normal flow so fixed positioning works
+            bubble.style.position  = 'fixed';
+            bubble.style.left      = (startX - bubbleRect.width  / 2) + 'px';
+            bubble.style.top       = (startY - bubbleRect.height / 2) + 'px';
+            bubble.style.bottom    = 'auto';
             bubble.style.transform = 'none';
-            document.body.appendChild(bubble); // move to body so fixed pos works
+            document.body.appendChild(bubble);
 
-            const dur = 500;
-            const t0 = performance.now();
+            const dur = 480;
+            const t0  = performance.now();
             (function frame() {
-                const t = Math.min((performance.now() - t0) / dur, 1);
-                const ease = t * t * t; // cubic ease-in (acceleration)
-                const cx = startX + (targetX - startX) * ease - bubbleRect.width  / 2;
-                const cy = startY + (targetY - startY) * ease - bubbleRect.height / 2;
-                const scale = Math.max(0, 1 - ease);
-                bubble.style.left    = cx + 'px';
-                bubble.style.top     = cy + 'px';
-                bubble.style.opacity = String(Math.max(0, 1 - ease * 1.3));
-                bubble.style.transform = `scale(${scale})`;
+                const t    = Math.min((performance.now() - t0) / dur, 1);
+                const ease = t * t * t; // cubic ease-in — accelerates into chest
+                bubble.style.left      = (startX + (targetX - startX) * ease - bubbleRect.width  / 2) + 'px';
+                bubble.style.top       = (startY + (targetY - startY) * ease - bubbleRect.height / 2) + 'px';
+                bubble.style.transform = `scale(${Math.max(0, 1 - ease)})`;
+                bubble.style.opacity   = String(Math.max(0, 1 - ease * 1.3));
                 if (t < 1) requestAnimationFrame(frame);
-                else {
-                    bubble.remove();
-                    // Remove from tracking array
-                    floatingScores = floatingScores.filter(x => x !== bubble);
-                }
+                else { bubble.remove(); floatingScores = floatingScores.filter(x => x !== bubble); }
             })();
         }
 
@@ -1049,33 +1052,41 @@
             // Target: top-center of chest (the opening)
             const tx=cr.left+cr.width/2, ty=cr.top+cr.height*0.22;
 
-            // Animate each coin sucking in, staggered slightly so they form a stream
+            // Animate each coin sucking in — use a plain styled div to AVOID
+            // the go-flying-coin CSS animation which would override JS transforms
             const promises = coins.map((pc, i) => new Promise(resolve => {
-                const pr=pc.getBoundingClientRect(); pc.remove();
-                const cl=document.createElement('div'); cl.className='go-flying-coin';
-                const sx=pr.left+pr.width/2-26, sy=pr.top+pr.height/2-26;
-                cl.style.left=sx+'px'; cl.style.top=sy+'px';
-                cl.style.width='40px'; cl.style.height='40px';
+                const pr = pc.getBoundingClientRect(); pc.remove();
+
+                const cl = document.createElement('div');
+                // Inline style only — no class with animation property
+                Object.assign(cl.style, {
+                    position: 'fixed',
+                    width: '38px', height: '38px',
+                    borderRadius: '50%',
+                    backgroundImage: "url('coin.png')",
+                    backgroundSize: 'cover',
+                    zIndex: '49999',
+                    pointerEvents: 'none',
+                    left: (pr.left + pr.width  / 2 - 19) + 'px',
+                    top:  (pr.top  + pr.height / 2 - 19) + 'px',
+                });
                 document.body.appendChild(cl);
 
-                // Delay stagger: coins farthest from chest start later for stream effect
-                const delay = i * 35;
-                const dur = goRnd(350, 600);
+                const sx = pr.left + pr.width  / 2 - 19;
+                const sy = pr.top  + pr.height / 2 - 19;
+                const delay = i * 40;
+                const dur   = goRnd(350, 550);
 
                 setTimeout(() => {
-                    const t0=performance.now();
-                    (function frame(){
-                        const now=performance.now(), t=Math.min((now-t0)/dur,1);
-                        // Ease-in (accelerate into chest) — cubic ease-in
-                        const e = t*t*t;
-                        const cx_interp = sx + (tx - sx) * e;
-                        const cy_interp = sy + (ty - sy) * e;
-                        const scale = Math.max(0, 1 - e);
-                        cl.style.left = cx_interp + 'px';
-                        cl.style.top  = cy_interp + 'px';
-                        cl.style.transform = `scale(${scale}) rotate(${t*720}deg)`;
-                        cl.style.opacity = String(Math.max(0, 1 - e * 1.2));
-                        if(t < 1) requestAnimationFrame(frame);
+                    const t0 = performance.now();
+                    (function frame() {
+                        const t = Math.min((performance.now() - t0) / dur, 1);
+                        const e = t * t * t; // cubic ease-in — accelerates into chest
+                        cl.style.left      = (sx + (tx - sx - 19) * e) + 'px';
+                        cl.style.top       = (sy + (ty - sy - 19) * e) + 'px';
+                        cl.style.transform = `scale(${Math.max(0, 1 - e)}) rotate(${t * 720}deg)`;
+                        cl.style.opacity   = String(Math.max(0, 1 - e * 1.2));
+                        if (t < 1) requestAnimationFrame(frame);
                         else { cl.remove(); resolve(); }
                     })();
                 }, delay);
