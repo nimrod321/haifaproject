@@ -58,44 +58,71 @@
 
         .board-layout {
             display: grid;
+            /* col1=label area, col2=A column, col3=B column */
             grid-template-columns: clamp(50px,10vw,80px) minmax(100px,220px) minmax(100px,220px);
-            grid-template-rows: clamp(40px,7vw,60px) minmax(90px,150px) minmax(90px,150px);
-            gap: clamp(8px,2.5vw,20px);
+            /* row1=other-player-banner, row2=col-AB-headers, row3=row-A, row4=ME-label, row5=row-B */
+            grid-template-rows:
+                clamp(30px,5vw,44px)
+                clamp(34px,6vw,50px)
+                minmax(90px,150px)
+                clamp(28px,4vw,40px)
+                minmax(90px,150px);
+            gap: clamp(6px,2vw,14px);
             align-items: center;
             justify-content: center;
         }
 
-        .col-header {
-            background: #2c3e50; color: #f1c40f; padding: 12px; border-radius: 15px 15px 0 0;
-            font-weight: bold; border: 4px solid #3e2723; font-size: 20px; text-align: center;
-            display: flex; align-items: center; justify-content: center; height: 35px;
+        /* OTHER PLAYER — single banner spanning both columns */
+        #other-player-banner {
+            grid-column: 2 / 4; grid-row: 1;
+            background: #1a2636; color: #f1c40f;
+            border: 4px solid #3e2723; border-radius: 14px;
+            font-weight: bold; font-size: clamp(14px,2.5vw,20px);
+            display: flex; align-items: center; justify-content: center;
+            letter-spacing: 2px;
         }
-        #col-header-A { grid-column: 2; grid-row: 1; }
-        #col-header-B { grid-column: 3; grid-row: 1; }
+
+        /* A / B sub-headers under OTHER PLAYER banner */
+        .col-header {
+            background: #2c3e50; color: #f1c40f; padding: 8px;
+            border-radius: 0 0 12px 12px;
+            font-weight: bold; border: 4px solid #3e2723; font-size: clamp(16px,2.5vw,22px);
+            display: flex; align-items: center; justify-content: center; height: 30px;
+        }
+        #col-header-A { grid-column: 2; grid-row: 2; }
+        #col-header-B { grid-column: 3; grid-row: 2; }
 
         .row-btn {
-            background: #8d6e63; width: 75px; height: 75px; border-radius: 50%;
+            background: #8d6e63; width: 70px; height: 70px; border-radius: 50%;
             border: 6px solid #3e2723; color: #f1c40f; cursor: pointer;
             box-shadow: 0 8px 0 #2d1b11; transition: all 0.2s;
-            display: flex; align-items: center; justify-content: center; font-size: 32px;
+            display: flex; align-items: center; justify-content: center; font-size: 30px;
             position: relative; grid-column: 1;
         }
         .row-btn.selected { transform: translateY(10px); box-shadow: 0 0 0 #2d1b11; background: #c0392b; }
-        .row-btn::before { content: 'ME'; position: absolute; left: -55px; color: white; text-shadow: 2px 2px 4px #000; font-size: 22px; }
-        #row-btn-A { grid-row: 2; }
-        #row-btn-B { grid-row: 3; }
+        /* NO ::before — we use a single dedicated ME label instead */
+        #row-btn-A { grid-row: 3; }
+        #row-btn-B { grid-row: 5; }
+
+        /* Single ME label centered between A and B */
+        #me-label {
+            grid-column: 1; grid-row: 4;
+            color: #fff; font-size: clamp(16px,2.8vw,22px);
+            text-shadow: 2px 2px 4px #000;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; letter-spacing: 1px;
+        }
 
         .matrix-cell {
             background: #3e2723; border: 5px solid #2d1b11; border-radius: 15px;
             position: relative; overflow: hidden;
-            height: minmax(90px, 150px); width: minmax(100px, 220px);
             display: flex; align-items: center; justify-content: center;
-            font-size: clamp(28px, 5vw, 52px); font-weight: bold; font-family: 'Bubblegum Sans', cursive;
+            font-size: clamp(26px, 4.5vw, 50px); font-weight: bold; font-family: 'Bubblegum Sans', cursive;
         }
-        #cell-AA { grid-column: 2; grid-row: 2; }
-        #cell-AB { grid-column: 3; grid-row: 2; }
-        #cell-BA { grid-column: 2; grid-row: 3; }
-        #cell-BB { grid-column: 3; grid-row: 3; }
+        #cell-AA { grid-column: 2; grid-row: 3; }
+        #cell-AB { grid-column: 3; grid-row: 3; }
+        #cell-BA { grid-column: 2; grid-row: 5; }
+        #cell-BB { grid-column: 3; grid-row: 5; }
 
         .p1-val { color: #f69500; text-shadow: 2px 2px 6px rgba(0,0,0,0.8); }
         .p2-val { color: #cd3ace; text-shadow: 2px 2px 6px rgba(0,0,0,0.8); }
@@ -131,12 +158,13 @@
         .bot-selection { background: rgba(0,0,0,0.4); padding: 15px; border-radius: 15px; text-align: left; margin: 10px 0; font-size: 14px; }
         .bot-line { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
 
-        /* IN-GAME CHEST — uses chest.png, transparent PNG via drop-shadow */
+        /* IN-GAME CHEST — mix-blend-mode removes checkered/white background */
         .chest-float { position: fixed; bottom: 30px; left: 20px; width: 190px; z-index: 1000; background: transparent; }
         .chest-float img { width: 100%; height: auto; display: block;
+            mix-blend-mode: multiply;
             filter: drop-shadow(0 8px 20px rgba(241,196,15,0.4)); }
 
-        /* Score bubbles: text-only, stack ABOVE chest */
+        /* Score bubbles: pop out above chest, then animate into it */
         .queued-point-bubble {
             padding: 6px 22px; border-radius: 30px;
             background: rgba(0,0,0,0.7); backdrop-filter: blur(10px);
@@ -145,10 +173,11 @@
             display: flex; align-items: center; justify-content: center;
             position: absolute; left: 50%;
             bottom: 100%;
-            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             box-shadow: 0 0 15px rgba(246,149,0,0.5);
             opacity: 0; transform: translateX(-50%) scale(0);
             z-index: 1200; white-space: nowrap; text-shadow: 0 0 10px #f69500;
+            /* transition only for the initial pop-in; suck-in is JS driven */
+            transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.175,0.885,0.32,1.275), bottom 0.4s ease;
         }
 
 
@@ -258,6 +287,7 @@
         #go-chest-img {
             width: 240px; height: auto;
             display: block; background: transparent;
+            mix-blend-mode: multiply;
             filter: drop-shadow(0 8px 25px rgba(241,196,15,0.5));
         }
         /* Coins stream ABOVE chest into opening */
@@ -411,12 +441,14 @@
 
             <div id="prison" class="hidden">
                 <div class="game-board-panel">
-                    <div class="board-layout">
-                        <div class="col-header" id="col-header-A">OTHER PLAYER A</div>
-                        <div class="col-header" id="col-header-B">OTHER PLAYER B</div>
+            <div class="board-layout">
+                        <div id="other-player-banner">OTHER PLAYER</div>
+                        <div class="col-header" id="col-header-A">A</div>
+                        <div class="col-header" id="col-header-B">B</div>
                         <button id="row-btn-A" class="row-btn" onclick="selectRow('A')">A</button>
                         <div class="matrix-cell" id="cell-AA"><div class="cell-content"></div><div class="door-container"><div class="door-half door-left"></div><div class="door-half door-right"></div></div></div>
                         <div class="matrix-cell" id="cell-AB"><div class="cell-content"></div><div class="door-container"><div class="door-half door-left"></div><div class="door-half door-right"></div></div></div>
+                        <div id="me-label">ME</div>
                         <button id="row-btn-B" class="row-btn" onclick="selectRow('B')">B</button>
                         <div class="matrix-cell" id="cell-BA"><div class="cell-content"></div><div class="door-container"><div class="door-half door-left"></div><div class="door-half door-right"></div></div></div>
                         <div class="matrix-cell" id="cell-BB"><div class="cell-content"></div><div class="door-container"><div class="door-half door-left"></div><div class="door-half door-right"></div></div></div>
@@ -859,36 +891,69 @@
 
         let floatingScores = [];
 
-        /* Fix #4: only show player's own score in bubble */
-        function spawnPointBubbles(my_score, op_score) {
+        function spawnPointBubbles(my_score) {
             const chest = document.getElementById('treasure-chest');
             const b = document.createElement('div');
             b.className = 'queued-point-bubble';
             b.textContent = `+${my_score}`;
+            chest.appendChild(b);
+
+            // Pop in above the chest
+            const slot = floatingScores.length;
             floatingScores.push(b);
-            updateChestQueue(chest);
+            const popBottom = 10 + slot * 54; // px above chest bottom
+            requestAnimationFrame(() => {
+                b.style.opacity = '1';
+                b.style.bottom = popBottom + 'px';
+                b.style.transform = 'translateX(-50%) scale(1)';
+            });
+
+            // After 1.4 s, suck the bubble into the chest
+            setTimeout(() => suckBubbleIntoChest(b), 1400);
         }
 
-        /* Fix #5: bubbles now stack upward correctly from chest top */
-        function updateChestQueue(chest) {
-            while (floatingScores.length > 3) {
-                const oldest = floatingScores.shift();
-                oldest.style.opacity = '0';
-                oldest.style.transform = `translateX(-50%) scale(0)`;
-                setTimeout(() => { if (oldest.parentNode) oldest.remove(); }, 500);
-            }
-            
-            floatingScores.forEach((bubble, idx) => {
-                /* idx 0 = oldest (highest), idx length-1 = newest (closest to chest) */
-                /* Each bubble sits 54px above the previous one, base is 10px above chest */
-                const upwardOffset = -(10 + idx * 54);
-                if (!bubble.parentNode) chest.appendChild(bubble);
-                requestAnimationFrame(() => {
-                    bubble.style.opacity = '1';
-                    bubble.style.bottom = -upwardOffset + 'px'; /* positive bottom = upward */
-                    bubble.style.transform = `translateX(-50%) scale(1)`;
-                });
-            });
+        function suckBubbleIntoChest(bubble) {
+            if (!bubble.parentNode) return;
+            // Disable transition so JS can animate freely
+            bubble.style.transition = 'none';
+            const chestEl = document.getElementById('treasure-chest');
+            const chestRect = chestEl.getBoundingClientRect();
+            const bubbleRect = bubble.getBoundingClientRect();
+
+            // Target = top-center of chest image (the opening)
+            const targetX = chestRect.left + chestRect.width / 2;
+            const targetY = chestRect.top + chestRect.height * 0.25;
+
+            const startX = bubbleRect.left + bubbleRect.width / 2;
+            const startY = bubbleRect.top  + bubbleRect.height / 2;
+
+            // Lift bubble out of flow so we can position it freely
+            bubble.style.position = 'fixed';
+            bubble.style.left = startX - bubbleRect.width  / 2 + 'px';
+            bubble.style.top  = startY - bubbleRect.height / 2 + 'px';
+            bubble.style.bottom = 'auto';
+            bubble.style.transform = 'none';
+            document.body.appendChild(bubble); // move to body so fixed pos works
+
+            const dur = 500;
+            const t0 = performance.now();
+            (function frame() {
+                const t = Math.min((performance.now() - t0) / dur, 1);
+                const ease = t * t * t; // cubic ease-in (acceleration)
+                const cx = startX + (targetX - startX) * ease - bubbleRect.width  / 2;
+                const cy = startY + (targetY - startY) * ease - bubbleRect.height / 2;
+                const scale = Math.max(0, 1 - ease);
+                bubble.style.left    = cx + 'px';
+                bubble.style.top     = cy + 'px';
+                bubble.style.opacity = String(Math.max(0, 1 - ease * 1.3));
+                bubble.style.transform = `scale(${scale})`;
+                if (t < 1) requestAnimationFrame(frame);
+                else {
+                    bubble.remove();
+                    // Remove from tracking array
+                    floatingScores = floatingScores.filter(x => x !== bubble);
+                }
+            })();
         }
 
         async function loadAdminPlayers() {
