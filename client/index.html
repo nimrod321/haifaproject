@@ -158,14 +158,36 @@
         .bot-selection { background: rgba(0,0,0,0.4); padding: 15px; border-radius: 15px; text-align: left; margin: 10px 0; font-size: 14px; }
         .bot-line { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
 
-        /* IN-GAME CHEST — filter on PARENT, blend-mode on IMG so both work together */
+        /* IN-GAME CHEST */
         .chest-float {
             position: fixed; bottom: 30px; left: 20px; width: 190px; z-index: 1000;
             background: transparent;
-            filter: drop-shadow(0 8px 20px rgba(241,196,15,0.4));
+            filter: drop-shadow(0 8px 24px rgba(241,196,15,0.55));
+            transition: filter 0.3s ease;
         }
-        .chest-float img { width: 100%; height: auto; display: block;
-            mix-blend-mode: multiply; }
+        .chest-float img { width: 100%; height: auto; display: block; }
+        .chest-float.glowing { filter: drop-shadow(0 0 22px rgba(255,215,0,0.9)) drop-shadow(0 8px 24px rgba(241,196,15,0.6)); }
+
+        @keyframes chest-shake {
+            0%,100%{ transform: rotate(0deg) scale(1); }
+            15%    { transform: rotate(-7deg) scale(1.05); }
+            30%    { transform: rotate(7deg) scale(1.05); }
+            45%    { transform: rotate(-5deg) scale(1.03); }
+            60%    { transform: rotate(5deg) scale(1.03); }
+            75%    { transform: rotate(-2deg) scale(1.01); }
+        }
+        @keyframes chest-pop-open {
+            0%  { transform: scale(1); }
+            35% { transform: scale(1.22) translateY(-8px); }
+            65% { transform: scale(0.94) translateY(3px); }
+            100%{ transform: scale(1) translateY(0); }
+        }
+        @keyframes chest-snap-close {
+            0%  { transform: scale(1); }
+            30% { transform: scale(0.9) translateY(4px); }
+            60% { transform: scale(1.06) translateY(-2px); }
+            100%{ transform: scale(1) translateY(0); }
+        }
 
         /* Score bubbles: pop out above chest, then animate into it */
         .queued-point-bubble {
@@ -278,21 +300,23 @@
             font-size: 72px; color: #f1c40f;
             text-shadow: 4px 4px 0 #8b6914, 0 0 30px rgba(255,200,0,0.8); display: block;
         }
-        /* Game-over chest — filter on WRAPPER, blend on IMG */
+
+        /* Game-over chest */
         #go-chest-wrap {
             position: relative; z-index: 10;
-            width: 240px; margin-top: 18px;
+            width: 260px; margin-top: 18px;
             background: transparent;
-            filter: drop-shadow(0 8px 25px rgba(241,196,15,0.5));
+            filter: drop-shadow(0 8px 25px rgba(241,196,15,0.55));
             opacity: 0; transform: scale(0.5);
             transition: opacity 0.5s ease, transform 0.6s cubic-bezier(0.175,0.885,0.32,1.275);
         }
         #go-chest-wrap.show { opacity: 1; transform: scale(1); }
+        #go-chest-wrap.go-glowing { filter: drop-shadow(0 0 30px rgba(255,215,0,1)) drop-shadow(0 8px 25px rgba(241,196,15,0.6)); }
         #go-chest-img {
-            width: 240px; height: auto;
+            width: 260px; height: auto;
             display: block; background: transparent;
-            mix-blend-mode: multiply;
         }
+
         /* Coins stream ABOVE chest into opening */
         #go-chest-coins {
             position: absolute; top: 0px; left: 50%;
@@ -461,8 +485,8 @@
                 <div id="prison-message" style="margin-top:15px; font-weight:bold; color:#f1c40f; font-size:22px;"></div>
                 
                 <div class="chest-float" id="treasure-chest">
-                    <img src="chest.png" alt="chest" style="width:100%;height:auto;">
-            </div>
+                    <img id="chest-hud-img" src="chest_closed.png" alt="chest" style="width:100%;height:auto;">
+                </div>
         </div>
     </div>
 
@@ -478,10 +502,10 @@
             <span class="go-bv" id="go-total-val">0</span>
         </div>
         <div id="go-chest-wrap">
-            <img id="go-chest-img" src="chest.png" alt="chest">
+            <img id="go-chest-img" src="chest_closed.png" alt="chest">
             <div id="go-chest-coins"></div>
         </div>
-        <button id="go-play-again" onclick="location.reload()">🎮 Play Again!</button>
+        <button id="go-play-again" onclick="goPlayAgain()">🎮 Play Again!</button>
         <!-- location.reload() brings user back to login screen -->
     </div>
 
@@ -894,6 +918,47 @@
 
         let floatingScores = [];
 
+        // ---- Chest fullness helper ----
+        function getChestSrc(score) {
+            if (score <= 0)   return 'chest_closed.png';
+            if (score <= 50)  return 'chest_open_low.png';
+            if (score <= 150) return 'chest_open_mid.png';
+            return 'chest_open_full.png';
+        }
+
+        function updateChestFullness(score) {
+            const img = document.getElementById('chest-hud-img');
+            if (img) img.src = getChestSrc(score);
+        }
+
+        // Brief open-flash on the HUD chest when a point is earned
+        async function hudChestOpenFlash() {
+            const wrap = document.getElementById('treasure-chest');
+            const img  = document.getElementById('chest-hud-img');
+            if (!wrap || !img) return;
+
+            // Shake
+            wrap.style.animation = 'chest-shake 0.38s ease-in-out';
+            await new Promise(r => setTimeout(r, 380));
+            wrap.style.animation = '';
+
+            // Swap to open sprite
+            const prevSrc = img.src;
+            img.src = 'chest_open_empty.png';
+            wrap.style.animation = 'chest-pop-open 0.32s ease-out';
+            wrap.classList.add('glowing');
+            await new Promise(r => setTimeout(r, 320));
+            wrap.style.animation = '';
+
+            // Hold open briefly then close back to fullness-appropriate sprite
+            await new Promise(r => setTimeout(r, 600));
+            img.src = getChestSrc(sessionTotalScore);
+            wrap.style.animation = 'chest-snap-close 0.28s ease-out';
+            await new Promise(r => setTimeout(r, 280));
+            wrap.style.animation = '';
+            wrap.classList.remove('glowing');
+        }
+
         function spawnPointBubbles(my_score) {
             const chest = document.getElementById('treasure-chest');
             const b = document.createElement('div');
@@ -901,6 +966,9 @@
             b.textContent = `+${my_score}`;
             chest.appendChild(b);
             floatingScores.push(b);
+
+            // Trigger the open flash (non-blocking)
+            hudChestOpenFlash();
 
             // If adding this bubble exceeds queue of 3, suck the oldest in first
             if (floatingScores.length > 3) {
@@ -915,7 +983,7 @@
         function repositionBubbles() {
             floatingScores.forEach((bubble, idx) => {
                 // idx 0 = oldest (bottom, closest to chest); idx 2 = newest (top)
-                const bottomPx = 10 + idx * 54;
+                const bottomPx = 140 + idx * 54;
                 requestAnimationFrame(() => {
                     bubble.style.transition = 'opacity 0.4s ease, transform 0.4s cubic-bezier(0.175,0.885,0.32,1.275), bottom 0.4s ease';
                     bubble.style.opacity = '1';
@@ -927,7 +995,7 @@
 
         function suckBubbleIntoChest(bubble) {
             if (!bubble.parentNode) return;
-            bubble.style.transition = 'none'; // let JS drive the animation
+            bubble.style.transition = 'none';
             const chestEl = document.getElementById('treasure-chest');
             const chestRect = chestEl.getBoundingClientRect();
             const bubbleRect = bubble.getBoundingClientRect();
@@ -937,7 +1005,6 @@
             const startX  = bubbleRect.left + bubbleRect.width  / 2;
             const startY  = bubbleRect.top  + bubbleRect.height / 2;
 
-            // Pull out of normal flow so fixed positioning works
             bubble.style.position  = 'fixed';
             bubble.style.left      = (startX - bubbleRect.width  / 2) + 'px';
             bubble.style.top       = (startY - bubbleRect.height / 2) + 'px';
@@ -949,13 +1016,17 @@
             const t0  = performance.now();
             (function frame() {
                 const t    = Math.min((performance.now() - t0) / dur, 1);
-                const ease = t * t * t; // cubic ease-in — accelerates into chest
+                const ease = t * t * t;
                 bubble.style.left      = (startX + (targetX - startX) * ease - bubbleRect.width  / 2) + 'px';
                 bubble.style.top       = (startY + (targetY - startY) * ease - bubbleRect.height / 2) + 'px';
                 bubble.style.transform = `scale(${Math.max(0, 1 - ease)})`;
                 bubble.style.opacity   = String(Math.max(0, 1 - ease * 1.3));
                 if (t < 1) requestAnimationFrame(frame);
-                else { bubble.remove(); floatingScores = floatingScores.filter(x => x !== bubble); }
+                else {
+                    bubble.remove();
+                    floatingScores = floatingScores.filter(x => x !== bubble);
+                    updateChestFullness(sessionTotalScore);
+                }
             })();
         }
 
@@ -1043,14 +1114,55 @@
             }
             await goWait(1100); countEl.textContent=total;
         }
+        // Spawn a flying coin FROM the chest opening outward into the pile
+        function goSpawnFlyingCoinFromChest(pileEl, chestEl, onLand) {
+            const coin = document.createElement('div'); coin.className = 'go-flying-coin';
+            const cr = chestEl.getBoundingClientRect();
+            // Start at chest opening (top-center)
+            const sx = cr.left + cr.width * 0.5 + goRnd(-30, 30);
+            const sy = cr.top  + cr.height * 0.2;
+            coin.style.left = sx + 'px'; coin.style.top = sy + 'px';
+            document.body.appendChild(coin);
+            const rect = pileEl.getBoundingClientRect();
+            const tx = rect.left + rect.width / 2 - 26 + goRnd(-70, 70);
+            const ty = rect.bottom - 52;
+            // Arc outward from chest
+            const cpx = sx + goRnd(-60, 60), cpy = sy - goRnd(60, 130);
+            const dur = goRnd(420, 700), t0 = performance.now();
+            const frame = now => {
+                const t = Math.min((now - t0) / dur, 1);
+                const e = 1 - Math.pow(1 - t, 3);
+                coin.style.left = ((1-e)*(1-e)*sx + 2*(1-e)*e*cpx + e*e*tx) + 'px';
+                coin.style.top  = ((1-e)*(1-e)*sy + 2*(1-e)*e*cpy + e*e*ty) + 'px';
+                if (t < 1) requestAnimationFrame(frame);
+                else { coin.remove(); goSpawnSparkles(tx+26, ty+26, 2); onLand(); }
+            };
+            requestAnimationFrame(frame);
+        }
+
+        // Modified coin sequence — coins fly OUT of the chest, then land in pile
+        async function goCoinSequenceFromChest(total, pileEl, countEl, chestEl) {
+            const visual = Math.min(total, 36); let landed = 0;
+            for (let i = 0; i < visual; i++) {
+                await goWait(goRnd(55, 145));
+                goSpawnFlyingCoinFromChest(pileEl, chestEl, () => {
+                    pileEl.appendChild(Object.assign(document.createElement('div'), {className: 'go-pile-coin'}));
+                    landed++;
+                    countEl.textContent = Math.round((landed / visual) * total);
+                });
+            }
+            await goWait(900);
+            countEl.textContent = total;
+        }
+
         async function goCoinsIntoChest(pileEl,chestEl,coinsEl){
             // "Suck-in" animation: coins accelerate toward chest, shrink to zero
             await goWait(100);
             const coins=Array.from(pileEl.querySelectorAll('.go-pile-coin'));
             if(coins.length === 0){ await goWait(300); return; }
             const cr=chestEl.getBoundingClientRect();
-            // Target: top-center of chest (the opening)
-            const tx=cr.left+cr.width/2, ty=cr.top+cr.height*0.22;
+            // Target: slightly deeper into the chest opening
+            const tx=cr.left+cr.width/2, ty=cr.top+cr.height*0.35;
 
             // Animate each coin sucking in — use a plain styled div to AVOID
             // the go-flying-coin CSS animation which would override JS transforms
@@ -1081,11 +1193,11 @@
                     const t0 = performance.now();
                     (function frame() {
                         const t = Math.min((performance.now() - t0) / dur, 1);
-                        const e = t * t * t; // cubic ease-in — accelerates into chest
+                        const e = Math.pow(t, 4); // Steep quartic ease-in — extreme acceleration into chest
                         cl.style.left      = (sx + (tx - sx - 19) * e) + 'px';
                         cl.style.top       = (sy + (ty - sy - 19) * e) + 'px';
-                        cl.style.transform = `scale(${Math.max(0, 1 - e)}) rotate(${t * 720}deg)`;
-                        cl.style.opacity   = String(Math.max(0, 1 - e * 1.2));
+                        cl.style.transform = `scale(${Math.max(0, 1 - e)}) rotate(${t * 1080}deg)`;
+                        cl.style.opacity   = t > 0.95 ? String(1 - (t - 0.95) * 20) : '1';
                         if (t < 1) requestAnimationFrame(frame);
                         else { cl.remove(); resolve(); }
                     })();
@@ -1124,33 +1236,110 @@
                 el.style.animationDelay=(i*0.14)+'s'; document.body.appendChild(el);
             });
         }
+        async function goPlayAgain() {
+            const btn = document.getElementById('go-play-again');
+            btn.disabled = true;
+            const chestEl  = document.getElementById('go-chest-wrap');
+            const chestImg = document.getElementById('go-chest-img');
+
+            // Close the chest smoothly
+            chestEl.animate([
+                {transform: 'scale(1)'},
+                {transform: 'scale(1.03) translateY(-2px)'},
+                {transform: 'scale(0.97) translateY(1px)'},
+                {transform: 'scale(1)   translateY(0)'},
+            ], {duration: 350, easing: 'ease-out', fill: 'forwards'});
+            await goWait(150);
+            chestImg.src = 'chest_closed.png';
+            await goWait(350);
+
+            // Fade out game-over screen and chest smoothly
+            const screen = document.getElementById('gameover-screen');
+            screen.style.transition = 'opacity 0.8s ease';
+            screen.style.opacity = '0';
+            chestEl.style.transition = 'opacity 0.8s ease';
+            chestEl.style.opacity = '0';
+            await goWait(850);
+            location.reload();
+        }
+
         async function showGameOver(score){
             score = score || 0;
             goBuildGrass(); goStartClouds();
-            const screen=document.getElementById('gameover-screen');
+            const screen   = document.getElementById('gameover-screen');
+            const chestEl  = document.getElementById('go-chest-wrap');
+            const chestImg = document.getElementById('go-chest-img');
+            const coinsEl  = document.getElementById('go-chest-coins');
+            const pileEl   = document.getElementById('go-coin-pile');
+            const countEl  = document.getElementById('go-score-count');
+
+            // Reset chest to closed
+            chestImg.src = 'chest_closed.png';
+
             screen.classList.add('go-active');
             await goWait(300);
+
+            // 1. Title drops in
             document.getElementById('go-title').classList.add('show');
-            goSpawnSparkles(window.innerWidth/2,window.innerHeight*0.18,10);
-            await goWait(900);
-            const pileEl  =document.getElementById('go-coin-pile');
-            const countEl =document.getElementById('go-score-count');
-            document.getElementById('go-score-label').classList.add('show');
-            await goCoinSequence(score,pileEl,countEl);
-            await goWait(350);
-            document.getElementById('go-total-val').textContent=score;
-            document.getElementById('go-banner').classList.add('show');
-            goSpawnSparkles(window.innerWidth/2,window.innerHeight*0.55,12);
-            await goWait(1100);
-            const chestEl =document.getElementById('go-chest-wrap');
-            const lidEl   =document.getElementById('go-chest-lid');
-            const coinsEl =document.getElementById('go-chest-coins');
+            goSpawnSparkles(window.innerWidth/2, window.innerHeight*0.18, 10);
+            await goWait(800);
+
+            // 2. Closed chest appears
             chestEl.classList.add('show');
-            await goWait(650);
-            await goCoinsIntoChest(pileEl,chestEl,coinsEl);
-            goSpawnSparkles(window.innerWidth/2,window.innerHeight*0.65,16);
+            await goWait(700);
+
+            // 3. Chest SHAKES then SPRINGS OPEN
+            await chestEl.animate([
+                {transform:'scale(1) rotate(0deg)'},
+                {transform:'scale(1.06) rotate(-7deg)'},
+                {transform:'scale(1.06) rotate(7deg)'},
+                {transform:'scale(1.06) rotate(-5deg)'},
+                {transform:'scale(1.06) rotate(5deg)'},
+                {transform:'scale(1.06) rotate(-2deg)'},
+                {transform:'scale(1) rotate(0deg)'},
+            ], {duration: 520, easing:'ease-in-out', fill:'forwards'}).finished;
+
+            // Spring open
+            chestImg.src = 'chest_open_empty.png';
+            chestEl.classList.add('go-glowing');
+            chestEl.animate([
+                {transform:'scale(1)'},
+                {transform:'scale(1.25) translateY(-12px)'},
+                {transform:'scale(0.93) translateY(5px)'},
+                {transform:'scale(1.06) translateY(-3px)'},
+                {transform:'scale(1)   translateY(0)'},
+            ], {duration: 420, easing:'ease-out', fill:'forwards'});
+            await goWait(420);
+
+            // 4. Coins FLY OUT of the chest into the pile + score label counts up
+            document.getElementById('go-score-label').classList.add('show');
+            await goCoinSequenceFromChest(score, pileEl, countEl, chestEl);
+            await goWait(350);
+
+            // 5. Score banner
+            document.getElementById('go-total-val').textContent = score;
+            document.getElementById('go-banner').classList.add('show');
+            goSpawnSparkles(window.innerWidth/2, window.innerHeight*0.55, 12);
+            await goWait(1100);
+
+            // 6. Coins suck back INTO the chest
+            await goCoinsIntoChest(pileEl, chestEl, coinsEl);
+
+            // 7. Chest becomes FULL
+            chestImg.src = 'chest_open_full.png';
+            chestEl.animate([
+                {transform:'scale(1)'},
+                {transform:'scale(1.18) translateY(-8px)'},
+                {transform:'scale(0.95) translateY(3px)'},
+                {transform:'scale(1)   translateY(0)'},
+            ], {duration: 350, easing:'ease-out', fill:'forwards'});
+            await goWait(200);
+
+            goSpawnSparkles(window.innerWidth/2, window.innerHeight*0.65, 18);
             goSummonAnimals();
-            await goWait(500);
+            await goWait(600);
+
+            // 8. Play Again
             document.getElementById('go-play-again').classList.add('show');
         }
     </script>

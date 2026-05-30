@@ -474,7 +474,7 @@ def join_queue():
     
     # Check if already in an active game
     for gid, game in room['active'].items():
-        if username in game['players']:
+        if username in game['players'] and game['session'] < room['settings']['num_sessions']:
             return jsonify({'status': 'matched', 'gameData': build_game_data(game, gid, room, username)})
     
     if len(waiting) >= 1:
@@ -501,7 +501,7 @@ def check_queue():
     
     # Check if matched into a game
     for gid, game in room['active'].items():
-        if username in game['players']:
+        if username in game['players'] and game['session'] < room['settings']['num_sessions']:
             # Check if there's pending start data
             pending = game.get('pending_start', {})
             if username in pending:
@@ -648,13 +648,18 @@ def submit_choice():
                 bot_eval = game['bot_obj'].get_choice()
                 bot_row = 'A' if bot_eval == 'C' else 'B'
                 game['choices']['p2'] = bot_row
+                game['bot_ready_time'] = time.time() + random.uniform(3.0, 5.0)
                 print(f"[Game] Bot (p2) chose {bot_row} (Eval: {bot_eval})")
             except Exception as e:
                 print(f"[Game] Bot Logic Error: {e}")
                 game['choices']['p2'] = 'B'
+                game['bot_ready_time'] = time.time()
 
         # Resolve round if both selections exist
         if game['choices']['p1'] and game['choices']['p2']:
+            if game.get('is_bot') and time.time() < game.get('bot_ready_time', 0):
+                return jsonify({'status': 'waiting'})
+
             result = resolve_round(game, game_id, room)
             # Return the result tailored for the submitting player
             if player_slot == 'p1':
@@ -676,9 +681,11 @@ def check_round():
     username = data.get('username')
     
     game = None
+    room = None
     for r in rooms.values():
         if game_id in r['active']:
             game = r['active'][game_id]
+            room = r
             break
     
     if not game:
@@ -691,6 +698,16 @@ def check_round():
             return jsonify({'status': 'resolved', 'result': game['last_result']['p1']})
         else:
             return jsonify({'status': 'resolved', 'result': game['last_result']['p2']})
+            
+    if game['choices']['p1'] and game['choices']['p2']:
+        if game.get('is_bot') and time.time() < game.get('bot_ready_time', 0):
+            return jsonify({'status': 'waiting'})
+            
+        result = resolve_round(game, game_id, room)
+        if game['players'][0] == username:
+            return jsonify({'status': 'resolved', 'result': result['p1']})
+        else:
+            return jsonify({'status': 'resolved', 'result': result['p2']})
     
     return jsonify({'status': 'waiting'})
 
@@ -801,4 +818,4 @@ def disconnect():
     pass  # Game state is now managed via HTTP, no cleanup needed
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=3000, debug=True)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)
