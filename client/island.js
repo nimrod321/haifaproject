@@ -10,7 +10,7 @@ class IslandEngine {
         window.addEventListener('keyup', e => this.keys[e.code] = false);
 
         this.state = 'hidden'; // hidden, private, public
-        this.player = { x: 500, y: 500, speed: 4, size: 64 };
+        this.player = { x: 500, y: 500, speed: 4, size: 64, frameIndex: 0, tickCount: 0 };
         this.npcs = [];
         
         this.assets = {
@@ -55,7 +55,8 @@ class IslandEngine {
                         y: 300 + Math.random() * 400,
                         vx: (Math.random() - 0.5) * 1,
                         vy: (Math.random() - 0.5) * 1,
-                        timer: Math.random() * 100
+                        timer: Math.random() * 100,
+                        frameIndex: 0, tickCount: 0
                     });
                 });
             }
@@ -86,8 +87,17 @@ class IslandEngine {
         if (this.keys['ArrowLeft'] || this.keys['KeyA']) dx -= this.player.speed;
         if (this.keys['ArrowRight'] || this.keys['KeyD']) dx += this.player.speed;
 
-        this.player.x += dx;
-        this.player.y += dy;
+        if (dx !== 0 || dy !== 0) {
+            this.player.x += dx;
+            this.player.y += dy;
+            this.player.tickCount++;
+            if (this.player.tickCount > 8) {
+                this.player.tickCount = 0;
+                this.player.frameIndex = (this.player.frameIndex + 1) % 4;
+            }
+        } else {
+            this.player.frameIndex = 0;
+        }
 
         // Keep player in bounds (approximate 1000x1000 island size)
         this.player.x = Math.max(100, Math.min(900, this.player.x));
@@ -101,8 +111,15 @@ class IslandEngine {
                 n.vy = (Math.random() - 0.5) * 1.5;
                 n.timer = 50 + Math.random() * 100;
             }
-            n.x += n.vx;
-            n.y += n.vy;
+            if (n.vx !== 0 || n.vy !== 0) {
+                n.x += n.vx;
+                n.y += n.vy;
+                n.tickCount++;
+                if (n.tickCount > 12) {
+                    n.tickCount = 0;
+                    n.frameIndex = (n.frameIndex + 1) % 4;
+                }
+            }
             n.x = Math.max(200, Math.min(800, n.x));
             n.y = Math.max(200, Math.min(800, n.y));
         });
@@ -182,8 +199,10 @@ class IslandEngine {
 
         // Draw NPCs
         this.npcs.forEach(n => {
-            if (this.assets.avatar.complete) {
-                this.ctx.drawImage(this.assets.avatar, n.x - 32, n.y - 32, 64, 64);
+            if (this.assets.avatar.complete && this.assets.avatar.width > 0) {
+                const fw = this.assets.avatar.width / 4;
+                const fh = this.assets.avatar.height;
+                this.ctx.drawImage(this.assets.avatar, n.frameIndex * fw, 0, fw, fh, n.x - 32, n.y - 32, 64, 64);
             } else {
                 this.ctx.fillStyle = 'purple';
                 this.ctx.fillRect(n.x - 32, n.y - 32, 64, 64);
@@ -195,8 +214,10 @@ class IslandEngine {
         });
 
         // Draw Player
-        if (this.assets.avatar.complete) {
-            this.ctx.drawImage(this.assets.avatar, this.player.x - 32, this.player.y - 32, 64, 64);
+        if (this.assets.avatar.complete && this.assets.avatar.width > 0) {
+            const fw = this.assets.avatar.width / 4;
+            const fh = this.assets.avatar.height;
+            this.ctx.drawImage(this.assets.avatar, this.player.frameIndex * fw, 0, fw, fh, this.player.x - 32, this.player.y - 32, 64, 64);
         } else {
             this.ctx.fillStyle = 'red';
             this.ctx.fillRect(this.player.x - 32, this.player.y - 32, 64, 64);
@@ -247,7 +268,7 @@ function travelToRoom() {
 function enterMatchmaking(roomCode) {
     islandEngine.hide();
     document.getElementById('prison-join-form').style.display = 'none';
-    document.getElementById('prison-room-password').value = roomCode; // inject room code
+    document.getElementById('prison-password').value = roomCode; // inject room code
     document.getElementById('game').classList.remove('hidden');
     queueForGame(); // triggers existing logic
 }
