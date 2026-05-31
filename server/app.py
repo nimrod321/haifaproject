@@ -11,7 +11,12 @@ from game_bots import create_bot
 
 game_lock = threading.Lock()
 
+import sys
+sys.stdout = open('server_log.txt', 'a', encoding='utf-8')
+sys.stderr = sys.stdout
+
 app = Flask(__name__, static_folder='../client', static_url_path='')
+app.secret_key = 'super-secret-key-123'
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'games.db')
