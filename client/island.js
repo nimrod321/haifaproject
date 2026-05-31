@@ -15,12 +15,10 @@ class IslandEngine {
         
         this.assets = {
             privateBg: new Image(),
-            publicBg: new Image(),
-            avatar: new Image()
+            publicBg: new Image()
         };
         this.assets.privateBg.src = 'private_island.png';
         this.assets.publicBg.src = 'public_island.png';
-        this.assets.avatar.src = 'avatar.png';
 
         this.boardArea = { x: 450, y: 400, w: 100, h: 100 }; // Matchmaking board area on public island
         this.portalArea = { x: 500, y: 800, w: 100, h: 100 }; // Portal to enter room on private island
@@ -163,6 +161,43 @@ class IslandEngine {
                 p.y > area.y - p.size && p.y < area.y + area.h + p.size);
     }
 
+    drawCharacter(ctx, x, y, isMoving, tick, color, name, isPlayer) {
+        ctx.save();
+        ctx.translate(x, y - 10);
+        
+        // Wobble factor for arms/legs
+        const offset = isMoving ? Math.sin(tick * 0.4) * 8 : 0;
+        
+        // Head
+        ctx.fillStyle = '#ffccaa'; 
+        ctx.fillRect(-15, -25, 30, 25);
+        // Shirt
+        ctx.fillStyle = color;
+        ctx.fillRect(-15, 0, 30, 20);
+        
+        // Legs
+        ctx.fillStyle = '#2c3e50';
+        ctx.fillRect(-12, 20, 10, 10 - offset); 
+        ctx.fillRect(2, 20, 10, 10 + offset); 
+        
+        // Arms
+        ctx.fillStyle = color;
+        ctx.fillRect(-23, 0, 8, 15 + offset); 
+        ctx.fillRect(15, 0, 8, 15 - offset); 
+        
+        // Eyes
+        ctx.fillStyle = 'black';
+        ctx.fillRect(-8, -15, 4, 4);
+        ctx.fillRect(4, -15, 4, 4);
+
+        ctx.restore();
+        
+        ctx.fillStyle = isPlayer ? '#f1c40f' : 'white';
+        ctx.font = isPlayer ? '20px sans-serif' : '16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(name, x, y - 45);
+    }
+
     draw() {
         if (this.state === 'hidden') return;
 
@@ -199,33 +234,13 @@ class IslandEngine {
 
         // Draw NPCs
         this.npcs.forEach(n => {
-            if (this.assets.avatar.complete && this.assets.avatar.width > 0) {
-                const fw = this.assets.avatar.width / 4;
-                const fh = this.assets.avatar.height;
-                this.ctx.drawImage(this.assets.avatar, n.frameIndex * fw, 0, fw, fh, n.x - 32, n.y - 32, 64, 64);
-            } else {
-                this.ctx.fillStyle = 'purple';
-                this.ctx.fillRect(n.x - 32, n.y - 32, 64, 64);
-            }
-            this.ctx.fillStyle = 'white';
-            this.ctx.font = '16px sans-serif';
-            this.ctx.textAlign = 'center';
-            this.ctx.fillText(n.name, n.x, n.y - 40);
+            const isMoving = n.vx !== 0 || n.vy !== 0;
+            this.drawCharacter(this.ctx, n.x, n.y, isMoving, n.tickCount, '#9b59b6', n.name, false);
         });
 
         // Draw Player
-        if (this.assets.avatar.complete && this.assets.avatar.width > 0) {
-            const fw = this.assets.avatar.width / 4;
-            const fh = this.assets.avatar.height;
-            this.ctx.drawImage(this.assets.avatar, this.player.frameIndex * fw, 0, fw, fh, this.player.x - 32, this.player.y - 32, 64, 64);
-        } else {
-            this.ctx.fillStyle = 'red';
-            this.ctx.fillRect(this.player.x - 32, this.player.y - 32, 64, 64);
-        }
-        this.ctx.fillStyle = '#f1c40f';
-        this.ctx.font = '20px sans-serif';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText("YOU", this.player.x, this.player.y - 40);
+        const pMoving = this.keys['ArrowUp'] || this.keys['KeyW'] || this.keys['ArrowDown'] || this.keys['KeyS'] || this.keys['ArrowLeft'] || this.keys['KeyA'] || this.keys['ArrowRight'] || this.keys['KeyD'];
+        this.drawCharacter(this.ctx, this.player.x, this.player.y, pMoving, this.player.tickCount, '#e74c3c', "YOU", true);
 
         this.ctx.restore();
     }
@@ -270,5 +285,6 @@ function enterMatchmaking(roomCode) {
     document.getElementById('prison-join-form').style.display = 'none';
     document.getElementById('prison-password').value = roomCode; // inject room code
     document.getElementById('game').classList.remove('hidden');
+    document.getElementById('room-lobby').classList.remove('hidden');
     queueForGame(); // triggers existing logic
 }
