@@ -238,6 +238,17 @@
             z-index: 0;
         }
 
+        @keyframes squirrel-dance {
+            0%, 100% { transform: translateY(0) scale(1); }
+            25% { transform: translateY(-15px) scale(1.1) rotate(-10deg); }
+            50% { transform: translateY(0) scale(1) rotate(10deg); }
+            75% { transform: translateY(-10px) scale(1.05) rotate(-5deg); }
+        }
+        .dancing {
+            display: block !important;
+            animation: squirrel-dance 0.4s infinite linear;
+        }
+
         /* CANVAS */
         #coin-canvas {
           position: fixed; inset: 0; z-index: 5;
@@ -421,7 +432,10 @@
                         <div class="matrix-cell" id="cell-BB"><div class="cell-content"></div><div class="door-container"><div class="door-half door-left"></div><div class="door-half door-right"></div></div></div>
                     </div>
                 </div>
-                <button id="submit-choice-btn" class="submit-btn" onclick="submitChoice()" disabled>SEND</button>
+                <div style="position: relative; display: inline-block;">
+                    <button id="submit-choice-btn" class="submit-btn" onclick="submitChoice()" disabled>SEND</button>
+                    <img id="dance-squirrel" src="squirrel.png" alt="squirrel" style="position: absolute; left: calc(100% + 15px); bottom: -10px; width: 80px; height: 80px; display: none; image-rendering: pixelated; z-index: 10;">
+                </div>
                 <div id="prison-message" style="margin-top:15px; font-weight:bold; color:#f1c40f; font-size:22px;"></div>
                 
                 <div class="chest-float" id="treasure-chest">
@@ -803,6 +817,27 @@
             }
         }
 
+        function playSquirrelChiptune() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const notes = [440, 554.37, 659.25, 880, 659.25, 554.37];
+                let startTime = ctx.currentTime;
+                for (let i = 0; i < 18; i++) {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(notes[i % notes.length] * (1 + Math.floor(i/6)*0.5), startTime);
+                    gain.gain.setValueAtTime(0.05, startTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.1);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(startTime);
+                    osc.stop(startTime + 0.15);
+                    startTime += 0.15;
+                }
+            } catch(e) { console.log('Audio not supported', e); }
+        }
+
         async function handleRoundResult(d) {
             // Clear any last_result on server for next round
             clearInterval(roundPollInterval);
@@ -825,6 +860,13 @@
                 document.getElementById('result-popup').classList.add('active');
                 
                 spawnPointBubbles(d.my_score, d.op_score);
+                
+                if (d.code === 'CC' && Math.random() < 0.333) {
+                    const sq = document.getElementById('dance-squirrel');
+                    sq.classList.add('dancing');
+                    playSquirrelChiptune();
+                    setTimeout(() => sq.classList.remove('dancing'), 3000);
+                }
                 
                 await new Promise(r => setTimeout(r, 3000)); 
                 document.getElementById('result-popup').classList.remove('active');
