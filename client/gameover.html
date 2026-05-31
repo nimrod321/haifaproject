@@ -24,31 +24,10 @@ body {
 }
 
 /* SLOT MACHINE LIGHTS - border of screen */
-#slot-lights {
-  position: fixed; inset: 0;
-  z-index: 2;
-  pointer-events: none;
-  border: 18px solid transparent;
-  animation: none;
-}
-#slot-lights.active {
-  animation: light-cycle 0.18s linear infinite;
-}
-@keyframes light-cycle {
-  0%   { border-color: #f1c40f; box-shadow: inset 0 0 20px rgba(241,196,15,0.4), 0 0 30px rgba(241,196,15,0.5); }
-  25%  { border-color: #e74c3c; box-shadow: inset 0 0 20px rgba(231,76,60,0.4),  0 0 30px rgba(231,76,60,0.5); }
-  50%  { border-color: #f1c40f; box-shadow: inset 0 0 20px rgba(241,196,15,0.4), 0 0 30px rgba(241,196,15,0.5); }
-  75%  { border-color: #27ae60; box-shadow: inset 0 0 20px rgba(39,174,96,0.4),  0 0 30px rgba(39,174,96,0.5); }
-  100% { border-color: #f1c40f; box-shadow: inset 0 0 20px rgba(241,196,15,0.4), 0 0 30px rgba(241,196,15,0.5); }
-}
+/* Removed */
 
 /* SCREEN FLASH */
-#flash {
-  position: fixed; inset: 0; z-index: 3;
-  background: #fff;
-  opacity: 0; pointer-events: none;
-  transition: opacity 0.08s ease;
-}
+/* Removed */
 
 /* CANVAS */
 #coin-canvas {
@@ -176,32 +155,16 @@ body {
 <body>
 
 <div id="bg"></div>
-<div id="slot-lights"></div>
-<div id="flash"></div>
 <canvas id="coin-canvas"></canvas>
-
-<div id="jackpot-text">🎰 GAME OVER!</div>
+<div id="jackpot-text">GAME OVER!</div>
 <div id="score-banner">
   <span class="lbl">TOTAL SCORE EARNED:</span>
   <span class="val" id="score-val">0</span>
 </div>
 
-<!-- Chest: swap chest.png with your image file -->
+<!-- Chest -->
 <div id="chest-container">
-  <img id="chest-img" src="chest.png" alt="chest"
-       onerror="this.style.display='none'; document.getElementById('chest-fallback').style.display='block'">
-  <!-- Fallback CSS chest if image not found -->
-  <div id="chest-fallback" style="display:none; width:220px; height:160px; position:relative;">
-    <div style="position:absolute;bottom:0;left:0;width:220px;height:115px;background:linear-gradient(135deg,#9c5a1d,#4a2000);border-radius:0 0 18px 18px;border:4px solid #2a1200;box-shadow:0 15px 40px rgba(0,0,0,0.7);">
-      <div style="position:absolute;width:100%;height:13px;top:45%;background:linear-gradient(#ffe066,#c8960c,#ffe066);"></div>
-      <div style="position:absolute;width:13px;height:100%;left:28px;background:linear-gradient(#ffe066,#c8960c,#ffe066);"></div>
-      <div style="position:absolute;width:13px;height:100%;right:28px;background:linear-gradient(#ffe066,#c8960c,#ffe066);"></div>
-      <div style="position:absolute;width:38px;height:40px;background:linear-gradient(135deg,#ffe066,#c8960c);border-radius:6px;left:50%;top:50%;transform:translate(-50%,-50%);box-shadow:0 3px 10px rgba(0,0,0,0.5);"></div>
-    </div>
-    <div id="chest-lid-fb" style="position:absolute;top:0;left:0;width:220px;height:68px;background:linear-gradient(135deg,#b86820,#4a2000);border-radius:18px 18px 0 0;border:4px solid #2a1200;transform-origin:bottom center;transition:transform 0.7s cubic-bezier(0.175,0.885,0.32,1.275);box-shadow:0 -4px 15px rgba(0,0,0,0.4);">
-      <div style="position:absolute;width:100%;height:11px;top:50%;transform:translateY(-50%);background:linear-gradient(#ffe066,#c8960c,#ffe066);"></div>
-    </div>
-  </div>
+  <img id="chest-img" src="chest_closed.png" alt="chest" style="width:220px; height:auto; filter: drop-shadow(0 10px 30px rgba(0,0,0,0.8));">
 </div>
 <div id="chest-coin-stream"></div>
 
@@ -238,82 +201,108 @@ function resize() { W = canvas.width = window.innerWidth; H = canvas.height = wi
 window.addEventListener('resize', resize);
 resize();
 
+let suckingToChest = false;
+let chestTarget = { x: 0, y: 0 };
+let pileMap = {};
+
+function getPileY(x) {
+  let col = Math.floor(x / 15);
+  return FLOOR_Y() - (pileMap[col] || 0);
+}
+
 class Coin {
   constructor(burst) {
-    // Slot machine style: spawn from near center top
-    this.x   = W / 2 + rnd(-80, 80);
+    this.x   = W / 2 + rnd(-W/3, W/3);
     this.y   = rnd(-60, -10);
-    // Mostly downward, slight spread — slot machine burst feel
-    const angle = burst
-      ? rnd(-Math.PI * 0.6, Math.PI * 0.6)  // burst: wide spread
-      : rnd(-Math.PI * 0.18, Math.PI * 0.18); // normal: tight column
-    const speed = burst ? rnd(8, 18) : rnd(10, 16);
-    this.vx  = Math.sin(angle) * speed * 0.3;
-    this.vy  = Math.cos(angle) * speed * (burst ? 0.5 : 1);
+    const speed = burst ? rnd(8, 15) : rnd(10, 16);
+    const angle = rnd(-Math.PI * 0.3, Math.PI * 0.3);
+    this.vx  = Math.sin(angle) * speed;
+    this.vy  = Math.cos(angle) * speed;
     if (this.vy < 0) this.vy = -this.vy;
-    this.r   = COIN_R + rnd(-5, 8);
-    this.scaleX  = 1;
-    this.flipDir = Math.random() > 0.5 ? 1 : -1;
-    this.flipSpd = rnd(0.08, 0.18);
+    
+    this.r   = COIN_R + rnd(-2, 4);
+    this.rot     = rnd(0, Math.PI * 2);
+    this.rotSpd  = rnd(-0.2, 0.2);
     this.landed  = false;
     this.alpha   = 1;
-    this.settle  = false;
+    this.sucked  = false;
   }
 
-  update(pileY) {
+  update() {
+    if (this.sucked) return;
+
+    if (!this.landed || suckingToChest) {
+       this.rot += this.rotSpd;
+    }
+
+    if (suckingToChest) {
+       this.landed = false;
+       const dx = chestTarget.x - this.x;
+       const dy = chestTarget.y - this.y;
+       const dist = Math.sqrt(dx*dx + dy*dy);
+       const force = 0.5 + (100 / Math.max(10, dist));
+       this.vx += (dx / dist) * force;
+       this.vy += (dy / dist) * force;
+       
+       const speed = Math.sqrt(this.vx*this.vx + this.vy*this.vy);
+       if (speed > 45) {
+         this.vx = (this.vx / speed) * 45;
+         this.vy = (this.vy / speed) * 45;
+       }
+
+       this.x += this.vx;
+       this.y += this.vy;
+       
+       if (dist < 40) {
+          this.sucked = true;
+          this.alpha = 0;
+       }
+       return;
+    }
+
     if (this.landed) return;
     this.vy += GRAVITY;
     this.x  += this.vx;
     this.y  += this.vy;
 
-    // Flip
-    this.scaleX += this.flipDir * this.flipSpd;
-    if (this.scaleX >=  1) { this.scaleX =  1; this.flipDir = -1; }
-    if (this.scaleX <= -1) { this.scaleX = -1; this.flipDir =  1; }
-
-    const floor = Math.min(pileY, FLOOR_Y());
+    const floor = Math.min(getPileY(this.x), FLOOR_Y());
     if (this.y + this.r >= floor) {
       this.y  = floor - this.r;
       this.vy = -Math.abs(this.vy) * BOUNCE;
       this.vx *= FRICTION;
       if (Math.abs(this.vy) < 1.5 && Math.abs(this.vx) < 0.5) {
-        this.vy = 0; this.vx = 0; this.flipDir = 0;
+        this.vy = 0; this.vx = 0; this.rotSpd = 0;
         this.landed = true;
+        let col = Math.floor(this.x / 15);
+        const addBump = (c, val) => { pileMap[c] = (pileMap[c] || 0) + val; };
+        addBump(col, 20);
+        addBump(col-1, 15); addBump(col+1, 15);
+        addBump(col-2, 10); addBump(col+2, 10);
+        addBump(col-3, 5);  addBump(col+3, 5);
       }
     }
-    if (this.x - this.r < 0)  { this.x = this.r;     this.vx =  Math.abs(this.vx) * 0.4; }
-    if (this.x + this.r > W)  { this.x = W - this.r; this.vx = -Math.abs(this.vx) * 0.4; }
   }
 
   draw() {
+    if (this.sucked) return;
     ctx.save();
     ctx.translate(this.x, this.y);
-    ctx.scale(this.scaleX, 1);
+    ctx.rotate(this.rot);
     ctx.globalAlpha = this.alpha;
+
     if (coinImg.complete && coinImg.naturalWidth) {
       ctx.drawImage(coinImg, -this.r, -this.r, this.r * 2, this.r * 2);
-    } else {
-      ctx.beginPath(); ctx.arc(0, 0, this.r, 0, Math.PI * 2);
-      ctx.fillStyle = '#f1c40f'; ctx.fill();
-      ctx.fillStyle = '#7a5200'; ctx.font = `${this.r}px sans-serif`;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText('G', 0, 0);
     }
+    
     ctx.restore();
   }
-}
-
-function getPileY() {
-  const l = coins.filter(c => c.landed);
-  return l.length ? Math.min(...l.map(c => c.y - c.r)) : FLOOR_Y();
 }
 
 let loopActive = false;
 function loop() {
   if (!loopActive) return;
   ctx.clearRect(0, 0, W, H);
-  const py = getPileY();
-  for (const c of coins) { c.update(py); c.draw(); }
+  for (const c of coins) { c.update(); c.draw(); }
   requestAnimationFrame(loop);
 }
 
@@ -327,19 +316,6 @@ function burstCoins(n, burst = false) {
       s += batch;
       if (s >= n) { clearInterval(iv); setTimeout(resolve, 900); }
     }, burst ? 30 : 55);
-  });
-}
-
-function fadeCoins() {
-  return new Promise(resolve => {
-    const t0  = performance.now();
-    const dur = 800;
-    (function fade(now) {
-      const t = Math.min((now - t0) / dur, 1);
-      for (const c of coins) c.alpha = 1 - t;
-      if (t < 1) requestAnimationFrame(fade);
-      else { coins.length = 0; loopActive = false; ctx.clearRect(0,0,W,H); resolve(); }
-    })(performance.now());
   });
 }
 
@@ -361,84 +337,62 @@ function animCount(el, target, dur = 1600) {
 // ─────────────────────────────────────────
 // FLASH
 // ─────────────────────────────────────────
-async function flash(times = 3) {
-  const el = document.getElementById('flash');
-  for (let i = 0; i < times; i++) {
-    el.style.opacity = '0.85';
-    await wait(80);
-    el.style.opacity = '0';
-    await wait(80);
-  }
-}
+// Removed
 
 // ─────────────────────────────────────────
-// COIN STREAM INTO CHEST
+// CHEST IMAGE SWAP
 // ─────────────────────────────────────────
-function streamCoinsIntoChest() {
-  const c = document.getElementById('chest-coin-stream');
-  c.innerHTML = '';
-  for (let i = 0; i < 14; i++) {
-    const d = document.createElement('div');
-    d.className = 'stream-coin';
-    d.style.setProperty('--d', (i * 0.07) + 's');
-    d.style.setProperty('--sx', rnd(-60, 60) + 'px');
-    c.appendChild(d);
-  }
-}
-
-// ─────────────────────────────────────────
-// CHEST LID (for fallback CSS chest)
-// ─────────────────────────────────────────
-function openLid(open) {
-  const lid = document.getElementById('chest-lid-fb');
-  if (lid) lid.style.transform = open ? 'rotateX(-130deg)' : 'rotateX(0deg)';
-}
 
 // ─────────────────────────────────────────
 // MAIN SEQUENCE
 // ─────────────────────────────────────────
 async function runSequence(score) {
-  // Phase 1: Slot machine lights ON + burst flash
+  // Reset
+  pileMap = {};
+  coins.length = 0;
+  suckingToChest = false;
+
+  // Phase 1: Small wait
   await wait(200);
-  await flash(2);
-  document.getElementById('slot-lights').classList.add('active');
-  await wait(300);
 
   // Phase 2: GAME OVER text slams in
   document.getElementById('jackpot-text').classList.add('show');
   await wait(600);
 
-  // Phase 3: Massive coin burst from top — slot machine jackpot pour
+  // Phase 3: Chest slams in FIRST so coins can fall behind it (z-index naturally handles it)
+  document.getElementById('chest-container').classList.add('show');
+  await wait(300);
+
+  // Phase 4: Massive coin burst from top
   loopActive = true;
   loop();
-  await burstCoins(20, true);   // first burst: wide spread
-  await burstCoins(40, false);  // sustained rain: tight column
+  await burstCoins(50, true);   // first burst: wide spread
+  await burstCoins(80, false);  // sustained rain: tight column
   await wait(600);
 
-  // Phase 4: Score banner + counter
+  // Phase 5: Score banner + counter
   document.getElementById('score-banner').classList.add('show');
   await animCount(document.getElementById('score-val'), score);
   await wait(500);
 
-  // Phase 5: Flash + coins drain
-  await flash(3);
-  document.getElementById('slot-lights').classList.remove('active');
-  await fadeCoins();
-  await wait(200);
-
-  // Phase 6: Chest slams in
-  document.getElementById('chest-container').classList.add('show');
-  await wait(300);
-  await flash(1);
-
-  // Phase 7: Lid opens (fallback), coins stream in
-  openLid(true);
+  // Phase 6: Lid opens
+  const chestImg = document.getElementById('chest-img');
+  if (chestImg) chestImg.src = 'chest_open_empty.png';
   await wait(350);
-  streamCoinsIntoChest();
-  await wait(1200);
+
+  // Phase 7: Coins suck into chest
+  const chestEl = document.getElementById('chest-container');
+  const rect = chestEl.getBoundingClientRect();
+  chestTarget = { x: rect.left + rect.width/2, y: rect.top + rect.height/2 };
+  suckingToChest = true;
+  
+  setTimeout(() => { if (chestImg) chestImg.src = 'chest_open_low.png'; }, 400);
+  setTimeout(() => { if (chestImg) chestImg.src = 'chest_open_mid.png'; }, 1000);
+  setTimeout(() => { if (chestImg) chestImg.src = 'chest_open_full.png'; }, 1600);
+  
+  await wait(1800);
 
   // Phase 8: Chest shakes, lid closes
-  const chestEl = document.getElementById('chest-container');
   chestEl.animate([
     { transform: 'translateX(-50%) scale(1) rotate(0deg)' },
     { transform: 'translateX(-50%) scale(1.1) rotate(-6deg)' },
@@ -446,9 +400,8 @@ async function runSequence(score) {
     { transform: 'translateX(-50%) scale(1.05) rotate(-2deg)' },
     { transform: 'translateX(-50%) scale(1) rotate(0deg)' }
   ], { duration: 500, easing: 'ease-out', fill: 'forwards' });
-  openLid(false);
+  if (chestImg) chestImg.src = 'chest_closed.png';
   await wait(400);
-  await flash(2);
 
   // Phase 9: Play again
   await wait(300);

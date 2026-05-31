@@ -237,162 +237,102 @@
             background: linear-gradient(180deg,rgba(10,60,10,0.12) 0%,rgba(30,100,30,0.22) 60%,rgba(10,60,10,0.50) 100%);
             z-index: 0;
         }
-        #go-title {
-            position: relative; z-index: 10;
-            font-size: 100px; color: #fff;
-            text-shadow: 0 0 20px rgba(255,80,80,0.9),0 0 40px rgba(255,80,80,0.5),5px 5px 0 #8b0000,3px 3px 0 #c0392b;
-            opacity: 0; transform: scale(0.2) rotate(-10deg);
-            transition: transform 0.7s cubic-bezier(0.175,0.885,0.32,1.275),opacity 0.5s ease;
-            margin-bottom: 8px; letter-spacing: 4px;
-        }
-        #go-title.show { opacity: 1; transform: scale(1) rotate(0deg); }
-        #go-title .exclaim { color: #f1c40f; text-shadow: 0 0 20px rgba(255,200,0,0.9),5px 5px 0 #8b6914; }
-        #go-coin-stage { position: relative; z-index: 10; width: 600px; height: 220px; margin: 0 auto; }
-        #go-coin-pile {
-            position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
-            width: 280px; display: flex; flex-wrap: wrap-reverse; align-items: flex-end;
-            justify-content: center; gap: 3px;
-        }
-        /* Game-over pile coins — use coin.png */
-        .go-pile-coin {
-            width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
-            background-image: url('coin.png'); background-size: cover; background-position: center;
-            box-shadow: 0 3px 8px rgba(0,0,0,0.5);
-            animation: go-pile-land 0.3s cubic-bezier(0.175,0.885,0.32,1.275);
-        }
-        @keyframes go-pile-land {
-            0%  { transform: scaleX(0.5) scaleY(0.1); opacity: 0; }
-            100%{ transform: scale(1); opacity: 1; }
-        }
-        /* Game-over flying coins — use coin.png, slot-machine spin */
-        .go-flying-coin {
-            position: fixed; width: 52px; height: 52px; border-radius: 50%;
-            background-image: url('coin.png'); background-size: cover; background-position: center;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-            z-index: 49999; pointer-events: none;
-            animation: go-coin-spin 0.3s linear infinite;
-        }
-        @keyframes go-coin-spin {
-            0%,50%,100% { transform: scaleX(1); }
-            25%,75%     { transform: scaleX(0.08); }
+
+        /* CANVAS */
+        #coin-canvas {
+          position: fixed; inset: 0; z-index: 5;
+          pointer-events: none;
         }
 
-        #go-score-label {
-            position: relative; z-index: 10; font-size: 42px;
-            color: #f1c40f; text-shadow: 3px 3px 0 #8b6914, 0 0 20px rgba(255,200,0,0.8);
-            margin-top: 6px; opacity: 0; transform: translateY(20px);
-            transition: opacity 0.5s ease, transform 0.5s ease;
+        /* JACKPOT TEXT */
+        #jackpot-text {
+          position: absolute; /* changed to absolute so it lives in gameover-screen */
+          top: 10%;
+          left: 50%;
+          transform: translateX(-50%) scale(0) rotate(-8deg);
+          z-index: 20;
+          font-size: clamp(70px, 12vw, 130px);
+          color: #f1c40f;
+          letter-spacing: 6px;
+          white-space: nowrap;
+          text-shadow:
+            0 0 30px rgba(255,200,0,1),
+            0 0 60px rgba(255,150,0,0.8),
+            5px 7px 0 #7a3d00,
+            3px 5px 0 #b86000;
+          opacity: 0;
+          transition: opacity 0.3s ease, transform 0.6s cubic-bezier(0.175,0.885,0.32,1.275);
+          pointer-events: none;
         }
-        #go-score-label.show { opacity: 1; transform: translateY(0); }
-        #go-score-count { color: #fff; text-shadow: 3px 3px 0 #27ae60, 0 0 20px rgba(46,204,113,0.8); }
-        #go-banner {
-            position: relative; z-index: 10;
-            background: rgba(0,0,0,0.6); backdrop-filter: blur(10px);
-            border: 5px solid #f1c40f; border-radius: 30px;
-            padding: 14px 48px; margin-top: 12px;
-            opacity: 0; transform: scale(0.5);
-            transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.175,0.885,0.32,1.275);
-            box-shadow: 0 0 40px rgba(241,196,15,0.5), 0 20px 40px rgba(0,0,0,0.5);
+        #jackpot-text.show { opacity: 1; transform: translateX(-50%) scale(1) rotate(0deg); }
+
+        /* SCORE BANNER */
+        #score-banner {
+          position: absolute;
+          top: 32%;
+          left: 50%;
+          transform: translateX(-50%) scale(0.4);
+          z-index: 20;
+          background: rgba(0,0,0,0.82);
+          backdrop-filter: blur(14px);
+          border: 5px solid #f1c40f;
+          border-radius: 26px;
+          padding: 16px 54px;
+          text-align: center;
+          opacity: 0;
+          transition: opacity 0.5s ease, transform 0.6s cubic-bezier(0.175,0.885,0.32,1.275);
+          box-shadow: 0 0 50px rgba(241,196,15,0.6), 0 10px 40px rgba(0,0,0,0.6);
+          pointer-events: none;
         }
-        #go-banner.show { opacity: 1; transform: scale(1); }
-        #go-banner .go-bl { font-size: 28px; color: #ddd; display: block; margin-bottom: 4px; }
-        #go-banner .go-bv {
-            font-size: 72px; color: #f1c40f;
-            text-shadow: 4px 4px 0 #8b6914, 0 0 30px rgba(255,200,0,0.8); display: block;
+        #score-banner.show { opacity: 1; transform: translateX(-50%) scale(1); }
+        #score-banner .lbl { font-size: 22px; color: #aaa; display: block; margin-bottom: 4px; }
+        #score-banner .val { font-size: 76px; color: #f1c40f; text-shadow: 4px 4px 0 #7a3d00, 0 0 30px rgba(255,200,0,0.9); display: block; }
+
+        /* CHEST IMAGE */
+        #chest-container {
+          position: absolute;
+          bottom: 50px;
+          left: 50%;
+          transform: translateX(-50%) scale(0);
+          z-index: 25;
+          transition: transform 0.7s cubic-bezier(0.175,0.885,0.32,1.275);
+          transform-origin: bottom center;
+          pointer-events: none;
+          width: 220px;
+        }
+        #chest-container.show { transform: translateX(-50%) scale(1); }
+        #chest-img {
+          width: 220px;
+          height: auto;
+          display: block;
+          background: transparent;
+          filter: drop-shadow(0 10px 30px rgba(241,196,15,0.6)) drop-shadow(0 20px 40px rgba(0,0,0,0.7));
         }
 
-        /* Game-over chest */
-        #go-chest-wrap {
-            position: relative; z-index: 10;
-            width: 260px; margin-top: 18px;
-            background: transparent;
-            filter: drop-shadow(0 8px 25px rgba(241,196,15,0.55));
-            opacity: 0; transform: scale(0.5);
-            transition: opacity 0.5s ease, transform 0.6s cubic-bezier(0.175,0.885,0.32,1.275);
+        /* PLAY AGAIN */
+        #play-again-btn {
+          position: absolute;
+          bottom: 18px; left: 50%;
+          transform: translateX(-50%) translateY(30px);
+          z-index: 30;
+          background: linear-gradient(135deg, #27ae60, #1e8449);
+          color: #fff;
+          font-family: 'Bubblegum Sans', cursive;
+          font-size: 28px;
+          padding: 14px 60px;
+          border: 4px solid #fff;
+          border-radius: 50px;
+          cursor: pointer;
+          pointer-events: none;
+          box-shadow: 0 8px 25px rgba(0,0,0,0.5), 0 0 30px rgba(46,204,113,0.4);
+          opacity: 0;
+          transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.175,0.885,0.32,1.275), box-shadow 0.2s ease;
         }
-        #go-chest-wrap.show { opacity: 1; transform: scale(1); }
-        #go-chest-wrap.go-glowing { filter: drop-shadow(0 0 30px rgba(255,215,0,1)) drop-shadow(0 8px 25px rgba(241,196,15,0.6)); }
-        #go-chest-img {
-            width: 260px; height: auto;
-            display: block; background: transparent;
-        }
-
-        /* Coins stream ABOVE chest into opening */
-        #go-chest-coins {
-            position: absolute; top: 0px; left: 50%;
-            transform: translateX(-50%);
-            width: 0; height: 0; z-index: 3;
-        }
-        .go-overflow-coin {
-            position: absolute; width: 32px; height: 32px; border-radius: 50%;
-            background-image: url('coin.png'); background-size: cover; background-position: center;
-            opacity: 0;
-            animation: go-overflow-pop 0.5s ease forwards;
-            animation-delay: var(--gd, 0s);
-        }
-        @keyframes go-overflow-pop {
-            0%  { transform: translate(0,0) scale(0); opacity: 0; }
-            60% { opacity: 1; }
-            100%{ transform: translate(var(--tx,0px),var(--ty,-30px)) scale(1); opacity: 1; }
-        }
-        .go-sparkle {
-            position: fixed; pointer-events: none; font-size: 22px; z-index: 49998;
-            animation: go-sparkle-float 2s ease-out forwards;
-        }
-        @keyframes go-sparkle-float {
-            0%  { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); }
-            100%{ opacity: 0; transform: translateY(-120px) scale(0.3) rotate(360deg); }
-        }
-        .go-animal {
-            position: fixed; bottom: -80px; font-size: 55px; z-index: 49997;
-            animation: go-animal-bounce 0.8s cubic-bezier(0.175,0.885,0.32,1.275) forwards;
-        }
-        @keyframes go-animal-bounce {
-            0%  { bottom: -80px; }
-            60% { bottom: 30px; }
-            80% { bottom: 12px; }
-            100%{ bottom: 18px; }
-        }
-        #go-grass-strip {
-            position: fixed; bottom: 0; left: 0; right: 0; height: 70px;
-            background: linear-gradient(180deg,#27ae60 0%,#1e8449 50%,#196f3d 100%);
-            z-index: 4; border-top: 5px solid #2ecc71;
-        }
-        #go-grass-blades {
-            position: fixed; bottom: 60px; left: 0; right: 0; height: 35px;
-            z-index: 5; display: flex; justify-content: space-around; align-items: flex-end;
-        }
-        .go-grass-blade {
-            border-radius: 50% 50% 0 0; transform-origin: bottom center;
-            animation: go-grass-sway 2s ease-in-out infinite alternate;
-            animation-delay: var(--gd, 0s);
-        }
-        @keyframes go-grass-sway {
-            0%  { transform: rotate(-14deg) scaleX(0.9); }
-            100%{ transform: rotate(14deg) scaleX(1.1); }
-        }
-        .go-cloud {
-            position: fixed; z-index: 3; opacity: 0.8; font-size: 65px;
-            animation: go-cloud-drift linear infinite;
-        }
-        @keyframes go-cloud-drift {
-            0%  { transform: translateX(0); }
-            100%{ transform: translateX(110vw); }
-        }
-        #go-play-again {
-            position: relative; z-index: 10;
-            background: #27ae60; color: #fff;
-            font-family: 'Bubblegum Sans', cursive; font-size: 30px;
-            padding: 14px 55px; border: 5px solid #fff; border-radius: 50px;
-            cursor: pointer; margin-top: 20px;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.4), 0 0 30px rgba(46,204,113,0.4);
-            opacity: 0; transform: translateY(20px);
-            transition: opacity 0.5s ease, transform 0.2s ease, box-shadow 0.2s ease;
-        }
-        #go-play-again.show { opacity: 1; transform: translateY(0); }
-        #go-play-again:hover {
-            background: #2ecc71; transform: translateY(-4px);
-            box-shadow: 0 14px 30px rgba(0,0,0,0.4), 0 0 40px rgba(46,204,113,0.6);
+        #play-again-btn.show { opacity: 1; pointer-events: all; transform: translateX(-50%) translateY(0); }
+        #play-again-btn:hover {
+          background: linear-gradient(135deg, #2ecc71, #27ae60);
+          box-shadow: 0 14px 40px rgba(0,0,0,0.5), 0 0 50px rgba(46,204,113,0.7);
+          transform: translateX(-50%) translateY(-4px);
         }
     </style>
 </head>
@@ -492,21 +432,16 @@
 
     <!-- ====== GAME OVER ANIMATED SCREEN ====== -->
     <div id="gameover-screen">
-        <div id="go-grass-blades"></div>
-        <div id="go-grass-strip"></div>
-        <div id="go-title">GAME OVER<span class="exclaim">!</span></div>
-        <div id="go-coin-stage"><div id="go-coin-pile"></div></div>
-        <div id="go-score-label">COINS COLLECTED: <span id="go-score-count">0</span></div>
-        <div id="go-banner">
-            <span class="go-bl">TOTAL SCORE EARNED:</span>
-            <span class="go-bv" id="go-total-val">0</span>
+        <canvas id="coin-canvas"></canvas>
+        <div id="jackpot-text">GAME OVER!</div>
+        <div id="score-banner">
+          <span class="lbl">TOTAL SCORE EARNED:</span>
+          <span class="val" id="score-val">0</span>
         </div>
-        <div id="go-chest-wrap">
-            <img id="go-chest-img" src="chest_closed.png" alt="chest">
-            <div id="go-chest-coins"></div>
+        <div id="chest-container">
+          <img id="chest-img" src="chest_closed.png" alt="chest" style="width:220px; height:auto; filter: drop-shadow(0 10px 30px rgba(0,0,0,0.8));">
         </div>
-        <button id="go-play-again" onclick="goPlayAgain()">🎮 Play Again!</button>
-        <!-- location.reload() brings user back to login screen -->
+        <button id="play-again-btn" onclick="goPlayAgain()">🎮 Play Again!</button>
     </div>
 
     <div id="reveal-countdown-overlay"><div id="countdown-text">3</div></div>
@@ -1051,296 +986,232 @@
         // =====================================================
         // GAME OVER ANIMATION
         // =====================================================
-        const goWait = ms => new Promise(r => setTimeout(r, ms));
-        const goRnd  = (a,b) => a + Math.random()*(b-a);
+        const wait = ms => new Promise(r => setTimeout(r, ms));
+        const rnd  = (a, b) => a + Math.random() * (b - a);
 
-        function goBuildGrass() {
-            const c = document.getElementById('go-grass-blades');
-            for(let i=0;i<90;i++){
-                const b=document.createElement('div'); b.className='go-grass-blade';
-                b.style.setProperty('--gd', goRnd(0,2)+'s');
-                b.style.height=goRnd(18,42)+'px'; b.style.width=goRnd(7,15)+'px';
-                b.style.background=`hsl(${goRnd(100,140)},60%,38%)`;  c.appendChild(b);
+        const canvas = document.getElementById('coin-canvas');
+        const ctx    = canvas.getContext('2d');
+        let W, H;
+        const coins  = [];
+
+        const GRAVITY  = 0.55;
+        const BOUNCE   = 0.25;
+        const FRICTION = 0.78;
+        const COIN_R   = 24;
+        const FLOOR_Y  = () => H - 80;
+
+        const coinImg = new Image();
+        coinImg.src   = 'coin.png';
+
+        function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resize);
+        resize();
+
+        let suckingToChest = false;
+        let chestTarget = { x: 0, y: 0 };
+        let pileMap = {};
+
+        function getPileY(x) {
+          let col = Math.floor(x / 15);
+          return FLOOR_Y() - (pileMap[col] || 0);
+        }
+
+        class Coin {
+          constructor(burst) {
+            this.x   = W / 2 + rnd(-W/3, W/3);
+            this.y   = rnd(-60, -10);
+            const speed = burst ? rnd(8, 15) : rnd(10, 16);
+            const angle = rnd(-Math.PI * 0.3, Math.PI * 0.3);
+            this.vx  = Math.sin(angle) * speed;
+            this.vy  = Math.cos(angle) * speed;
+            if (this.vy < 0) this.vy = -this.vy;
+            
+            this.r   = COIN_R + rnd(-2, 4);
+            this.rot     = rnd(0, Math.PI * 2);
+            this.rotSpd  = rnd(-0.2, 0.2);
+            this.landed  = false;
+            this.alpha   = 1;
+            this.sucked  = false;
+          }
+
+          update() {
+            if (this.sucked) return;
+
+            if (!this.landed || suckingToChest) {
+               this.rot += this.rotSpd;
             }
-        }
-        function goLaunchCloud(top,delay,dur){
-            const emojis=['☁️','⛅','🌤️'];
-            const c=document.createElement('div'); c.className='go-cloud';
-            c.textContent=emojis[Math.floor(Math.random()*emojis.length)];
-            c.style.top=top+'px'; c.style.left='-80px';
-            c.style.animationDuration=dur+'s'; c.style.animationDelay=delay+'s';
-            document.body.appendChild(c);
-            setTimeout(()=>c.remove(),(delay+dur+1)*1000);
-        }
-        function goStartClouds(){
-            [0,40,80,20,60].forEach((top,i)=>goLaunchCloud(top,i*3.5,goRnd(18,28)));
-        }
-        function goSpawnSparkles(x,y,n){
-            const em=['✨','⭐','💛','🌟','💫'];
-            for(let i=0;i<n;i++){
-                const s=document.createElement('div'); s.className='go-sparkle';
-                s.textContent=em[Math.floor(Math.random()*em.length)];
-                s.style.left=(x+goRnd(-40,40))+'px'; s.style.top=(y+goRnd(-30,10))+'px';
-                s.style.animationDelay=goRnd(0,0.4)+'s';
-                document.body.appendChild(s); setTimeout(()=>s.remove(),2500);
+
+            if (suckingToChest) {
+               this.landed = false;
+               const dx = chestTarget.x - this.x;
+               const dy = chestTarget.y - this.y;
+               const dist = Math.sqrt(dx*dx + dy*dy);
+               const force = 0.5 + (100 / Math.max(10, dist));
+               this.vx += (dx / dist) * force;
+               this.vy += (dy / dist) * force;
+               
+               const speed = Math.sqrt(this.vx*this.vx + this.vy*this.vy);
+               if (speed > 45) {
+                 this.vx = (this.vx / speed) * 45;
+                 this.vy = (this.vy / speed) * 45;
+               }
+
+               this.x += this.vx;
+               this.y += this.vy;
+               
+               if (dist < 40) {
+                  this.sucked = true;
+                  this.alpha = 0;
+               }
+               return;
             }
-        }
-        function goSpawnFlyingCoin(pileEl,onLand){
-            const coin=document.createElement('div'); coin.className='go-flying-coin';
-            // Slot machine style: spawn near center top, fall straight down
-            const sx=window.innerWidth/2+goRnd(-140,140), sy=goRnd(-90,-10);
-            coin.style.left=sx+'px'; coin.style.top=sy+'px';
-            document.body.appendChild(coin);
-            const rect=pileEl.getBoundingClientRect();
-            const tx=rect.left+rect.width/2-26+goRnd(-70,70), ty=rect.bottom-52;
-            // Mostly straight down with slight arc
-            const cpx=sx+goRnd(-25,25), cpy=sy+(ty-sy)*0.3;
-            const dur=goRnd(500,800), t0=performance.now();
-            const frame=now=>{
-                const t=Math.min((now-t0)/dur,1);
-                const e=1-Math.pow(1-t,3); // cubic ease-out (gravity feel)
-                coin.style.left=((1-e)*(1-e)*sx+2*(1-e)*e*cpx+e*e*tx)+'px';
-                coin.style.top =((1-e)*(1-e)*sy+2*(1-e)*e*cpy+e*e*ty)+'px';
-                if(t<1) requestAnimationFrame(frame);
-                else{ coin.remove(); goSpawnSparkles(tx+26,ty+26,3); onLand(); }
-            };
-            requestAnimationFrame(frame);
-        }
-        async function goCoinSequence(total,pileEl,countEl){
-            const visual=Math.min(total,36); let landed=0;
-            for(let i=0;i<visual;i++){
-                await goWait(goRnd(55,155));
-                goSpawnFlyingCoin(pileEl,()=>{ pileEl.appendChild(Object.assign(document.createElement('div'),{className:'go-pile-coin'})); landed++; countEl.textContent=Math.round((landed/visual)*total); });
+
+            if (this.landed) return;
+            this.vy += GRAVITY;
+            this.x  += this.vx;
+            this.y  += this.vy;
+
+            const floor = Math.min(getPileY(this.x), FLOOR_Y());
+            if (this.y + this.r >= floor) {
+              this.y  = floor - this.r;
+              this.vy = -Math.abs(this.vy) * BOUNCE;
+              this.vx *= FRICTION;
+              if (Math.abs(this.vy) < 1.5 && Math.abs(this.vx) < 0.5) {
+                this.vy = 0; this.vx = 0; this.rotSpd = 0;
+                this.landed = true;
+                let col = Math.floor(this.x / 15);
+                const addBump = (c, val) => { pileMap[c] = (pileMap[c] || 0) + val; };
+                addBump(col, 20);
+                addBump(col-1, 15); addBump(col+1, 15);
+                addBump(col-2, 10); addBump(col+2, 10);
+                addBump(col-3, 5);  addBump(col+3, 5);
+              }
             }
-            await goWait(1100); countEl.textContent=total;
-        }
-        // Spawn a flying coin FROM the chest opening outward into the pile
-        function goSpawnFlyingCoinFromChest(pileEl, chestEl, onLand) {
-            const coin = document.createElement('div'); coin.className = 'go-flying-coin';
-            const cr = chestEl.getBoundingClientRect();
-            // Start at chest opening (top-center)
-            const sx = cr.left + cr.width * 0.5 + goRnd(-30, 30);
-            const sy = cr.top  + cr.height * 0.2;
-            coin.style.left = sx + 'px'; coin.style.top = sy + 'px';
-            document.body.appendChild(coin);
-            const rect = pileEl.getBoundingClientRect();
-            const tx = rect.left + rect.width / 2 - 26 + goRnd(-70, 70);
-            const ty = rect.bottom - 52;
-            // Arc outward from chest
-            const cpx = sx + goRnd(-60, 60), cpy = sy - goRnd(60, 130);
-            const dur = goRnd(420, 700), t0 = performance.now();
-            const frame = now => {
-                const t = Math.min((now - t0) / dur, 1);
-                const e = 1 - Math.pow(1 - t, 3);
-                coin.style.left = ((1-e)*(1-e)*sx + 2*(1-e)*e*cpx + e*e*tx) + 'px';
-                coin.style.top  = ((1-e)*(1-e)*sy + 2*(1-e)*e*cpy + e*e*ty) + 'px';
-                if (t < 1) requestAnimationFrame(frame);
-                else { coin.remove(); goSpawnSparkles(tx+26, ty+26, 2); onLand(); }
-            };
-            requestAnimationFrame(frame);
-        }
+          }
 
-        // Modified coin sequence — coins fly OUT of the chest, then land in pile
-        async function goCoinSequenceFromChest(total, pileEl, countEl, chestEl) {
-            const visual = Math.min(total, 36); let landed = 0;
-            for (let i = 0; i < visual; i++) {
-                await goWait(goRnd(55, 145));
-                goSpawnFlyingCoinFromChest(pileEl, chestEl, () => {
-                    pileEl.appendChild(Object.assign(document.createElement('div'), {className: 'go-pile-coin'}));
-                    landed++;
-                    countEl.textContent = Math.round((landed / visual) * total);
-                });
+          draw() {
+            if (this.sucked) return;
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.rotate(this.rot);
+            ctx.globalAlpha = this.alpha;
+
+            if (coinImg.complete && coinImg.naturalWidth) {
+              ctx.drawImage(coinImg, -this.r, -this.r, this.r * 2, this.r * 2);
             }
-            await goWait(900);
-            countEl.textContent = total;
+            
+            ctx.restore();
+          }
         }
 
-        async function goCoinsIntoChest(pileEl,chestEl,coinsEl){
-            // "Suck-in" animation: coins accelerate toward chest, shrink to zero
-            await goWait(100);
-            const coins=Array.from(pileEl.querySelectorAll('.go-pile-coin'));
-            if(coins.length === 0){ await goWait(300); return; }
-            const cr=chestEl.getBoundingClientRect();
-            // Target: slightly deeper into the chest opening
-            const tx=cr.left+cr.width/2, ty=cr.top+cr.height*0.35;
-
-            // Animate each coin sucking in — use a plain styled div to AVOID
-            // the go-flying-coin CSS animation which would override JS transforms
-            const promises = coins.map((pc, i) => new Promise(resolve => {
-                const pr = pc.getBoundingClientRect(); pc.remove();
-
-                const cl = document.createElement('div');
-                // Inline style only — no class with animation property
-                Object.assign(cl.style, {
-                    position: 'fixed',
-                    width: '38px', height: '38px',
-                    borderRadius: '50%',
-                    backgroundImage: "url('coin.png')",
-                    backgroundSize: 'cover',
-                    zIndex: '49999',
-                    pointerEvents: 'none',
-                    left: (pr.left + pr.width  / 2 - 19) + 'px',
-                    top:  (pr.top  + pr.height / 2 - 19) + 'px',
-                });
-                document.body.appendChild(cl);
-
-                const sx = pr.left + pr.width  / 2 - 19;
-                const sy = pr.top  + pr.height / 2 - 19;
-                const delay = i * 40;
-                const dur   = goRnd(350, 550);
-
-                setTimeout(() => {
-                    const t0 = performance.now();
-                    (function frame() {
-                        const t = Math.min((performance.now() - t0) / dur, 1);
-                        const e = Math.pow(t, 4); // Steep quartic ease-in — extreme acceleration into chest
-                        cl.style.left      = (sx + (tx - sx - 19) * e) + 'px';
-                        cl.style.top       = (sy + (ty - sy - 19) * e) + 'px';
-                        cl.style.transform = `scale(${Math.max(0, 1 - e)}) rotate(${t * 1080}deg)`;
-                        cl.style.opacity   = t > 0.95 ? String(1 - (t - 0.95) * 20) : '1';
-                        if (t < 1) requestAnimationFrame(frame);
-                        else { cl.remove(); resolve(); }
-                    })();
-                }, delay);
-            }));
-
-            await Promise.all(promises);
-            await goWait(100);
-
-            // Chest shakes to acknowledge all coins absorbed
-            chestEl.animate([
-                {transform:'scale(1) rotate(0deg)'},
-                {transform:'scale(1.15) rotate(-6deg)'},
-                {transform:'scale(1.15) rotate(6deg)'},
-                {transform:'scale(1.08) rotate(-3deg)'},
-                {transform:'scale(1.04) rotate(2deg)'},
-                {transform:'scale(1) rotate(0deg)'}
-            ],{duration:600,easing:'ease-out'});
-
-            // Small burst of overflow coins to celebrate
-            for(let i=0;i<8;i++){
-                const oc=document.createElement('div'); oc.className='go-overflow-coin';
-                const a=goRnd(-50,50)*Math.PI/180, d=goRnd(35,85);
-                oc.style.setProperty('--tx',Math.sin(a)*d+'px');
-                oc.style.setProperty('--ty',(-Math.cos(a)*d-20)+'px');
-                oc.style.setProperty('--gd',(i*0.06)+'s');
-                oc.style.left=goRnd(-12,12)+'px'; oc.style.top='0px';
-                coinsEl.appendChild(oc);
-            }
-            await goWait(700);
+        let loopActive = false;
+        function loop() {
+          if (!loopActive) return;
+          ctx.clearRect(0, 0, W, H);
+          for (const c of coins) { c.update(); c.draw(); }
+          requestAnimationFrame(loop);
         }
-        function goSummonAnimals(){
-            ['🐇','🦔','🦋','🐿️','🐢'].forEach((a,i)=>{
-                const el=document.createElement('div'); el.className='go-animal';
-                el.textContent=a; el.style.left=(8+i*18)+'vw';
-                el.style.animationDelay=(i*0.14)+'s'; document.body.appendChild(el);
-            });
+
+        function burstCoins(n, burst = false) {
+          return new Promise(resolve => {
+            let s = 0;
+            const iv = setInterval(() => {
+              const batch = burst ? Math.min(5, n - s) : Math.min(2, n - s);
+              for (let i = 0; i < batch; i++) coins.push(new Coin(burst));
+              s += batch;
+              if (s >= n) { clearInterval(iv); setTimeout(resolve, 900); }
+            }, burst ? 30 : 55);
+          });
         }
+
+        function animCount(el, target, dur = 1600) {
+          const t0 = performance.now();
+          return new Promise(res => {
+            (function step(now) {
+              const p = Math.min((now - t0) / dur, 1);
+              const e = p < 0.5 ? 2*p*p : -1+(4-2*p)*p;
+              el.textContent = Math.round(e * target).toLocaleString();
+              if (p < 1) requestAnimationFrame(step); else res();
+            })(performance.now());
+          });
+        }
+
         async function goPlayAgain() {
-            const btn = document.getElementById('go-play-again');
+            const btn = document.getElementById('play-again-btn');
             btn.disabled = true;
-            const chestEl  = document.getElementById('go-chest-wrap');
-            const chestImg = document.getElementById('go-chest-img');
-
-            // Close the chest smoothly
-            chestEl.animate([
-                {transform: 'scale(1)'},
-                {transform: 'scale(1.03) translateY(-2px)'},
-                {transform: 'scale(0.97) translateY(1px)'},
-                {transform: 'scale(1)   translateY(0)'},
-            ], {duration: 350, easing: 'ease-out', fill: 'forwards'});
-            await goWait(150);
-            chestImg.src = 'chest_closed.png';
-            await goWait(350);
-
-            // Fade out game-over screen and chest smoothly
+            
+            // Fade out
             const screen = document.getElementById('gameover-screen');
             screen.style.transition = 'opacity 0.8s ease';
             screen.style.opacity = '0';
-            chestEl.style.transition = 'opacity 0.8s ease';
-            chestEl.style.opacity = '0';
-            await goWait(850);
+            await wait(850);
             location.reload();
         }
 
-        async function showGameOver(score){
-            score = score || 0;
-            goBuildGrass(); goStartClouds();
-            const screen   = document.getElementById('gameover-screen');
-            const chestEl  = document.getElementById('go-chest-wrap');
-            const chestImg = document.getElementById('go-chest-img');
-            const coinsEl  = document.getElementById('go-chest-coins');
-            const pileEl   = document.getElementById('go-coin-pile');
-            const countEl  = document.getElementById('go-score-count');
+        async function showGameOver(score) {
+          score = score || 0;
+          
+          const screen = document.getElementById('gameover-screen');
+          screen.classList.add('go-active');
 
-            // Reset chest to closed
-            chestImg.src = 'chest_closed.png';
+          // Reset
+          pileMap = {};
+          coins.length = 0;
+          suckingToChest = false;
 
-            screen.classList.add('go-active');
-            await goWait(300);
+          await wait(200);
 
-            // 1. Title drops in
-            document.getElementById('go-title').classList.add('show');
-            goSpawnSparkles(window.innerWidth/2, window.innerHeight*0.18, 10);
-            await goWait(800);
+          // Phase 2: GAME OVER text slams in
+          document.getElementById('jackpot-text').classList.add('show');
+          await wait(600);
 
-            // 2. Closed chest appears
-            chestEl.classList.add('show');
-            await goWait(700);
+          // Phase 3: Chest slams in FIRST
+          document.getElementById('chest-container').classList.add('show');
+          await wait(300);
 
-            // 3. Chest SHAKES then SPRINGS OPEN
-            await chestEl.animate([
-                {transform:'scale(1) rotate(0deg)'},
-                {transform:'scale(1.06) rotate(-7deg)'},
-                {transform:'scale(1.06) rotate(7deg)'},
-                {transform:'scale(1.06) rotate(-5deg)'},
-                {transform:'scale(1.06) rotate(5deg)'},
-                {transform:'scale(1.06) rotate(-2deg)'},
-                {transform:'scale(1) rotate(0deg)'},
-            ], {duration: 520, easing:'ease-in-out', fill:'forwards'}).finished;
+          // Phase 4: Massive coin burst from top
+          loopActive = true;
+          loop();
+          await burstCoins(50, true);
+          await burstCoins(80, false);
+          await wait(600);
 
-            // Spring open
-            chestImg.src = 'chest_open_empty.png';
-            chestEl.classList.add('go-glowing');
-            chestEl.animate([
-                {transform:'scale(1)'},
-                {transform:'scale(1.25) translateY(-12px)'},
-                {transform:'scale(0.93) translateY(5px)'},
-                {transform:'scale(1.06) translateY(-3px)'},
-                {transform:'scale(1)   translateY(0)'},
-            ], {duration: 420, easing:'ease-out', fill:'forwards'});
-            await goWait(420);
+          // Phase 5: Score banner + counter
+          document.getElementById('score-banner').classList.add('show');
+          await animCount(document.getElementById('score-val'), score);
+          await wait(500);
 
-            // 4. Coins FLY OUT of the chest into the pile + score label counts up
-            document.getElementById('go-score-label').classList.add('show');
-            await goCoinSequenceFromChest(score, pileEl, countEl, chestEl);
-            await goWait(350);
+          // Phase 6: Lid opens
+          const chestImg = document.getElementById('chest-img');
+          if (chestImg) chestImg.src = 'chest_open_empty.png';
+          await wait(350);
 
-            // 5. Score banner
-            document.getElementById('go-total-val').textContent = score;
-            document.getElementById('go-banner').classList.add('show');
-            goSpawnSparkles(window.innerWidth/2, window.innerHeight*0.55, 12);
-            await goWait(1100);
+          // Phase 7: Coins suck into chest
+          const chestEl = document.getElementById('chest-container');
+          const rect = chestEl.getBoundingClientRect();
+          chestTarget = { x: rect.left + rect.width/2, y: rect.top + rect.height/2 };
+          suckingToChest = true;
+          
+          setTimeout(() => { if (chestImg) chestImg.src = 'chest_open_low.png'; }, 400);
+          setTimeout(() => { if (chestImg) chestImg.src = 'chest_open_mid.png'; }, 1000);
+          setTimeout(() => { if (chestImg) chestImg.src = 'chest_open_full.png'; }, 1600);
+          
+          await wait(1800);
 
-            // 6. Coins suck back INTO the chest
-            await goCoinsIntoChest(pileEl, chestEl, coinsEl);
+          // Phase 8: Chest shakes, lid closes
+          chestEl.animate([
+            { transform: 'translateX(-50%) scale(1) rotate(0deg)' },
+            { transform: 'translateX(-50%) scale(1.1) rotate(-6deg)' },
+            { transform: 'translateX(-50%) scale(1.1) rotate(6deg)' },
+            { transform: 'translateX(-50%) scale(1.05) rotate(-2deg)' },
+            { transform: 'translateX(-50%) scale(1) rotate(0deg)' }
+          ], { duration: 500, easing: 'ease-out', fill: 'forwards' });
+          if (chestImg) chestImg.src = 'chest_closed.png';
+          await wait(400);
 
-            // 7. Chest becomes FULL
-            chestImg.src = 'chest_open_full.png';
-            chestEl.animate([
-                {transform:'scale(1)'},
-                {transform:'scale(1.18) translateY(-8px)'},
-                {transform:'scale(0.95) translateY(3px)'},
-                {transform:'scale(1)   translateY(0)'},
-            ], {duration: 350, easing:'ease-out', fill:'forwards'});
-            await goWait(200);
-
-            goSpawnSparkles(window.innerWidth/2, window.innerHeight*0.65, 18);
-            goSummonAnimals();
-            await goWait(600);
-
-            // 8. Play Again
-            document.getElementById('go-play-again').classList.add('show');
+          // Phase 9: Play again
+          await wait(300);
+          document.getElementById('play-again-btn').classList.add('show');
         }
     </script>
 </body>
