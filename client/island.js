@@ -9,19 +9,31 @@ class IslandEngine {
         window.addEventListener('keydown', e => this.keys[e.code] = true);
         window.addEventListener('keyup', e => this.keys[e.code] = false);
 
-        this.state = 'hidden'; // hidden, private, public
-        this.player = { x: 500, y: 500, speed: 4, size: 64, frameIndex: 0, tickCount: 0 };
-        this.npcs = [];
+        this.state = 'hidden'; 
+        this.tileSize = 50;
+        this.mapCols = 20;
+        this.mapRows = 20;
+        this.camera = { x: 0, y: 0 };
+        this.player = { x: 500, y: 500, speed: 4, size: 24, frameIndex: 0, tickCount: 0 };
         
-        this.assets = {
-            privateBg: new Image(),
-            publicBg: new Image()
-        };
-        this.assets.privateBg.src = 'private_island.png';
-        this.assets.publicBg.src = 'public_island.png';
+        this.npcs = [];
+        this.map = []; // 2D array of integers
+        this.plots = {}; // map of plotIndex -> {item_type: string}
+        this.inventory = [];
+        this.ownedPlots = [];
+        this.totalCoins = 0;
+        this.currentUsername = '';
+        this.currentRoom = '';
 
-        this.boardArea = { x: 450, y: 400, w: 100, h: 100 }; // Matchmaking board area on public island
-        this.portalArea = { x: 500, y: 800, w: 100, h: 100 }; // Portal to enter room on private island
+        this.TILE_GRASS = 0;
+        this.TILE_ROAD = 1;
+        this.TILE_TREE = 2;
+        this.TILE_BUSH = 3;
+        this.TILE_PLOT = 4;
+        this.TILE_FERRY = 5;
+        this.TILE_STORE = 6;
+        this.TILE_BOARD = 7;
+        this.TILE_PORTAL = 8;
 
         this.loop = this.loop.bind(this);
         requestAnimationFrame(this.loop);
@@ -34,13 +46,17 @@ class IslandEngine {
 
     async loadPrivateIsland(username) {
         this.state = 'private';
+        this.currentUsername = username;
         this.canvas.style.display = 'block';
-        this.player.x = 500;
-        this.player.y = 500;
+        this.player.x = this.mapCols * this.tileSize / 2;
+        this.player.y = this.mapRows * this.tileSize / 2;
         this.npcs = [];
         
         document.getElementById('island-ui').style.display = 'block';
         
+        this.generateMap('private');
+        await this.fetchIslandData(username);
+
         // Fetch friends
         try {
             const res = await fetch('/get_island_friends?username=' + encodeURIComponent(username));
@@ -64,21 +80,152 @@ class IslandEngine {
     loadPublicIsland(roomCode) {
         this.state = 'public';
         this.currentRoom = roomCode;
-        this.player.x = 500;
-        this.player.y = 800;
-        this.npcs = []; // Public island could also have players, but let's keep it simple for now
+        this.canvas.style.display = 'block';
+        this.player.x = this.mapCols * this.tileSize / 2;
+        this.player.y = this.mapRows * this.tileSize - 100;
+        this.npcs = [];
+        document.getElementById('island-ui').style.display = 'block';
+        this.generateMap('public');
+    }
+
+    async fetchIslandData(username) {
+        try {
+            const res = await fetch('/get_island_data?username=' + encodeURIComponent(username));
+            const data = await res.json();
+            
+            this.plots = {};
+            this.ownedPlots = [];
+            if(data.plots) {
+                data.plots.forEach(p => {
+                    this.plots[p.index] = p;
+                    this.ownedPlots.push(p.index);
+                });
+            }
+            this.inventory = data.inventory || [];
+        } catch(e) { console.log(e); }
+        
+        try {
+            const cRes = await fetch('/get_total_coins?username=' + encodeURIComponent(username));
+            const cData = await cRes.json();
+            this.totalCoins = cData.total_coins || 0;
+        } catch(e) { console.log(e); }
+    }
+
+    generateMap(type) {
+        this.map = [];
+        for (let r = 0; r < this.mapRows; r++) {
+            let row = [];
+            for (let c = 0; c < this.mapCols; c++) {
+                row.push(this.TILE_GRASS);
+            }
+            this.map.push(row);
+        }
+
+        if (type === 'private') {
+            // Main road down the center
+            for (let r = 5; r < 18; r++) {
+                this.map[r][9] = this.TILE_ROAD;
+                this.map[r][10] = this.TILE_ROAD;
+            }
+            // Plots around the road
+            this.map[8][8] = this.TILE_PLOT;
+            this.map[10][8] = this.TILE_PLOT;
+            this.map[12][8] = this.TILE_PLOT;
+            this.map[8][11] = this.TILE_PLOT;
+            this.map[10][11] = this.TILE_PLOT;
+            this.map[12][11] = this.TILE_PLOT;
+
+            // Ferry Port at the top
+            this.map[4][9] = this.TILE_FERRY;
+            this.map[4][10] = this.TILE_FERRY;
+            
+            // Portal at the bottom
+            this.map[18][9] = this.TILE_PORTAL;
+            this.map[18][10] = this.TILE_PORTAL;
+
+            // Scatter trees and bushes
+            for(let i=0; i<30; i++) {
+                let tr = Math.floor(Math.random() * this.mapRows);
+                let tc = Math.floor(Math.random() * this.mapCols);
+                if (this.map[tr][tc] === this.TILE_GRASS) {
+                    this.map[tr][tc] = Math.random() > 0.5 ? this.TILE_TREE : this.TILE_BUSH;
+                }
+            }
+        } else if (type === 'public') {
+            // Public Island Map
+            for (let r = 8; r < 20; r++) {
+                for (let c = 8; c < 12; c++) {
+                    this.map[r][c] = this.TILE_ROAD;
+                }
+            }
+            
+            // Matchmaking board
+            this.map[8][9] = this.TILE_BOARD;
+            this.map[8][10] = this.TILE_BOARD;
+
+            // Stores
+            this.map[10][6] = this.TILE_STORE;
+            this.map[10][13] = this.TILE_STORE;
+
+            // Border trees
+            for(let i=0; i<this.mapCols; i++) {
+                this.map[0][i] = this.TILE_TREE;
+            }
+        }
     }
 
     hide() {
         this.state = 'hidden';
         this.canvas.style.display = 'none';
         document.getElementById('island-ui').style.display = 'none';
+        
+        // Hide overlay UIs
+        let uis = ['island-shop-ui', 'island-inventory-ui', 'island-ferry-ui', 'island-room-overlay'];
+        uis.forEach(id => {
+            let el = document.getElementById(id);
+            if(el) el.classList.add('hidden');
+        });
+    }
+
+    isSolid(r, c) {
+        if (r < 0 || r >= this.mapRows || c < 0 || c >= this.mapCols) return true;
+        const t = this.map[r][c];
+        if (t === this.TILE_TREE || t === this.TILE_BUSH || t === this.TILE_STORE || t === this.TILE_BOARD) return true;
+        if (t === this.TILE_PLOT) {
+            let pIdx = r * this.mapCols + c;
+            if (this.plots[pIdx] && this.plots[pIdx].item_type !== 'empty') {
+                return true; // occupied plot is solid
+            }
+        }
+        return false;
+    }
+
+    checkPlayerCollision(newX, newY) {
+        const s = this.player.size;
+        const left = Math.floor((newX - s) / this.tileSize);
+        const right = Math.floor((newX + s) / this.tileSize);
+        const top = Math.floor((newY - s) / this.tileSize);
+        const bottom = Math.floor((newY + s) / this.tileSize);
+
+        for (let r = top; r <= bottom; r++) {
+            for (let c = left; c <= right; c++) {
+                if (this.isSolid(r, c)) return true;
+            }
+        }
+        return false;
     }
 
     update() {
         if (this.state === 'hidden') return;
+        
+        // UI lock check (if shop or inv open, don't move)
+        const uiOpen = !document.getElementById('island-shop-ui')?.classList.contains('hidden') || 
+                       !document.getElementById('island-inventory-ui')?.classList.contains('hidden') ||
+                       !document.getElementById('island-ferry-ui')?.classList.contains('hidden') ||
+                       document.getElementById('island-room-overlay')?.style.display === 'flex';
+        
+        if (uiOpen) return;
 
-        // Player movement
         let dx = 0; let dy = 0;
         if (this.keys['ArrowUp'] || this.keys['KeyW']) dy -= this.player.speed;
         if (this.keys['ArrowDown'] || this.keys['KeyS']) dy += this.player.speed;
@@ -86,8 +233,15 @@ class IslandEngine {
         if (this.keys['ArrowRight'] || this.keys['KeyD']) dx += this.player.speed;
 
         if (dx !== 0 || dy !== 0) {
-            this.player.x += dx;
-            this.player.y += dy;
+            // Move X
+            if (!this.checkPlayerCollision(this.player.x + dx, this.player.y)) {
+                this.player.x += dx;
+            }
+            // Move Y
+            if (!this.checkPlayerCollision(this.player.x, this.player.y + dy)) {
+                this.player.y += dy;
+            }
+            
             this.player.tickCount++;
             if (this.player.tickCount > 8) {
                 this.player.tickCount = 0;
@@ -97,11 +251,7 @@ class IslandEngine {
             this.player.frameIndex = 0;
         }
 
-        // Keep player in bounds (approximate 1000x1000 island size)
-        this.player.x = Math.max(100, Math.min(900, this.player.x));
-        this.player.y = Math.max(100, Math.min(900, this.player.y));
-
-        // NPC movement
+        // NPCs
         this.npcs.forEach(n => {
             n.timer--;
             if (n.timer <= 0) {
@@ -118,78 +268,273 @@ class IslandEngine {
                     n.frameIndex = (n.frameIndex + 1) % 4;
                 }
             }
-            n.x = Math.max(200, Math.min(800, n.x));
-            n.y = Math.max(200, Math.min(800, n.y));
+            n.x = Math.max(100, Math.min(this.mapCols * this.tileSize - 100, n.x));
+            n.y = Math.max(100, Math.min(this.mapRows * this.tileSize - 100, n.y));
         });
 
-        // Interactions
+        this.camera.x = this.player.x - this.canvas.width / 2;
+        this.camera.y = this.player.y - this.canvas.height / 2;
+
+        this.handleInteractions();
+    }
+
+    handleInteractions() {
         const promptUI = document.getElementById('island-prompt');
         let promptActive = false;
-
-        if (this.state === 'private') {
-            // Check portal proximity
-            if (this.checkCollision(this.player, this.portalArea)) {
-                promptUI.textContent = 'Press SPACE to Travel to a Public Room';
-                promptUI.style.display = 'block';
-                promptActive = true;
-                if (this.keys['Space']) {
-                    this.keys['Space'] = false; // consume
-                    document.getElementById('island-room-overlay').style.display = 'flex';
+        
+        const pr = Math.floor(this.player.y / this.tileSize);
+        const pc = Math.floor(this.player.x / this.tileSize);
+        
+        // Find adjacent interactive tiles
+        let interacted = false;
+        for (let r = pr - 1; r <= pr + 1; r++) {
+            for (let c = pc - 1; c <= pc + 1; c++) {
+                if (r < 0 || r >= this.mapRows || c < 0 || c >= this.mapCols) continue;
+                const t = this.map[r][c];
+                const pIdx = r * this.mapCols + c;
+                
+                if (this.state === 'private') {
+                    if (t === this.TILE_PLOT) {
+                        if (!this.ownedPlots.includes(pIdx)) {
+                            let cost = Math.floor(400 * Math.pow(1.5, this.ownedPlots.length));
+                            promptUI.textContent = `Press SPACE to Buy Plot (Cost: ${cost})`;
+                            promptActive = true;
+                            if (this.keys['Space']) { this.keys['Space'] = false; this.buyPlot(pIdx, cost); }
+                            interacted = true;
+                        } else if (this.plots[pIdx] && this.plots[pIdx].item_type === 'empty') {
+                            promptUI.textContent = `Press SPACE to Build`;
+                            promptActive = true;
+                            if (this.keys['Space']) { this.keys['Space'] = false; this.openInventory(pIdx); }
+                            interacted = true;
+                        }
+                    } else if (t === this.TILE_FERRY) {
+                        promptUI.textContent = `Press SPACE to Travel`;
+                        promptActive = true;
+                        if (this.keys['Space']) { this.keys['Space'] = false; this.openFerry(); }
+                        interacted = true;
+                    } else if (t === this.TILE_PORTAL) {
+                        promptUI.textContent = 'Press SPACE to Join Public Room';
+                        promptActive = true;
+                        if (this.keys['Space']) {
+                            this.keys['Space'] = false;
+                            document.getElementById('island-room-overlay').style.display = 'flex';
+                        }
+                        interacted = true;
+                    }
+                } else if (this.state === 'public') {
+                    if (t === this.TILE_STORE) {
+                        promptUI.textContent = 'Press SPACE to Shop';
+                        promptActive = true;
+                        if (this.keys['Space']) { this.keys['Space'] = false; this.openShop(); }
+                        interacted = true;
+                    } else if (t === this.TILE_BOARD) {
+                        promptUI.textContent = 'Press SPACE to Join Matchmaking Queue';
+                        promptActive = true;
+                        if (this.keys['Space']) {
+                            this.keys['Space'] = false;
+                            enterMatchmaking(this.currentRoom);
+                        }
+                        interacted = true;
+                    }
                 }
+                if (interacted) break;
             }
-        } else if (this.state === 'public') {
-            // Check matchmaking board proximity
-            if (this.checkCollision(this.player, this.boardArea)) {
-                promptUI.textContent = 'Press SPACE to Join Matchmaking Queue';
-                promptUI.style.display = 'block';
-                promptActive = true;
-                if (this.keys['Space']) {
-                    this.keys['Space'] = false;
-                    // Trigger original queue log
-                    enterMatchmaking(this.currentRoom);
-                }
-            }
+            if (interacted) break;
         }
 
         if (!promptActive) {
             promptUI.style.display = 'none';
+        } else {
+            promptUI.style.display = 'block';
+        }
+    }
+    
+    // --- API Calls ---
+    async buyPlot(index, cost) {
+        if(this.totalCoins < cost) {
+            alert("Not enough coins!"); return;
+        }
+        try {
+            const res = await fetch('/buy_plot', {
+                method: 'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({username: this.currentUsername, plot_index: index})
+            });
+            const data = await res.json();
+            if(data.success) {
+                this.totalCoins = data.new_balance;
+                this.ownedPlots.push(index);
+                this.plots[index] = {item_type: 'empty'};
+            } else {
+                alert(data.error);
+            }
+        } catch(e) { console.error(e); }
+    }
+
+    openShop() {
+        let ui = document.getElementById('island-shop-ui');
+        if(ui) {
+            ui.classList.remove('hidden');
+            document.getElementById('shop-coins').innerText = this.totalCoins;
         }
     }
 
-    checkCollision(p, area) {
-        return (p.x > area.x - p.size && p.x < area.x + area.w + p.size &&
-                p.y > area.y - p.size && p.y < area.y + area.h + p.size);
+    async buyItem(itemType, cost) {
+        if(this.totalCoins < cost) {
+            alert("Not enough coins!"); return;
+        }
+        try {
+            const res = await fetch('/buy_item', {
+                method: 'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({username: this.currentUsername, item_type: itemType, cost: cost})
+            });
+            const data = await res.json();
+            if(data.success) {
+                this.totalCoins = data.new_balance;
+                document.getElementById('shop-coins').innerText = this.totalCoins;
+                await this.fetchIslandData(this.currentUsername); // refresh inventory
+                alert("Bought " + itemType + "!");
+            } else {
+                alert(data.error);
+            }
+        } catch(e) { console.error(e); }
+    }
+
+    openInventory(plotIndex) {
+        let ui = document.getElementById('island-inventory-ui');
+        if(!ui) return;
+        ui.classList.remove('hidden');
+        let container = document.getElementById('inventory-items');
+        container.innerHTML = '';
+        if(this.inventory.length === 0) {
+            container.innerHTML = '<i>No items. Buy some at the mainland store!</i>';
+        } else {
+            this.inventory.forEach(i => {
+                if(i.quantity > 0) {
+                    let div = document.createElement('div');
+                    div.style = "background: #34495e; padding: 10px; border-radius: 5px; cursor: pointer; text-align: center;";
+                    div.innerText = `${i.item_type} (${i.quantity})`;
+                    div.onclick = () => {
+                        this.placeItem(plotIndex, i.item_type);
+                        ui.classList.add('hidden');
+                    };
+                    container.appendChild(div);
+                }
+            });
+        }
+    }
+
+    async placeItem(plotIndex, itemType) {
+        try {
+            const res = await fetch('/place_item', {
+                method: 'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({username: this.currentUsername, plot_index: plotIndex, item_type: itemType})
+            });
+            const data = await res.json();
+            if(data.success) {
+                await this.fetchIslandData(this.currentUsername);
+            }
+        } catch(e) { console.error(e); }
+    }
+
+    openFerry() {
+        // Just dummy for now, requires proper UI setup
+        alert("Ferry port is under construction! Check back later.");
+    }
+
+    // --- Drawing ---
+    drawTile(r, c) {
+        const x = c * this.tileSize;
+        const y = r * this.tileSize;
+        const t = this.map[r][c];
+
+        // Base Grass
+        this.ctx.fillStyle = '#2ecc71';
+        this.ctx.fillRect(x, y, this.tileSize, this.tileSize);
+
+        if (t === this.TILE_ROAD) {
+            this.ctx.fillStyle = '#95a5a6';
+            this.ctx.fillRect(x, y, this.tileSize, this.tileSize);
+            this.ctx.strokeStyle = '#bdc3c7';
+            this.ctx.strokeRect(x, y, this.tileSize, this.tileSize);
+        } else if (t === this.TILE_TREE) {
+            this.ctx.fillStyle = '#8e44ad'; // dark trunk shadow
+            this.ctx.beginPath();
+            this.ctx.arc(x + 25, y + 25, 20, 0, Math.PI*2);
+            this.ctx.fill();
+            this.ctx.fillStyle = '#27ae60';
+            this.ctx.beginPath();
+            this.ctx.arc(x + 25, y + 20, 18, 0, Math.PI*2);
+            this.ctx.fill();
+        } else if (t === this.TILE_BUSH) {
+            this.ctx.fillStyle = '#16a085';
+            this.ctx.beginPath();
+            this.ctx.arc(x + 25, y + 30, 15, 0, Math.PI*2);
+            this.ctx.fill();
+        } else if (t === this.TILE_PLOT) {
+            this.ctx.fillStyle = '#d35400';
+            this.ctx.fillRect(x+5, y+5, this.tileSize-10, this.tileSize-10);
+            
+            let pIdx = r * this.mapCols + c;
+            if (this.ownedPlots.includes(pIdx)) {
+                let item = this.plots[pIdx].item_type;
+                if (item === 'house') {
+                    this.ctx.fillStyle = '#c0392b';
+                    this.ctx.fillRect(x+10, y+10, 30, 30);
+                    this.ctx.fillStyle = '#f39c12';
+                    this.ctx.beginPath(); this.ctx.moveTo(x+5, y+15); this.ctx.lineTo(x+25, y-5); this.ctx.lineTo(x+45, y+15); this.ctx.fill();
+                } else if (item === 'bench') {
+                    this.ctx.fillStyle = '#8e44ad';
+                    this.ctx.fillRect(x+15, y+20, 20, 10);
+                } else {
+                    this.ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                    this.ctx.fillText("Empty", x+25, y+25);
+                }
+            } else {
+                let cost = Math.floor(400 * Math.pow(1.5, this.ownedPlots.length));
+                this.ctx.fillStyle = 'white';
+                this.ctx.font = '12px Arial';
+                this.ctx.fillText(cost + "c", x+25, y+30);
+            }
+        } else if (t === this.TILE_FERRY) {
+            this.ctx.fillStyle = '#8e44ad';
+            this.ctx.fillRect(x, y, this.tileSize, this.tileSize);
+            this.ctx.fillStyle = 'white';
+            this.ctx.fillText("FERRY", x+25, y+25);
+        } else if (t === this.TILE_PORTAL) {
+            this.ctx.fillStyle = '#3498db';
+            this.ctx.fillRect(x, y, this.tileSize, this.tileSize);
+            this.ctx.fillStyle = 'white';
+            this.ctx.fillText("EXIT", x+25, y+25);
+        } else if (t === this.TILE_STORE) {
+            this.ctx.fillStyle = '#f1c40f';
+            this.ctx.fillRect(x+5, y+5, 40, 40);
+            this.ctx.fillStyle = 'black';
+            this.ctx.fillText("STORE", x+25, y+30);
+        } else if (t === this.TILE_BOARD) {
+            this.ctx.fillStyle = '#34495e';
+            this.ctx.fillRect(x+5, y+10, 40, 30);
+            this.ctx.fillStyle = 'white';
+            this.ctx.fillText("PLAY", x+25, y+30);
+        }
     }
 
     drawCharacter(ctx, x, y, isMoving, tick, color, name, isPlayer) {
         ctx.save();
         ctx.translate(x, y - 10);
-        
-        // Wobble factor for arms/legs
         const offset = isMoving ? Math.sin(tick * 0.4) * 8 : 0;
-        
-        // Head
         ctx.fillStyle = '#ffccaa'; 
         ctx.fillRect(-15, -25, 30, 25);
-        // Shirt
         ctx.fillStyle = color;
         ctx.fillRect(-15, 0, 30, 20);
-        
-        // Legs
         ctx.fillStyle = '#2c3e50';
         ctx.fillRect(-12, 20, 10, 10 - offset); 
         ctx.fillRect(2, 20, 10, 10 + offset); 
-        
-        // Arms
         ctx.fillStyle = color;
         ctx.fillRect(-23, 0, 8, 15 + offset); 
         ctx.fillRect(15, 0, 8, 15 - offset); 
-        
-        // Eyes
         ctx.fillStyle = 'black';
         ctx.fillRect(-8, -15, 4, 4);
         ctx.fillRect(4, -15, 4, 4);
-
         ctx.restore();
         
         ctx.fillStyle = isPlayer ? '#f1c40f' : 'white';
@@ -201,48 +546,54 @@ class IslandEngine {
     draw() {
         if (this.state === 'hidden') return;
 
-        // Camera tracking
-        const camX = this.canvas.width / 2 - this.player.x;
-        const camY = this.canvas.height / 2 - this.player.y;
-
-        this.ctx.fillStyle = '#1e90ff'; // Ocean blue
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.save();
-        this.ctx.translate(camX, camY);
+        
+        // Simple camera clamp
+        const mapW = this.mapCols * this.tileSize;
+        const mapH = this.mapRows * this.tileSize;
+        this.camera.x = Math.max(0, Math.min(mapW - this.canvas.width, this.camera.x));
+        this.camera.y = Math.max(0, Math.min(mapH - this.canvas.height, this.camera.y));
 
-        // Draw Map
-        const bg = this.state === 'private' ? this.assets.privateBg : this.assets.publicBg;
-        if (bg.complete) {
-            // Assume 1000x1000 world size
-            this.ctx.drawImage(bg, 0, 0, 1000, 1000);
+        this.ctx.translate(-this.camera.x, -this.camera.y);
+
+        this.ctx.textAlign = 'center';
+
+        for (let r = 0; r < this.mapRows; r++) {
+            for (let c = 0; c < this.mapCols; c++) {
+                this.drawTile(r, c);
+            }
         }
 
-        // Draw Interactive Zones
-        this.ctx.fillStyle = 'rgba(255, 255, 0, 0.3)';
-        if (this.state === 'private') {
-            this.ctx.fillRect(this.portalArea.x, this.portalArea.y, this.portalArea.w, this.portalArea.h);
-            this.ctx.fillStyle = 'white';
-            this.ctx.font = '20px "Bubblegum Sans"';
-            this.ctx.fillText("BOAT TO PUBLIC ISLAND", this.portalArea.x - 20, this.portalArea.y - 10);
-        } else if (this.state === 'public') {
-            this.ctx.fillRect(this.boardArea.x, this.boardArea.y, this.boardArea.w, this.boardArea.h);
-            this.ctx.fillStyle = 'white';
-            this.ctx.font = '20px "Bubblegum Sans"';
-            this.ctx.fillText("MATCHMAKING BOARD", this.boardArea.x - 20, this.boardArea.y - 10);
-        }
+        // Sort entities by Y for depth
+        let entities = [];
+        entities.push({type: 'player', obj: this.player});
+        this.npcs.forEach(n => entities.push({type: 'npc', obj: n}));
+        
+        entities.sort((a,b) => a.obj.y - b.obj.y);
 
-        // Draw NPCs
-        this.npcs.forEach(n => {
-            const isMoving = n.vx !== 0 || n.vy !== 0;
-            this.drawCharacter(this.ctx, n.x, n.y, isMoving, n.tickCount, '#9b59b6', n.name, false);
+        entities.forEach(e => {
+            let o = e.obj;
+            if (e.type === 'player') {
+                let moving = (this.keys['ArrowUp'] || this.keys['ArrowDown'] || this.keys['ArrowLeft'] || this.keys['ArrowRight'] || this.keys['KeyW'] || this.keys['KeyA'] || this.keys['KeyS'] || this.keys['KeyD']);
+                this.drawCharacter(this.ctx, o.x, o.y, moving, o.tickCount, '#3498db', this.currentUsername, true);
+            } else {
+                let moving = (o.vx !== 0 || o.vy !== 0);
+                this.drawCharacter(this.ctx, o.x, o.y, moving, o.tickCount, '#e74c3c', o.name, false);
+            }
         });
 
-        // Draw Player
-        const pMoving = this.keys['ArrowUp'] || this.keys['KeyW'] || this.keys['ArrowDown'] || this.keys['KeyS'] || this.keys['ArrowLeft'] || this.keys['KeyA'] || this.keys['ArrowRight'] || this.keys['KeyD'];
-        this.drawCharacter(this.ctx, this.player.x, this.player.y, pMoving, this.player.tickCount, '#e74c3c', "YOU", true);
-
         this.ctx.restore();
+        
+        // Draw Coins UI
+        if(this.state === 'private') {
+            this.ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            this.ctx.fillRect(10, 10, 150, 40);
+            this.ctx.fillStyle = '#f1c40f';
+            this.ctx.font = '20px sans-serif';
+            this.ctx.textAlign = 'left';
+            this.ctx.fillText(`Coins: ${this.totalCoins}`, 20, 38);
+        }
     }
 
     loop() {
@@ -252,39 +603,8 @@ class IslandEngine {
     }
 }
 
-let islandEngine = null;
-
-// Initialize island when window loads
+// Global instance
+let islandEngine;
 window.addEventListener('load', () => {
     islandEngine = new IslandEngine();
 });
-
-// Exposed function for the HTML UI
-function travelToRoom() {
-    const pw = document.getElementById('island-room-input').value;
-    if (!pw) return;
-    
-    fetch('/enter_room', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: pw })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.error) {
-            alert(data.error);
-        } else {
-            document.getElementById('island-room-overlay').style.display = 'none';
-            islandEngine.loadPublicIsland(pw);
-        }
-    });
-}
-
-function enterMatchmaking(roomCode) {
-    islandEngine.hide();
-    document.getElementById('prison-join-form').style.display = 'none';
-    document.getElementById('prison-password').value = roomCode; // inject room code
-    document.getElementById('game').classList.remove('hidden');
-    document.getElementById('room-lobby').classList.remove('hidden');
-    queueForGame(); // triggers existing logic
-}

@@ -86,6 +86,20 @@ def init_db():
                 custom_sessions TEXT
             )''')
             
+            db.execute('''CREATE TABLE IF NOT EXISTS island_plots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT,
+                plot_index INTEGER,
+                item_type TEXT
+            )''')
+            
+            db.execute('''CREATE TABLE IF NOT EXISTS user_inventory (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT,
+                item_type TEXT,
+                quantity INTEGER
+            )''')
+            
             db.commit()
         finally:
             db.close()
@@ -841,6 +855,118 @@ def resolve_round(game, game_id, room):
 @socketio.on('disconnect')
 def disconnect():
     pass  # Game state is now managed via HTTP, no cleanup needed
+
+# --- ISLAND EXPANSION API ---
+
+@app.route('/get_island_data', methods=['GET'])
+def get_island_data():
+    username = request.args.get('username')
+    db = None
+    try:
+        db = get_db()
+        plots = db.execute('SELECT plot_index, item_type FROM island_plots WHERE username = ?', (username,)).fetchall()
+        inv = db.execute('SELECT item_type, quantity FROM user_inventory WHERE username = ?', (username,)).fetchall()
+        return jsonify({
+            'plots': [{'index': p['plot_index'], 'item_type': p['item_type']} for p in plots],
+            'inventory': [{'item_type': i['item_type'], 'quantity': i['quantity']} for i in inv]
+        })
+    finally:
+        if db: db.close()
+
+@app.route('/buy_plot', methods=['POST'])
+def buy_plot():
+    data = request.get_json()
+    username = data.get('username')
+    plot_index = data.get('plot_index')
+    db = None
+    try:
+        db = get_db()
+        # Check current owned plots to calculate cost
+        owned_count = db.execute('SELECT COUNT(*) as c FROM island_plots WHERE username = ?', (username,)).fetchone()['c']
+        cost = int(400 * (1.5 ** owned_count))
+        
+        # Check coins
+        user_row = db.execute('SELECT total_coins FROM users WHERE username = ?', (username,)).fetchone()
+        if not user_row or user_row['total_coins'] < cost:
+            return jsonify({'error': 'Not enough coins', 'cost': cost}), 400
+            
+        # Check if already owned
+        existing = db.execute('SELECT * FROM island_plots WHERE username = ? AND plot_index = ?', (username, plot_index)).fetchone()
+        if existing:
+            return jsonify({'error': 'Plot already owned'}), 400
+            
+        # Deduct coins and add plot
+        db.execute('UPDATE users SET total_coins = total_coins - ? WHERE username = ?', (cost, username))
+        db.execute('INSERT INTO island_plots (username, plot_index, item_type) VALUES (?, ?, ?)', (username, plot_index, 'empty'))
+        db.commit()
+        return jsonify({'success': True, 'new_balance': user_row['total_coins'] - cost})
+    finally:
+        if db: db.close()
+
+@app.route('/buy_item', methods=['POST'])
+def buy_item():
+    data = request.get_json()
+    username = data.get('username')
+    item_type = data.get('item_type')
+    cost = data.get('cost', 100) # Simple fixed cost for now
+    
+    db = None
+    try:
+        db = get_db()
+        user_row = db.execute('SELECT total_coins FROM users WHERE username = ?', (username,)).fetchone()
+        if not user_row or user_row['total_coins'] < cost:
+            return jsonify({'error': 'Not enough coins'}), 400
+            
+        db.execute('UPDATE users SET total_coins = total_coins - ? WHERE username = ?', (cost, username))
+        
+        # add to inv
+        inv_row = db.execute('SELECT * FROM user_inventory WHERE username = ? AND item_type = ?', (username, item_type)).fetchone()
+        if inv_row:
+            db.execute('UPDATE user_inventory SET quantity = quantity + 1 WHERE id = ?', (inv_row['id'],))
+        else:
+            db.execute('INSERT INTO user_inventory (username, item_type, quantity) VALUES (?, ?, 1)', (username, item_type))
+        db.commit()
+        return jsonify({'success': True, 'new_balance': user_row['total_coins'] - cost})
+    finally:
+        if db: db.close()
+
+@app.route('/place_item', methods=['POST'])
+def place_item():
+    data = request.get_json()
+    username = data.get('username')
+    plot_index = data.get('plot_index')
+    item_type = data.get('item_type')
+    
+    db = None
+    try:
+        db = get_db()
+        inv_row = db.execute('SELECT * FROM user_inventory WHERE username = ? AND item_type = ? AND quantity > 0', (username, item_type)).fetchone()
+        if not inv_row:
+            return jsonify({'error': 'Item not in inventory'}), 400
+            
+        plot_row = db.execute('SELECT * FROM island_plots WHERE username = ? AND plot_index = ?', (username, plot_index)).fetchone()
+        if not plot_row:
+            return jsonify({'error': 'Plot not owned'}), 400
+            
+        db.execute('UPDATE user_inventory SET quantity = quantity - 1 WHERE id = ?', (inv_row['id'],))
+        db.execute('UPDATE island_plots SET item_type = ? WHERE id = ?', (item_type, plot_row['id']))
+        db.commit()
+        return jsonify({'success': True})
+    finally:
+        if db: db.close()
+
+@app.route('/visit_friend_island', methods=['GET'])
+def visit_friend_island():
+    friend_username = request.args.get('username')
+    db = None
+    try:
+        db = get_db()
+        plots = db.execute('SELECT plot_index, item_type FROM island_plots WHERE username = ?', (friend_username,)).fetchall()
+        return jsonify({
+            'plots': [{'index': p['plot_index'], 'item_type': p['item_type']} for p in plots]
+        })
+    finally:
+        if db: db.close()
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)

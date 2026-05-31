@@ -349,6 +349,43 @@
 </head>
 
 <body>
+    <!-- ISLAND UIS -->
+    <!-- Shop UI -->
+    <div id="island-shop-ui" class="hidden" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #2c3e50; padding: 20px; border-radius: 10px; border: 2px solid #ecf0f1; z-index: 1000; width: 400px; box-shadow: 0 0 20px rgba(0,0,0,0.8);">
+        <h3 style="color: #f1c40f; margin-top:0;">Mainland Store</h3>
+        <p style="color: white; font-size:18px;">Your Coins: <span id="shop-coins" style="color:#f1c40f; font-weight:bold;">0</span></p>
+        <div id="shop-items" style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <div style="background: #34495e; padding: 15px; border-radius: 5px; cursor: pointer; text-align: center; color: white; transition: background 0.2s; width:50%;" onmouseover="this.style.background='#3b5998'" onmouseout="this.style.background='#34495e'" onclick="islandEngine.buyItem('house', 500)">
+                <div style="font-size:30px; margin-bottom:5px;">🏠</div>
+                <div>House (500)</div>
+            </div>
+            <div style="background: #34495e; padding: 15px; border-radius: 5px; cursor: pointer; text-align: center; color: white; transition: background 0.2s; width:50%;" onmouseover="this.style.background='#3b5998'" onmouseout="this.style.background='#34495e'" onclick="islandEngine.buyItem('bench', 100)">
+                <div style="font-size:30px; margin-bottom:5px;">🪑</div>
+                <div>Bench (100)</div>
+            </div>
+        </div>
+        <button style="width:100%; padding:10px; background:#e74c3c; border:none; border-radius:5px; color:white; font-size:16px; cursor:pointer;" onclick="document.getElementById('island-shop-ui').classList.add('hidden')">Close Store</button>
+    </div>
+
+    <!-- Inventory UI -->
+    <div id="island-inventory-ui" class="hidden" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #2c3e50; padding: 20px; border-radius: 10px; border: 2px solid #ecf0f1; z-index: 1000; width: 400px; box-shadow: 0 0 20px rgba(0,0,0,0.8);">
+        <h3 style="color: #f1c40f; margin-top:0;">Build Mode</h3>
+        <p style="color:white; margin-top:0; font-size:14px;">Select an item from your inventory to place it here:</p>
+        <div id="inventory-items" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; color: white; min-height: 50px;">
+            <!-- populates dynamically -->
+        </div>
+        <button style="width:100%; padding:10px; background:#95a5a6; border:none; border-radius:5px; color:white; font-size:16px; cursor:pointer;" onclick="document.getElementById('island-inventory-ui').classList.add('hidden')">Cancel</button>
+    </div>
+
+    <!-- Ferry UI -->
+    <div id="island-ferry-ui" class="hidden" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #2c3e50; padding: 20px; border-radius: 10px; border: 2px solid #ecf0f1; z-index: 1000; width: 400px; box-shadow: 0 0 20px rgba(0,0,0,0.8);">
+        <h3 style="color: #f1c40f; margin-top:0;">Ferry Port</h3>
+        <p style="color: white; margin-top:0; font-size:14px;">Who would you like to visit?</p>
+        <div id="ferry-friends" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; color: white; max-height: 200px; overflow-y: auto;">
+            <!-- populates dynamically -->
+        </div>
+        <button style="width:100%; padding:10px; background:#e74c3c; border:none; border-radius:5px; color:white; font-size:16px; cursor:pointer;" onclick="document.getElementById('island-ferry-ui').classList.add('hidden')">Nevermind</button>
+    </div>
     <div id="custom-alert-box"></div>
     <div id="loading-overlay" style="position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 9999; display: none; align-items: center; justify-content: center; flex-direction: column;">
         <div style="border: 8px solid rgba(255,255,255,0.1); border-top: 8px solid #f1c40f; border-radius: 50%; width: 70px; height: 70px; animation: spin 1s linear infinite; margin-bottom: 20px;"></div>
