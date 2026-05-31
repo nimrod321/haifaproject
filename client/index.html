@@ -572,6 +572,30 @@
             }, 3500);
         }
 
+        async function travelToRoom() {
+            const pw = document.getElementById('island-room-input').value;
+            if(!pw) return customAlert("Please enter a room code.");
+            showLoading("Traveling...");
+            try {
+                const res = await fetch('/enter_room', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({password: pw})
+                });
+                const data = await res.json();
+                hideLoading();
+                if(res.ok) {
+                    document.getElementById('island-room-overlay').style.display = 'none';
+                    islandEngine.loadPublicIsland(pw);
+                } else {
+                    customAlert(data.error || "Invalid Room Code!");
+                }
+            } catch(e) { 
+                hideLoading();
+                console.error(e); 
+            }
+        }
+
         async function login() {
             const u = document.getElementById('login-username').value, p = document.getElementById('login-password').value;
             showLoading('Logging in...');
