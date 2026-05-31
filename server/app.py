@@ -159,7 +159,7 @@ def create_room():
                 try:
                     c[kw] = int(float(v)) if str(v).strip() != '' else 0
                 except:
-                    c[kw] = 0
+                    c[kw] = str(v).strip()
             for req in ['AA1','AA2','AB1','AB2','BA1','BA2','BB1','BB2']:
                 if req not in c: c[req] = 0
             cleaned_list.append(c)
@@ -241,7 +241,7 @@ def get_room_logs():
                 'code': r['code'],
                 'p1_points': r['p1_points'],
                 'p2_points': r['p2_points'],
-                'file_id': r['file_id'] if 'file_id' in r.keys() else '',
+                'session_number': r['file_id'] if 'file_id' in r.keys() else '',
                 'matrix_id': r['matrix_id'] if 'matrix_id' in r.keys() else '',
                 'timestamp': r['timestamp'] if 'timestamp' in r.keys() else ''
             })
@@ -739,7 +739,7 @@ def resolve_round(game, game_id, room):
         db = get_db()
         room_pwd = game.get('room', '')
         mat_id = str(session.get('MATRIX_ID', ''))
-        file_id = str(session.get('FILE_ID', ''))
+        file_id = str(session.get('SESSION_NUMBER', session.get('FILE_ID', '')))
         db.execute('''INSERT INTO prison_games (game_id, trial, player1, player2, p1_choice, p2_choice, code, p1_points, p2_points, room_password, matrix_id, file_id)
                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                    (game_id, session_idx + 1, player1, player2, p1_choice, p2_choice, code, p1_score, p2_score, room_pwd, mat_id, file_id))
