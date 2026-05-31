@@ -403,6 +403,26 @@ def get_total_coins():
     finally:
         if db: db.close()
 
+@app.route('/get_island_friends', methods=['GET'])
+def get_island_friends():
+    username = request.args.get('username')
+    if not username:
+        return jsonify({'error': 'username required'}), 400
+    db = None
+    try:
+        db = get_db()
+        # Find all games where this user was player1 or player2
+        rows = db.execute('''SELECT player1, player2 FROM prison_games WHERE player1 = ? OR player2 = ?''', (username, username)).fetchall()
+        friends = set()
+        for r in rows:
+            if r['player1'] != username: friends.add(r['player1'])
+            if r['player2'] != username: friends.add(r['player2'])
+        return jsonify({'friends': list(friends)})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if db: db.close()
+
 
 @app.route('/add_coins', methods=['POST'])
 def add_coins():

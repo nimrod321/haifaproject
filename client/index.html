@@ -355,6 +355,21 @@
         <h1 id="loading-text">Loading...</h1>
     </div>
 
+    <canvas id="island-canvas" style="display:none; position:fixed; inset:0; z-index:100;"></canvas>
+    <div id="island-ui" style="display:none; position:fixed; inset:0; z-index:101; pointer-events:none;">
+        <h1 style="text-align:center; margin-top:20px; color:#fff; text-shadow: 2px 2px 0 #000;">Tomodachi Island</h1>
+        <div id="island-prompt" style="position:absolute; bottom:50px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.7); padding:10px 20px; border-radius:10px; color:white; font-size:24px; display:none;"></div>
+    </div>
+    
+    <div id="island-room-overlay" style="display:none; position:fixed; inset:0; z-index:102; background:rgba(0,0,0,0.8); align-items:center; justify-content:center;">
+        <div class="glass-panel" style="pointer-events:all; padding: 30px;">
+            <h2>Enter Public Island Room Code</h2>
+            <input type="password" id="island-room-input" placeholder="Room Code">
+            <button onclick="travelToRoom()">Travel</button>
+            <button class="btn-danger" onclick="document.getElementById('island-room-overlay').style.display='none'">Cancel</button>
+        </div>
+    </div>
+
     <div class="container">
         <h1>Simplegames</h1>
         
@@ -529,7 +544,12 @@
                 hideLoading();
                 if (res.ok) { 
                     currentUsername = u; currentUserRole = data.user.role; document.getElementById('auth').classList.add('hidden');
-                    if(currentUserRole === 'admin') { document.getElementById('admin-panel').classList.remove('hidden'); loadAdminRooms(); loadAdminPlayers(); } else { document.getElementById('game').classList.remove('hidden'); loadTotalCoins(); }
+                    if(currentUserRole === 'admin') { 
+                        document.getElementById('admin-panel').classList.remove('hidden'); loadAdminRooms(); loadAdminPlayers(); 
+                    } else { 
+                        islandEngine.loadPrivateIsland(currentUsername); 
+                        loadTotalCoins(); 
+                    }
                 } else customAlert(data.error);
             } catch (e) {
                 hideLoading();
@@ -1255,6 +1275,6 @@
           await wait(300);
           document.getElementById('play-again-btn').classList.add('show');
         }
-    </script>
+    </script>    <script src="island.js"></script>
 </body>
 </html>
