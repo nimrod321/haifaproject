@@ -17,6 +17,7 @@
             background-attachment: fixed;
             margin: 0; padding: 0; color: #fff; min-height: 100vh;
             display: flex; flex-direction: column; align-items: center;
+            overflow-x: hidden;
         }
 
         .container { width: 100%; max-width: 1100px; margin: 0 auto; padding: 20px; box-sizing: border-box; }
@@ -59,16 +60,16 @@
         .board-layout {
             display: grid;
             /* col1=label area, col2=A column, col3=B column */
-            grid-template-columns: clamp(50px,10vw,80px) minmax(100px,220px) minmax(100px,220px);
+            grid-template-columns: clamp(40px,12vw,80px) 1fr 1fr;
             /* row1=other-player-banner, row2=col-AB-headers, row3=row-A, row4=ME-label, row5=row-B */
             grid-template-rows:
-                clamp(30px,5vw,44px)
-                clamp(34px,6vw,50px)
-                minmax(90px,150px)
-                clamp(28px,4vw,40px)
-                minmax(90px,150px);
-            gap: clamp(6px,2vw,14px);
-            align-items: center;
+                clamp(24px,5vw,44px)
+                clamp(28px,6vw,50px)
+                minmax(60px,150px)
+                clamp(24px,4vw,40px)
+                minmax(60px,150px);
+            gap: clamp(4px,1.5vw,14px);
+            align-items: stretch;
             justify-content: center;
         }
 
@@ -93,13 +94,13 @@
         #col-header-B { grid-column: 3; grid-row: 2; }
 
         .row-btn {
-            background: #f69500; width: 70px; height: 70px; border-radius: 50%;
-            border: 6px solid #a86500; color: #ffffff; cursor: pointer;
-            box-shadow: 0 8px 0 #8c5300; transition: all 0.2s;
-            display: flex; align-items: center; justify-content: center; font-size: 30px;
-            position: relative; grid-column: 1;
+            background: #f69500; width: clamp(40px, 15vw, 70px); height: clamp(40px, 15vw, 70px); border-radius: 50%;
+            border: clamp(3px, 1vw, 6px) solid #a86500; color: #ffffff; cursor: pointer;
+            box-shadow: 0 clamp(4px, 1.5vw, 8px) 0 #8c5300; transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center; font-size: clamp(20px, 5vw, 30px);
+            position: relative; grid-column: 1; margin: auto;
         }
-        .row-btn.selected { transform: translateY(10px); box-shadow: 0 0 0 #8c5300; background: #db8400; }
+        .row-btn.selected { transform: translateY(clamp(5px, 2vw, 10px)); box-shadow: 0 0 0 #8c5300; background: #db8400; }
         /* NO ::before — we use a single dedicated ME label instead */
         #row-btn-A { grid-row: 3; }
         #row-btn-B { grid-row: 5; }
@@ -114,10 +115,11 @@
         }
 
         .matrix-cell {
-            background: #3e2723; border: 5px solid #2d1b11; border-radius: 15px;
+            background: #3e2723; border: clamp(3px, 1vw, 5px) solid #2d1b11; border-radius: 15px;
             position: relative; overflow: hidden;
             display: flex; align-items: center; justify-content: center;
-            font-size: clamp(26px, 4.5vw, 50px); font-weight: bold; font-family: 'Bubblegum Sans', cursive;
+            font-size: clamp(20px, 6vw, 50px); font-weight: bold; font-family: 'Bubblegum Sans', cursive;
+            min-height: 60px;
         }
         #cell-AA { grid-column: 2; grid-row: 3; }
         #cell-AB { grid-column: 3; grid-row: 3; }
@@ -160,7 +162,7 @@
 
         /* IN-GAME CHEST */
         .chest-float {
-            position: fixed; bottom: 30px; left: 20px; width: 190px; z-index: 1000;
+            position: fixed; bottom: 30px; left: clamp(10px, 3vw, 20px); width: clamp(100px, 30vw, 190px); z-index: 1000;
             background: transparent;
             filter: drop-shadow(0 8px 24px rgba(241,196,15,0.55));
             transition: filter 0.3s ease;
@@ -210,9 +212,11 @@
         #countdown-text { font-size: 280px; color: #f1c40f; text-shadow: 10px 10px 50px #000, 0 0 30px #fff; animation: pulse-countdown 1s ease-in-out infinite; }
         #result-popup {
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.5);
-            background: rgba(0,0,0,0.96); border: 12px solid #f1c40f; border-radius: 40px; padding: 60px; z-index: 3000; opacity: 0; pointer-events: none;
+            background: rgba(0,0,0,0.96); border: clamp(6px, 2vw, 12px) solid #f1c40f; border-radius: clamp(20px, 5vw, 40px); 
+            padding: clamp(20px, 6vw, 60px); z-index: 3000; opacity: 0; pointer-events: none;
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
+            width: 90%; max-width: 400px; box-sizing: border-box;
         }
         #result-popup.active { opacity: 1; transform: translate(-50%, -50%) scale(1); pointer-events: all; }
         
@@ -493,7 +497,7 @@
                 </div>
                 <div style="position: relative; display: inline-block;">
                     <button id="submit-choice-btn" class="submit-btn" onclick="submitChoice()" disabled>SEND</button>
-                    <img id="dance-squirrel" src="squirrel.png" alt="squirrel" style="position: absolute; left: calc(100% + 15px); bottom: -10px; width: 80px; height: 80px; display: none; image-rendering: pixelated; z-index: 10;">
+                    <img id="dance-squirrel" src="squirrel.png" alt="squirrel" style="position: absolute; right: calc(-100% + 20px); bottom: -10px; width: clamp(50px, 15vw, 80px); height: auto; display: none; image-rendering: pixelated; z-index: 10;">
                 </div>
                 <div id="prison-message" style="margin-top:15px; font-weight:bold; color:#f1c40f; font-size:22px;"></div>
                 
@@ -519,8 +523,8 @@
 
     <div id="reveal-countdown-overlay"><div id="countdown-text">3</div></div>
     <div id="result-popup">
-        <div id="popup-my-score" style="font-size:46px; color:#f69500;">YOU: 0</div>
-        <div id="popup-op-score" style="font-size:46px; color:#cd3ace; margin-top:10px;">OTHER: 0</div>
+        <div id="popup-my-score" style="font-size:clamp(28px, 8vw, 46px); color:#f69500;">YOU: 0</div>
+        <div id="popup-op-score" style="font-size:clamp(28px, 8vw, 46px); color:#cd3ace; margin-top:10px;">OTHER: 0</div>
     </div>
 
     <!-- Total coins badge -->
@@ -528,8 +532,8 @@
         position:fixed; top:14px; right:18px; z-index:9990;
         background:rgba(0,0,0,0.75); backdrop-filter:blur(8px);
         border:3px solid #f69500; border-radius:50px;
-        padding:8px 20px; display:none; align-items:center; gap:10px;
-        font-family:'Bubblegum Sans',cursive; color:#f69500; font-size:22px;
+        padding:clamp(4px, 1.5vw, 8px) clamp(10px, 3vw, 20px); display:none; align-items:center; gap:10px;
+        font-family:'Bubblegum Sans',cursive; color:#f69500; font-size:clamp(16px, 4vw, 22px);
         box-shadow:0 0 20px rgba(246,149,0,0.4);
     ">
         💰 Total: <span id="total-coins-val">0</span>
