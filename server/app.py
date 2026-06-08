@@ -245,11 +245,28 @@ def get_rooms():
                         'session': game.get('session', 0)
                     })
                     
+            # Fetch player play counts
+            play_counts = {}
+            cursor = db.execute('''
+                SELECT player, COUNT(DISTINCT game_id) as games_played
+                FROM (
+                    SELECT player1 as player, game_id FROM prison_games WHERE room_password = ?
+                    UNION ALL
+                    SELECT player2 as player, game_id FROM prison_games WHERE room_password = ?
+                )
+                GROUP BY player
+            ''', (password, password))
+            for p_row in cursor.fetchall():
+                p_name = p_row['player']
+                if p_name and not p_name.startswith('Bot_'):
+                    play_counts[p_name] = p_row['games_played']
+                    
             room_list.append({
                 'password': password,
                 'description': description,
                 'active_games': len(active_games_list),
-                'games': active_games_list
+                'games': active_games_list,
+                'player_counts': play_counts
             })
     finally:
         if db: db.close()
