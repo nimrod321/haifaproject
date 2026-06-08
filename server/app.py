@@ -735,7 +735,21 @@ def submit_choice():
         if game.get('is_bot'):
             try:
                 bot_eval = game['bot_obj'].get_choice()
-                bot_row = 'A' if bot_eval == 'C' else 'B'
+                
+                session_idx = game['session']
+                sessions_list = room.get('sessions') or prison_sessions
+                if session_idx >= len(sessions_list):
+                    session_idx = len(sessions_list) - 1
+                session = sessions_list[session_idx]
+                
+                p2_a_mean = str(session.get('P2_A_MEANING', 'C')).strip().upper()
+                p2_a_is_c = p2_a_mean.startswith('C')
+                
+                if bot_eval == 'C':
+                    bot_row = 'A' if p2_a_is_c else 'B'
+                else:
+                    bot_row = 'B' if p2_a_is_c else 'A'
+                    
                 game['choices']['p2'] = bot_row
                 game['bot_ready_time'] = time.time() + random.uniform(3.0, 5.0)
                 print(f"[Game] Bot (p2) chose {bot_row} (Eval: {bot_eval})")
@@ -812,8 +826,14 @@ def resolve_round(game, game_id, room):
     session = sessions_list[session_idx]
 
     p1_score, p2_score = get_prison_value(session, p1_choice, p2_choice)
-    p1_code = 'C' if p1_choice == 'A' else 'D'
-    p2_code = 'C' if p2_choice == 'A' else 'D'
+    
+    p1_a_mean = str(session.get('P1_A_MEANING', 'C')).strip().upper()
+    p2_a_mean = str(session.get('P2_A_MEANING', 'C')).strip().upper()
+    p1_a_is_c = p1_a_mean.startswith('C')
+    p2_a_is_c = p2_a_mean.startswith('C')
+    
+    p1_code = 'C' if (p1_choice == 'A' and p1_a_is_c) or (p1_choice == 'B' and not p1_a_is_c) else 'D'
+    p2_code = 'C' if (p2_choice == 'A' and p2_a_is_c) or (p2_choice == 'B' and not p2_a_is_c) else 'D'
     code = p1_code + p2_code
 
     game['codes'].append(code)
@@ -840,8 +860,8 @@ def resolve_round(game, game_id, room):
 
     # Bot Update
     if game.get('is_bot'):
-        bot_my_eval = 'C' if p2_choice == 'A' else 'D'
-        bot_op_eval = 'C' if p1_choice == 'A' else 'D'
+        bot_my_eval = p2_code
+        bot_op_eval = p1_code
         game['bot_obj'].record_result(bot_my_eval, bot_op_eval)
 
     game['session'] += 1

@@ -122,7 +122,9 @@ def create_bot(bot_type, is_player_1, session_data):
     
     if bot_type.startswith('SERS_'):
         stack_size = int(bot_type.split('_')[1])
-        return SERSBot(stack_size, is_player_1, "A", "A", 
+        p1_a_mean = str(session_data.get('P1_A_MEANING', 'C'))
+        p2_a_mean = str(session_data.get('P2_A_MEANING', 'C'))
+        return SERSBot(stack_size, is_player_1, p1_a_mean, p2_a_mean, 
                        session_data['AA1'], session_data['AB1'], session_data['BA1'], session_data['BB1'],
                        session_data['AA2'], session_data['AB2'], session_data['BA2'], session_data['BB2'])
     return RandomBot()
