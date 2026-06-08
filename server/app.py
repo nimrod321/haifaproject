@@ -79,11 +79,21 @@ def init_db():
                 username TEXT UNIQUE
             )''')
             
+            try: db.execute('ALTER TABLE prison_rooms ADD COLUMN description TEXT')
+            except: pass
+
+            db.execute('''CREATE TABLE IF NOT EXISTS past_input_files (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                filename TEXT UNIQUE,
+                sessions_data TEXT
+            )''')
+            
             db.execute('''CREATE TABLE IF NOT EXISTS prison_rooms (
                 password TEXT PRIMARY KEY,
                 num_sessions INTEGER,
                 allowed_bots TEXT,
-                custom_sessions TEXT
+                custom_sessions TEXT,
+                description TEXT
             )''')
             
             db.execute('''CREATE TABLE IF NOT EXISTS island_plots (
@@ -168,6 +178,8 @@ def create_room():
     num_sessions = data.get('num_sessions', 10)
     allowed_bots = data.get('allowed_bots', ['Random', 'CBot'])
     custom_sessions = data.get('sessions')
+    description = data.get('description', '')
+    filename = data.get('filename', '')
     
     if custom_sessions:
         cleaned_list = []
@@ -194,9 +206,16 @@ def create_room():
         if existing:
             return jsonify({'error': 'Room already exists'}), 400
             
-        db.execute('''INSERT INTO prison_rooms (password, num_sessions, allowed_bots, custom_sessions)
-                      VALUES (?, ?, ?, ?)''', 
-                   (password, num_sessions, json.dumps(allowed_bots), json.dumps(custom_sessions) if custom_sessions else None))
+        db.execute('''INSERT INTO prison_rooms (password, num_sessions, allowed_bots, custom_sessions, description)
+                      VALUES (?, ?, ?, ?, ?)''', 
+                   (password, num_sessions, json.dumps(allowed_bots), json.dumps(custom_sessions) if custom_sessions else None, description))
+        
+        if filename and custom_sessions:
+            try:
+                db.execute('INSERT OR IGNORE INTO past_input_files (filename, sessions_data) VALUES (?, ?)',
+                           (filename, json.dumps(custom_sessions)))
+            except: pass
+        
         db.commit()
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -211,9 +230,10 @@ def get_rooms():
     db = None
     try:
         db = get_db()
-        db_rooms = db.execute('SELECT password FROM prison_rooms').fetchall()
+        db_rooms = db.execute('SELECT password, description FROM prison_rooms').fetchall()
         for r in db_rooms:
             password = r['password']
+            description = r['description']
             
             # Keep active match data for admin viewing if the global mem exists
             active_games_list = []
@@ -227,6 +247,7 @@ def get_rooms():
                     
             room_list.append({
                 'password': password,
+                'description': description,
                 'active_games': len(active_games_list),
                 'games': active_games_list
             })
@@ -234,6 +255,18 @@ def get_rooms():
         if db: db.close()
         
     return jsonify(room_list)
+
+@app.route('/get_past_files', methods=['GET'])
+def get_past_files():
+    db = None
+    try:
+        db = get_db()
+        rows = db.execute('SELECT id, filename, sessions_data FROM past_input_files').fetchall()
+        return jsonify([{'id': r['id'], 'filename': r['filename'], 'sessions_data': json.loads(r['sessions_data'])} for r in rows])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if db: db.close()
 
 @app.route('/get_room_logs', methods=['POST'])
 def get_room_logs():

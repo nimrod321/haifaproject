@@ -430,8 +430,15 @@
                 <div class="admin-card glass-panel" style="background:rgba(0,0,0,0.4);">
                     <h3>Create Room</h3>
                     <input type="password" id="admin-room-password" placeholder="Room Password" onkeypress="if(event.keyCode===13) adminCreateRoom()">
+                    <input type="text" id="admin-room-description" placeholder="Room Description (Optional)">
                     <input type="number" id="admin-room-rounds" placeholder="Rounds" value="10">
-                    <input type="file" id="admin-room-excel" accept=".xlsx, .xls">
+                    <div style="display:flex; align-items:center; gap:10px; margin: 10px auto; width: min(300px, 85%);">
+                        <input type="file" id="admin-room-excel" accept=".xlsx, .xls" style="margin:0; width:100%; border-radius:5px; padding:5px; font-size:14px;">
+                        <span style="color:#fff; font-weight:bold;">OR</span>
+                        <select id="admin-past-files" style="flex:1; padding:8px; border-radius:50px; outline:none; border:3px solid #2ecc71; font-family:'Bubblegum Sans', cursive; font-size:16px;">
+                            <option value="">Select past file...</option>
+                        </select>
+                    </div>
                     <!-- BOT SELECTION ADDED BACK -->
                     <div class="bot-selection">
                         <div class="bot-line"><label><input type="checkbox" class="bot-check" value="Random" checked> Random Bot</label></div>
@@ -606,7 +613,7 @@
                 if (res.ok) { 
                     currentUsername = u; currentUserRole = data.user.role; document.getElementById('auth').classList.add('hidden');
                     if(currentUserRole === 'admin') { 
-                        document.getElementById('admin-panel').classList.remove('hidden'); loadAdminRooms(); loadAdminPlayers(); 
+                        document.getElementById('admin-panel').classList.remove('hidden'); loadAdminRooms(); loadAdminPlayers(); loadAdminPastFiles();
                     } else { 
                         islandEngine.loadPrivateIsland(currentUsername); 
                         loadTotalCoins(); 
@@ -632,16 +639,82 @@
             }
         }
 
+        let pastFiles = [];
+
+        async function loadAdminPastFiles() {
+            try {
+                const res = await fetch('/get_past_files');
+                pastFiles = await res.json();
+                const sel = document.getElementById('admin-past-files');
+                sel.innerHTML = '<option value="">Select past file...</option>';
+                pastFiles.forEach(f => {
+                    sel.innerHTML += `<option value="${f.id}">${f.filename} (${f.sessions_data.length} rounds)</option>`;
+                });
+            } catch (e) { console.error('Failed to load past files', e); }
+        }
+
         async function adminCreateRoom() {
-            const pw = document.getElementById('admin-room-password').value, rd = parseInt(document.getElementById('admin-room-rounds').value) || 10;
+            const pw = document.getElementById('admin-room-password').value;
+            const rd = parseInt(document.getElementById('admin-room-rounds').value) || 10;
+            const desc = document.getElementById('admin-room-description').value;
             if(!pw) return customAlert('Password required');
             const bots = []; document.querySelectorAll('.bot-check').forEach(c => { if(c.checked) bots.push(c.value); });
 
-            let sess = null; const f = document.getElementById('admin-room-excel');
-            if(f.files.length > 0) { sess = await parseExcel(f.files[0]); }
-            const res = await fetch('/create_room', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw, num_sessions: rd, allowed_bots: bots, sessions: sess }) });
-            if(res.ok) { customAlert('Room Created!'); loadAdminRooms(); } else customAlert('Failed');
+            let sess = null; 
+            let fname = null;
+            const f = document.getElementById('admin-room-excel');
+            const pastSel = document.getElementById('admin-past-files').value;
+
+            if(f.files && f.files.length > 0) { 
+                sess = await parseExcel(f.files[0]); 
+                fname = f.files[0].name;
+            } else if (pastSel) {
+                const selected = pastFiles.find(file => file.id == pastSel);
+                if (selected) {
+                    sess = selected.sessions_data;
+                    fname = selected.filename;
+                }
+            }
+
+            const res = await fetch('/create_room', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ password: pw, num_sessions: rd, allowed_bots: bots, sessions: sess, description: desc, filename: fname }) 
+            });
+            
+            if(res.ok) { 
+                customAlert('Room Created!'); 
+                loadAdminRooms(); 
+                loadAdminPastFiles();
+                document.getElementById('admin-room-password').value = '';
+                document.getElementById('admin-room-description').value = '';
+                if (document.getElementById('admin-room-excel')) document.getElementById('admin-room-excel').value = '';
+                document.getElementById('admin-past-files').value = '';
+            } else {
+                const data = await res.json();
+                customAlert(data.error || 'Failed to create room');
+            }
         }
+        
+        document.getElementById('admin-room-excel').addEventListener('change', async (e) => {
+            if (e.target.files.length > 0) {
+                document.getElementById('admin-past-files').value = ""; 
+                const sess = await parseExcel(e.target.files[0]);
+                if (sess && sess.length > 0) {
+                    document.getElementById('admin-room-rounds').value = sess.length;
+                }
+            }
+        });
+
+        document.getElementById('admin-past-files').addEventListener('change', (e) => {
+            if (e.target.value) {
+                document.getElementById('admin-room-excel').value = ""; 
+                const selected = pastFiles.find(f => f.id == e.target.value);
+                if (selected && selected.sessions_data) {
+                    document.getElementById('admin-room-rounds').value = selected.sessions_data.length;
+                }
+            }
+        });
         function parseExcel(file) { return new Promise((resolve) => { const reader = new FileReader(); reader.onload = (e) => { resolve(XLSX.utils.sheet_to_json(XLSX.read(new Uint8Array(e.target.result), { type: 'array' }).Sheets[XLSX.read(new Uint8Array(e.target.result), { type: 'array' }).SheetNames[0]])); }; reader.readAsArrayBuffer(file); }); }
         
         async function loadAdminRooms() {
@@ -649,10 +722,18 @@
             const list = document.getElementById('admin-rooms-list'); list.innerHTML = '';
             data.forEach(room => {
                 const item = document.createElement('div'); item.className='room-item'; 
-                item.innerHTML = `Room: ${room.password} 
-                    <button class="btn-small" onclick="viewLogs('${room.password}')" style="background:#3498db; margin-left:10px;">View Logs</button>
-                    <button class="btn-small" onclick="downloadLogs('${room.password}')" style="background:#2ecc71;">CSV</button>
-                    <button class="btn-small btn-danger" onclick="deleteRoom('${room.password}')">X</button>`;
+                item.style.marginBottom = '15px';
+                item.style.borderBottom = '1px solid #777';
+                item.style.paddingBottom = '10px';
+                let descHtml = room.description ? `<div style="font-size:14px; color:#ccc; margin-top:5px; font-family:sans-serif;">${room.description}</div>` : '';
+                item.innerHTML = `
+                    <div style="font-weight:bold; color:#f1c40f; font-size:18px;">Room: ${room.password}</div>
+                    ${descHtml}
+                    <div style="margin-top:8px;">
+                        <button class="btn-small" onclick="viewLogs('${room.password}')" style="background:#3498db; margin-right:5px;">View Logs</button>
+                        <button class="btn-small" onclick="downloadLogs('${room.password}')" style="background:#2ecc71; margin-right:5px;">CSV</button>
+                        <button class="btn-small btn-danger" onclick="deleteRoom('${room.password}')">X</button>
+                    </div>`;
                 list.appendChild(item);
             });
         }
