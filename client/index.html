@@ -75,8 +75,8 @@
         /* OTHER PLAYER — single banner spanning both columns */
         #other-player-banner {
             grid-column: 2 / 4; grid-row: 1;
-            background: #1a2636; color: #f1c40f;
-            border: 4px solid #3e2723; border-radius: 14px;
+            background: #8e44ad; color: #ffffff;
+            border: 4px solid #4a235a; border-radius: 14px;
             font-weight: bold; font-size: clamp(14px,2.5vw,20px);
             display: flex; align-items: center; justify-content: center;
             letter-spacing: 2px;
@@ -84,22 +84,22 @@
 
         /* A / B sub-headers under OTHER PLAYER banner */
         .col-header {
-            background: #2c3e50; color: #f1c40f; padding: 8px;
+            background: #9b59b6; color: #ffffff; padding: 8px;
             border-radius: 0 0 12px 12px;
-            font-weight: bold; border: 4px solid #3e2723; font-size: clamp(16px,2.5vw,22px);
+            font-weight: bold; border: 4px solid #4a235a; font-size: clamp(16px,2.5vw,22px);
             display: flex; align-items: center; justify-content: center; height: 30px;
         }
         #col-header-A { grid-column: 2; grid-row: 2; }
         #col-header-B { grid-column: 3; grid-row: 2; }
 
         .row-btn {
-            background: #8d6e63; width: 70px; height: 70px; border-radius: 50%;
-            border: 6px solid #3e2723; color: #f1c40f; cursor: pointer;
-            box-shadow: 0 8px 0 #2d1b11; transition: all 0.2s;
+            background: #f39c12; width: 70px; height: 70px; border-radius: 50%;
+            border: 6px solid #b9770e; color: #ffffff; cursor: pointer;
+            box-shadow: 0 8px 0 #9c640c; transition: all 0.2s;
             display: flex; align-items: center; justify-content: center; font-size: 30px;
             position: relative; grid-column: 1;
         }
-        .row-btn.selected { transform: translateY(10px); box-shadow: 0 0 0 #2d1b11; background: #c0392b; }
+        .row-btn.selected { transform: translateY(10px); box-shadow: 0 0 0 #9c640c; background: #e67e22; }
         /* NO ::before — we use a single dedicated ME label instead */
         #row-btn-A { grid-row: 3; }
         #row-btn-B { grid-row: 5; }
@@ -107,7 +107,7 @@
         /* Single ME label centered between A and B */
         #me-label {
             grid-column: 1; grid-row: 4;
-            color: #fff; font-size: clamp(16px,2.8vw,22px);
+            color: #f39c12; font-size: clamp(16px,2.8vw,22px);
             text-shadow: 2px 2px 4px #000;
             display: flex; align-items: center; justify-content: center;
             font-weight: bold; letter-spacing: 1px;
