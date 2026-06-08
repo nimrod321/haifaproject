@@ -35,6 +35,12 @@ class IslandEngine {
         this.TILE_BOARD = 7;
         this.TILE_PORTAL = 8;
 
+        this.grassImg = new Image();
+        this.grassImg.src = 'grass.png';
+        this.grassImg.onload = () => {
+            this.grassPattern = this.ctx.createPattern(this.grassImg, 'repeat');
+        };
+
         this.loop = this.loop.bind(this);
         requestAnimationFrame(this.loop);
     }
@@ -448,7 +454,11 @@ class IslandEngine {
         const t = this.map[r][c];
 
         // Base Grass
-        this.ctx.fillStyle = '#2ecc71';
+        if (this.grassPattern) {
+            this.ctx.fillStyle = this.grassPattern;
+        } else {
+            this.ctx.fillStyle = '#2ecc71';
+        }
         this.ctx.fillRect(x, y, this.tileSize, this.tileSize);
 
         if (t === this.TILE_ROAD) {
