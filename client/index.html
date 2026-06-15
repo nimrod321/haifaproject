@@ -76,21 +76,19 @@
         /* OTHER PLAYER — single banner spanning both columns */
         #other-player-banner {
             grid-column: 2 / 4; grid-row: 1;
-            background: transparent; color: #cd3ace;
-            border: none; border-radius: 14px;
+            background: #cd3ace; color: #ffffff;
+            border: 4px solid #8f1a90; border-radius: 14px;
             font-weight: bold; font-size: clamp(14px,2.5vw,20px);
             display: flex; align-items: center; justify-content: center;
             letter-spacing: 2px;
-            text-shadow: 2px 2px 4px #000;
         }
 
         /* A / B sub-headers under OTHER PLAYER banner */
         .col-header {
-            background: transparent; color: #cd3ace; padding: 8px;
+            background: #cd3ace; color: #ffffff; padding: 8px;
             border-radius: 0 0 12px 12px;
-            font-weight: bold; border: none; font-size: clamp(16px,2.5vw,22px);
+            font-weight: bold; border: 4px solid #8f1a90; font-size: clamp(16px,2.5vw,22px);
             display: flex; align-items: center; justify-content: center; height: 30px;
-            text-shadow: 2px 2px 4px #000;
         }
         #col-header-A { grid-column: 2; grid-row: 2; }
         #col-header-B { grid-column: 3; grid-row: 2; }
@@ -682,12 +680,12 @@
                 hideLoading();
                 if (res.ok) { 
                     currentUsername = u; currentUserRole = data.user.role; document.getElementById('auth').classList.add('hidden');
-                    // Connect Socket.IO and register
-                    if (typeof io !== 'undefined') {
-                        const socket = io();
-                        socket.on('connect', () => { socket.emit('register_sid', { username: currentUsername }); });
-                        window._socket = socket;
-                    }
+                    // Start HTTP ping for presence tracking
+                    setInterval(async () => {
+                        try {
+                            if(currentUsername) await fetch('/ping', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: currentUsername }) });
+                        } catch(e) {}
+                    }, 10000);
                     if(currentUserRole === 'admin') { 
                         document.getElementById('admin-panel').classList.remove('hidden'); loadAdminRooms(); loadAdminPlayers(); loadAdminPastFiles(); loadAdminClassCodes();
                     } else if(currentUserRole === 'boomer') {
@@ -1664,7 +1662,6 @@
           document.getElementById('play-again-btn').classList.add('show');
         }
     </script>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="island.js"></script>
 </body>
 </html>

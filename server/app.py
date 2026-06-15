@@ -1,5 +1,4 @@
 from flask import Flask, request, jsonify, make_response
-from flask_socketio import SocketIO, emit
 import sqlite3
 import bcrypt
 import os
@@ -23,7 +22,6 @@ sys.stderr = sys.stdout
 
 app = Flask(__name__, static_folder='../client', static_url_path='')
 app.secret_key = 'super-secret-key-123'
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'games.db')
 
@@ -1140,41 +1138,47 @@ def resolve_round(game, game_id, room):
 
 
 # Connection tracking for disconnect handling
-sid_to_user = {}
-user_to_sid = {}
+player_last_ping = {}
 disconnected_players = {}  # username -> {game_id, room, disconnect_time, timers}
 
-@socketio.on('register_sid')
-def handle_register_sid(data):
+@app.route('/ping', methods=['POST'])
+def ping():
+    data = request.get_json()
     username = data.get('username')
     if not username:
-        return
-    sid_to_user[request.sid] = username
-    user_to_sid[username] = request.sid
-    print(f"[Socket] Registered SID for {username}: {request.sid}")
+        return jsonify({'status': 'error'})
+    
+    player_last_ping[username] = time.time()
     
     # Check for reconnection
     if username in disconnected_players:
         handle_reconnection(username)
+        
+    return jsonify({'status': 'ok'})
 
-@socketio.on('disconnect')
-def disconnect():
-    username = sid_to_user.get(request.sid)
-    if not username:
-        return
-    print(f"[Socket] Disconnect detected for {username}")
-    
-    # Find active game for this player
-    game_info = find_active_game_for_user(username)
-    if game_info:
-        game, game_id, room, room_pw = game_info
-        start_disconnect_timers(username, game, game_id, room, room_pw)
-    
-    # Clean up SID maps
-    if request.sid in sid_to_user:
-        del sid_to_user[request.sid]
-    if user_to_sid.get(username) == request.sid:
-        del user_to_sid[username]
+def check_presence_timeouts():
+    """Background thread to monitor HTTP pings."""
+    while True:
+        time.sleep(10)
+        now = time.time()
+        with game_lock:
+            for pw, room in rooms.items():
+                for gid, game in room['active'].items():
+                    if game['session'] >= room['settings']['num_sessions']:
+                        continue
+                    
+                    for username in game['players']:
+                        if username.startswith('Bot_'):
+                            continue
+                        
+                        last_ping = player_last_ping.get(username, 0)
+                        if last_ping > 0 and (now - last_ping > 20):
+                            if username not in disconnected_players:
+                                print(f"[Presence] Timeout detected for {username} (>20s)")
+                                start_disconnect_timers(username, game, gid, room, pw)
+
+# Start background presence monitor
+threading.Thread(target=check_presence_timeouts, daemon=True).start()
 
 def find_active_game_for_user(username):
     """Find an active game for a given username across all rooms."""
@@ -1437,4 +1441,4 @@ def visit_friend_island():
         if db: db.close()
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
