@@ -60,16 +60,16 @@
         .board-layout {
             display: grid;
             /* col1=label area, col2=A column, col3=B column */
-            grid-template-columns: clamp(40px,12vw,80px) 1fr 1fr;
+            grid-template-columns: clamp(50px,10vw,80px) minmax(100px,220px) minmax(100px,220px);
             /* row1=other-player-banner, row2=col-AB-headers, row3=row-A, row4=ME-label, row5=row-B */
             grid-template-rows:
-                clamp(24px,5vw,44px)
-                clamp(28px,6vw,50px)
-                minmax(60px,150px)
-                clamp(24px,4vw,40px)
-                minmax(60px,150px);
-            gap: clamp(4px,1.5vw,14px);
-            align-items: stretch;
+                clamp(30px,5vw,44px)
+                clamp(34px,6vw,50px)
+                minmax(90px,150px)
+                clamp(28px,4vw,40px)
+                minmax(90px,150px);
+            gap: clamp(6px,2vw,14px);
+            align-items: center;
             justify-content: center;
         }
 
@@ -94,13 +94,13 @@
         #col-header-B { grid-column: 3; grid-row: 2; }
 
         .row-btn {
-            background: #f69500; width: clamp(40px, 15vw, 70px); height: clamp(40px, 15vw, 70px); border-radius: 50%;
-            border: clamp(3px, 1vw, 6px) solid #a86500; color: #ffffff; cursor: pointer;
-            box-shadow: 0 clamp(4px, 1.5vw, 8px) 0 #8c5300; transition: all 0.2s;
-            display: flex; align-items: center; justify-content: center; font-size: clamp(20px, 5vw, 30px);
-            position: relative; grid-column: 1; margin: auto;
+            background: #f69500; width: 70px; height: 70px; border-radius: 50%;
+            border: 6px solid #a86500; color: #ffffff; cursor: pointer;
+            box-shadow: 0 8px 0 #8c5300; transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center; font-size: 30px;
+            position: relative; grid-column: 1;
         }
-        .row-btn.selected { transform: translateY(clamp(5px, 2vw, 10px)); box-shadow: 0 0 0 #8c5300; background: #db8400; }
+        .row-btn.selected { transform: translateY(10px); box-shadow: 0 0 0 #8c5300; background: #db8400; }
         /* NO ::before — we use a single dedicated ME label instead */
         #row-btn-A { grid-row: 3; }
         #row-btn-B { grid-row: 5; }
@@ -115,11 +115,10 @@
         }
 
         .matrix-cell {
-            background: #3e2723; border: clamp(3px, 1vw, 5px) solid #2d1b11; border-radius: 15px;
+            background: #3e2723; border: 5px solid #2d1b11; border-radius: 15px;
             position: relative; overflow: hidden;
             display: flex; align-items: center; justify-content: center;
-            font-size: clamp(20px, 6vw, 50px); font-weight: bold; font-family: 'Bubblegum Sans', cursive;
-            min-height: 60px;
+            font-size: clamp(26px, 4.5vw, 50px); font-weight: bold; font-family: 'Bubblegum Sans', cursive;
         }
         #cell-AA { grid-column: 2; grid-row: 3; }
         #cell-AB { grid-column: 3; grid-row: 3; }
