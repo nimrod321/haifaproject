@@ -76,19 +76,21 @@
         /* OTHER PLAYER — single banner spanning both columns */
         #other-player-banner {
             grid-column: 2 / 4; grid-row: 1;
-            background: #cd3ace; color: #ffffff;
-            border: 4px solid #8f1a90; border-radius: 14px;
+            background: transparent; color: #cd3ace;
+            border: none; border-radius: 14px;
             font-weight: bold; font-size: clamp(14px,2.5vw,20px);
             display: flex; align-items: center; justify-content: center;
             letter-spacing: 2px;
+            text-shadow: 2px 2px 4px #000;
         }
 
         /* A / B sub-headers under OTHER PLAYER banner */
         .col-header {
-            background: #cd3ace; color: #ffffff; padding: 8px;
+            background: transparent; color: #cd3ace; padding: 8px;
             border-radius: 0 0 12px 12px;
-            font-weight: bold; border: 4px solid #8f1a90; font-size: clamp(16px,2.5vw,22px);
+            font-weight: bold; border: none; font-size: clamp(16px,2.5vw,22px);
             display: flex; align-items: center; justify-content: center; height: 30px;
+            text-shadow: 2px 2px 4px #000;
         }
         #col-header-A { grid-column: 2; grid-row: 2; }
         #col-header-B { grid-column: 3; grid-row: 2; }
@@ -208,8 +210,17 @@
         }
 
 
-        #reveal-countdown-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 2500; display: none; align-items: center; justify-content: center; pointer-events: none; }
-        #countdown-text { font-size: 280px; color: #f1c40f; text-shadow: 10px 10px 50px #000, 0 0 30px #fff; animation: pulse-countdown 1s ease-in-out infinite; }
+        #reveal-countdown-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 2500; display: none; align-items: center; justify-content: center; pointer-events: none; flex-direction: column; }
+        #countdown-spinner {
+            width: 80px; height: 80px;
+            border: 8px solid rgba(255,255,255,0.15);
+            border-top: 8px solid #f1c40f;
+            border-right: 8px solid #f69500;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        #countdown-text { font-size: 28px; color: #f1c40f; text-shadow: 2px 2px 10px #000; margin-top: 20px; letter-spacing: 2px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         #result-popup {
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.5);
             background: rgba(0,0,0,0.96); border: clamp(6px, 2vw, 12px) solid #f1c40f; border-radius: clamp(20px, 5vw, 40px); 
@@ -242,16 +253,7 @@
             z-index: 0;
         }
 
-        @keyframes squirrel-dance {
-            0%, 100% { transform: translateY(0) scale(1); }
-            25% { transform: translateY(-15px) scale(1.1) rotate(-10deg); }
-            50% { transform: translateY(0) scale(1) rotate(10deg); }
-            75% { transform: translateY(-10px) scale(1.05) rotate(-5deg); }
-        }
-        .dancing {
-            display: block !important;
-            animation: squirrel-dance 0.4s infinite linear;
-        }
+        /* squirrel dance removed */
 
         /* CANVAS */
         #coin-canvas {
@@ -420,7 +422,53 @@
                 <input type="text" id="login-username" placeholder="Username">
                 <input type="password" id="login-password" placeholder="Password" onkeypress="if(event.keyCode===13) login()">
                 <button onclick="login()" style="font-size:clamp(18px,4vw,24px);">Login</button>
-                <button onclick="signup()" style="background:#3498db; margin-top:10px; font-size:clamp(18px,4vw,24px);">Create Account</button>
+                <button onclick="showSignupForm()" style="background:#3498db; margin-top:10px; font-size:clamp(18px,4vw,24px);">Create Account</button>
+                <div style="margin-top:15px;"><a href="#" onclick="showRecoveryForm(); return false;" style="color:#f1c40f; font-size:18px; text-decoration:underline;">Forgot Password?</a></div>
+            </div>
+            
+            <!-- Signup Form -->
+            <div id="signup-section" class="glass-panel hidden">
+                <h2>Create Account</h2>
+                <input type="text" id="signup-username" placeholder="Username">
+                <input type="password" id="signup-password" placeholder="Password">
+                <div style="margin-top:15px; padding-top:15px; border-top:2px solid rgba(255,255,255,0.2);">
+                    <h3 style="font-size:20px; margin-bottom:10px;">Security Questions</h3>
+                    <input type="text" id="signup-house" placeholder="House Number">
+                    <input type="number" id="signup-birth" placeholder="Birth Day (1-31)" min="1" max="31">
+                    <input type="text" id="signup-phone" placeholder="Last 2 Digits of Phone" maxlength="2">
+                </div>
+                <button onclick="signup()" style="font-size:clamp(18px,4vw,24px);">Create Account</button>
+                <button onclick="hideSignupForm()" style="background:#95a5a6; margin-top:5px; font-size:16px;">Back to Login</button>
+            </div>
+            
+            <!-- Password Recovery -->
+            <div id="recovery-section" class="glass-panel hidden">
+                <h2>Reset Password</h2>
+                <input type="text" id="recovery-username" placeholder="Username">
+                <div style="margin-top:15px; padding-top:15px; border-top:2px solid rgba(255,255,255,0.2);">
+                    <h3 style="font-size:20px; margin-bottom:10px;">Security Questions</h3>
+                    <input type="text" id="recovery-house" placeholder="House Number">
+                    <input type="number" id="recovery-birth" placeholder="Birth Day (1-31)" min="1" max="31">
+                    <input type="text" id="recovery-phone" placeholder="Last 2 Digits of Phone" maxlength="2">
+                </div>
+                <input type="password" id="recovery-new-password" placeholder="New Password">
+                <button onclick="resetPassword()" style="font-size:clamp(18px,4vw,24px);">Reset Password</button>
+                <button onclick="hideRecoveryForm()" style="background:#95a5a6; margin-top:5px; font-size:16px;">Back to Login</button>
+            </div>
+        </div>
+        
+        <!-- Player Lobby (class code + room entry for non-BOOMER users) -->
+        <div id="player-lobby" class="hidden">
+            <div id="class-code-section" class="glass-panel">
+                <h2>Enter Class Code</h2>
+                <input type="text" id="class-code-input" placeholder="Class Code" onkeypress="if(event.keyCode===13) submitClassCode()">
+                <button onclick="submitClassCode()" style="font-size:clamp(18px,4vw,24px);">Continue</button>
+            </div>
+            <div id="room-password-section" class="glass-panel hidden">
+                <h2>Enter Room Password</h2>
+                <input type="password" id="player-room-password" placeholder="Room Password" onkeypress="if(event.keyCode===13) enterRoomFromLobby()">
+                <button onclick="enterRoomFromLobby()" style="font-size:clamp(18px,4vw,24px);">Enter Room</button>
+                <button onclick="backToClassCode()" style="background:#95a5a6; margin-top:5px; font-size:16px;">Back</button>
             </div>
         </div>
 
@@ -454,6 +502,14 @@
                         <div class="bot-line"><label><input type="checkbox" class="bot-check" value="SERS_3"> SERS Bot (3 Mem)</label></div>
                         <div class="bot-line"><label><input type="checkbox" class="bot-check" value="SERS_5" checked> SERS Bot (5 Mem)</label></div>
                     </div>
+                    <div style="margin-top:10px;">
+                        <label style="color:#f1c40f; font-size:16px;">Room Type:</label>
+                        <select id="admin-room-type" style="padding:8px; border-radius:50px; outline:none; border:3px solid #2ecc71; font-family:'Bubblegum Sans', cursive; font-size:16px; width: min(300px, 85%); display:block; margin:5px auto;">
+                            <option value="MIXED">MIXED ROOM (any match)</option>
+                            <option value="ADJACENT">ADJACENT ROOM (same class code)</option>
+                            <option value="MERGE">MERGE ROOM (different class code)</option>
+                        </select>
+                    </div>
                     <button onclick="adminCreateRoom()" style="width:100%; margin-top:15px;">Create Room</button>
                 </div>
                 <div class="admin-card glass-panel" style="background:rgba(0,0,0,0.4);">
@@ -464,6 +520,15 @@
                 <div class="admin-card glass-panel" style="background:rgba(0,0,0,0.4); grid-column: span 2;">
                     <h3>Manage Players</h3>
                     <div id="admin-players-list" style="max-height: 250px; overflow-y: auto;"></div>
+                </div>
+                <div class="admin-card glass-panel" style="background:rgba(0,0,0,0.4); grid-column: span 2;">
+                    <h3>Manage Class Codes</h3>
+                    <div style="display:flex; gap:10px; margin-bottom:10px; flex-wrap:wrap; justify-content:center;">
+                        <input type="text" id="admin-class-code" placeholder="Class Code" style="width:140px;">
+                        <input type="text" id="admin-class-desc" placeholder="Description (optional)" style="width:180px;">
+                        <button onclick="adminCreateClassCode()" style="font-size:16px;">Add Code</button>
+                    </div>
+                    <div id="admin-class-codes-list" style="max-height: 200px; overflow-y: auto;"></div>
                 </div>
             </div>
         </div>
@@ -497,7 +562,6 @@
                 </div>
                 <div style="position: relative; display: inline-block;">
                     <button id="submit-choice-btn" class="submit-btn" onclick="submitChoice()" disabled>SEND</button>
-                    <img id="dance-squirrel" src="squirrel.png" alt="squirrel" style="position: absolute; right: calc(-100% + 20px); bottom: -10px; width: clamp(50px, 15vw, 80px); height: auto; display: none; image-rendering: pixelated; z-index: 10;">
                 </div>
                 <div id="prison-message" style="margin-top:15px; font-weight:bold; color:#f1c40f; font-size:22px;"></div>
                 
@@ -521,7 +585,7 @@
         <button id="play-again-btn" onclick="goPlayAgain()">🎮 Play Again!</button>
     </div>
 
-    <div id="reveal-countdown-overlay"><div id="countdown-text">3</div></div>
+    <div id="reveal-countdown-overlay"><div id="countdown-spinner"></div><div id="countdown-text">Revealing...</div></div>
     <div id="result-popup">
         <div id="popup-my-score" style="font-size:clamp(28px, 8vw, 46px); color:#f69500;">YOU: 0</div>
         <div id="popup-op-score" style="font-size:clamp(28px, 8vw, 46px); color:#cd3ace; margin-top:10px;">OTHER: 0</div>
@@ -543,6 +607,8 @@
     <script>
 
         let selectedMove = null, currentGid = null, currentUsername = null, currentUserRole = null, choiceLocked = false, sessionTotalScore = 0;
+        let currentClassCode = '';
+        let currentRoomPassword = '';
 
         async function loadTotalCoins() {
             if (!currentUsername) return;
@@ -616,11 +682,35 @@
                 hideLoading();
                 if (res.ok) { 
                     currentUsername = u; currentUserRole = data.user.role; document.getElementById('auth').classList.add('hidden');
+                    // Connect Socket.IO and register
+                    if (typeof io !== 'undefined') {
+                        const socket = io();
+                        socket.on('connect', () => { socket.emit('register_sid', { username: currentUsername }); });
+                        window._socket = socket;
+                    }
                     if(currentUserRole === 'admin') { 
-                        document.getElementById('admin-panel').classList.remove('hidden'); loadAdminRooms(); loadAdminPlayers(); loadAdminPastFiles();
-                    } else { 
+                        document.getElementById('admin-panel').classList.remove('hidden'); loadAdminRooms(); loadAdminPlayers(); loadAdminPastFiles(); loadAdminClassCodes();
+                    } else if(currentUserRole === 'boomer') {
+                        // BOOMER sees the full island experience
                         islandEngine.loadPrivateIsland(currentUsername); 
-                        loadTotalCoins(); 
+                        loadTotalCoins();
+                    } else { 
+                        // Regular player: check for active game first, then show class code entry
+                        loadTotalCoins();
+                        try {
+                            const activeRes = await fetch('/check_active_game', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: currentUsername }) });
+                            const activeData = await activeRes.json();
+                            if (activeData.active) {
+                                // Resume active game
+                                currentRoomPassword = activeData.room_password;
+                                document.getElementById('prison-password').value = currentRoomPassword;
+                                if (activeData.gameData.current_total) sessionTotalScore = activeData.gameData.current_total;
+                                document.getElementById('game').classList.remove('hidden');
+                                startGameFromData(activeData.gameData);
+                                return;
+                            }
+                        } catch(e) { console.log('Active game check failed:', e); }
+                        document.getElementById('player-lobby').classList.remove('hidden');
                     }
                 } else customAlert(data.error);
             } catch (e) {
@@ -629,18 +719,118 @@
             }
         }
 
+        function showSignupForm() {
+            document.getElementById('login-section').classList.add('hidden');
+            document.getElementById('signup-section').classList.remove('hidden');
+        }
+        function hideSignupForm() {
+            document.getElementById('signup-section').classList.add('hidden');
+            document.getElementById('login-section').classList.remove('hidden');
+        }
+        function showRecoveryForm() {
+            document.getElementById('login-section').classList.add('hidden');
+            document.getElementById('recovery-section').classList.remove('hidden');
+        }
+        function hideRecoveryForm() {
+            document.getElementById('recovery-section').classList.add('hidden');
+            document.getElementById('login-section').classList.remove('hidden');
+        }
+
         async function signup() {
-            const u = document.getElementById('login-username').value, p = document.getElementById('login-password').value;
+            const u = document.getElementById('signup-username').value;
+            const p = document.getElementById('signup-password').value;
+            const house = document.getElementById('signup-house').value;
+            const birth = document.getElementById('signup-birth').value;
+            const phone = document.getElementById('signup-phone').value;
+            
+            if (!u || !p) return customAlert('Username and password required.');
+            if (!house || !birth || !phone) return customAlert('All security questions are required.');
+            
             showLoading('Creating Account...');
             try {
-                const res = await fetch('/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) });
+                const res = await fetch('/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p, security_house_number: house, security_birth_day: birth, security_phone_digits: phone }) });
                 const data = await res.json(); 
                 hideLoading();
-                if (res.ok) { customAlert('Account created! Please login.'); } else { customAlert(data.error); }
+                if (res.ok) { customAlert('Account created! Please login.'); hideSignupForm(); } else { customAlert(data.error); }
             } catch (e) {
                 hideLoading();
                 customAlert('Server connection error. Please refresh and try again.');
             }
+        }
+
+        async function resetPassword() {
+            const u = document.getElementById('recovery-username').value;
+            const house = document.getElementById('recovery-house').value;
+            const birth = document.getElementById('recovery-birth').value;
+            const phone = document.getElementById('recovery-phone').value;
+            const newPw = document.getElementById('recovery-new-password').value;
+            
+            if (!u) return customAlert('Username is required.');
+            if (!house || !birth || !phone) return customAlert('All security questions are required.');
+            if (!newPw) return customAlert('New password is required.');
+            
+            showLoading('Resetting Password...');
+            try {
+                const res = await fetch('/reset_password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, security_house_number: house, security_birth_day: birth, security_phone_digits: phone, new_password: newPw }) });
+                const data = await res.json();
+                hideLoading();
+                if (res.ok) { customAlert('Password reset successfully! Please login with your new password.'); hideRecoveryForm(); } else { customAlert(data.error); }
+            } catch(e) {
+                hideLoading();
+                customAlert('Server connection error. Please refresh and try again.');
+            }
+        }
+
+        async function submitClassCode() {
+            const code = document.getElementById('class-code-input').value.trim();
+            if (!code) return customAlert('Please enter a class code.');
+            
+            showLoading('Validating...');
+            try {
+                const res = await fetch('/validate_class_code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: code }) });
+                const data = await res.json();
+                hideLoading();
+                if (res.ok && data.valid) {
+                    currentClassCode = code;
+                    document.getElementById('class-code-section').classList.add('hidden');
+                    document.getElementById('room-password-section').classList.remove('hidden');
+                } else {
+                    customAlert(data.error || 'Invalid class code.');
+                }
+            } catch(e) {
+                hideLoading();
+                customAlert('Server connection error.');
+            }
+        }
+
+        async function enterRoomFromLobby() {
+            const pw = document.getElementById('player-room-password').value;
+            if (!pw) return customAlert('Password required.');
+            
+            showLoading('Connecting to room...');
+            try {
+                const res = await fetch('/enter_room', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw }) });
+                hideLoading();
+                if (res.ok) {
+                    currentRoomPassword = pw;
+                    document.getElementById('player-lobby').classList.add('hidden');
+                    document.getElementById('game').classList.remove('hidden');
+                    document.getElementById('prison-password').value = pw;
+                    document.getElementById('prison-join-form').classList.add('hidden');
+                    document.getElementById('room-lobby').classList.remove('hidden');
+                } else {
+                    const data = await res.json();
+                    customAlert(data.error || 'Invalid room password.');
+                }
+            } catch(e) {
+                hideLoading();
+                customAlert('Server connection error.');
+            }
+        }
+
+        function backToClassCode() {
+            document.getElementById('room-password-section').classList.add('hidden');
+            document.getElementById('class-code-section').classList.remove('hidden');
         }
 
         let pastFiles = [];
@@ -661,6 +851,7 @@
             const pw = document.getElementById('admin-room-password').value;
             const rd = parseInt(document.getElementById('admin-room-rounds').value) || 10;
             const desc = document.getElementById('admin-room-description').value;
+            const roomType = document.getElementById('admin-room-type').value;
             if(!pw) return customAlert('Password required');
             const bots = []; document.querySelectorAll('.bot-check').forEach(c => { if(c.checked) bots.push(c.value); });
 
@@ -683,7 +874,7 @@
             const res = await fetch('/create_room', { 
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify({ password: pw, num_sessions: rd, allowed_bots: bots, sessions: sess, description: desc, filename: fname }) 
+                body: JSON.stringify({ password: pw, num_sessions: rd, allowed_bots: bots, sessions: sess, description: desc, filename: fname, room_type: roomType }) 
             });
             
             if(res.ok) { 
@@ -694,6 +885,7 @@
                 document.getElementById('admin-room-description').value = '';
                 if (document.getElementById('admin-room-excel')) document.getElementById('admin-room-excel').value = '';
                 document.getElementById('admin-past-files').value = '';
+                document.getElementById('admin-room-type').value = 'MIXED';
             } else {
                 const data = await res.json();
                 customAlert(data.error || 'Failed to create room');
@@ -730,6 +922,7 @@
                 item.style.borderBottom = '1px solid #777';
                 item.style.paddingBottom = '10px';
                 let descHtml = room.description ? `<div style="font-size:14px; color:#ccc; margin-top:5px; font-family:sans-serif;">${room.description}</div>` : '';
+                let typeHtml = `<div style="font-size:13px; color:#cd3ace; margin-top:3px; font-family:sans-serif;">Type: <strong>${room.room_type || 'MIXED'}</strong></div>`;
                 
                 let playersHtml = '';
                 if (room.player_counts && Object.keys(room.player_counts).length > 0) {
@@ -743,6 +936,7 @@
                 item.innerHTML = `
                     <div style="font-weight:bold; color:#f1c40f; font-size:18px;">Room: ${room.password}</div>
                     ${descHtml}
+                    ${typeHtml}
                     ${playersHtml}
                     <div style="margin-top:8px;">
                         <button class="btn-small" onclick="viewLogs('${room.password}')" style="background:#3498db; margin-right:5px;">View Logs</button>
@@ -867,7 +1061,7 @@
                 const res = await fetch('/join_queue', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ username: currentUsername, password: pw })
+                    body: JSON.stringify({ username: currentUsername, password: pw, class_code: currentClassCode })
                 });
                 const data = await res.json();
                 
@@ -899,7 +1093,7 @@
                         } catch(e) { console.log('Queue poll error:', e); }
                     }, 2000);
                     
-                    // After 10 seconds, trigger a bot match
+                    // After 15 seconds, trigger a bot match
                     botMatchTimeout = setTimeout(async () => {
                         clearInterval(queuePollInterval);
                         try {
@@ -913,7 +1107,7 @@
                                 startGameFromData(botData.gameData);
                             }
                         } catch(e) { console.log('Bot trigger error:', e); }
-                    }, 10000);
+                    }, 15000);
                 }
             } catch(e) {
                 customAlert('Connection error. Please try again.');
@@ -1004,26 +1198,7 @@
             }
         }
 
-        function playSquirrelChiptune() {
-            try {
-                const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                const notes = [440, 554.37, 659.25, 880, 659.25, 554.37];
-                let startTime = ctx.currentTime;
-                for (let i = 0; i < 18; i++) {
-                    const osc = ctx.createOscillator();
-                    const gain = ctx.createGain();
-                    osc.type = 'square';
-                    osc.frequency.setValueAtTime(notes[i % notes.length] * (1 + Math.floor(i/6)*0.5), startTime);
-                    gain.gain.setValueAtTime(0.05, startTime);
-                    gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.1);
-                    osc.connect(gain);
-                    gain.connect(ctx.destination);
-                    osc.start(startTime);
-                    osc.stop(startTime + 0.15);
-                    startTime += 0.15;
-                }
-            } catch(e) { console.log('Audio not supported', e); }
-        }
+        // squirrel chiptune removed
 
         async function handleRoundResult(d) {
             // Clear any last_result on server for next round
@@ -1032,9 +1207,11 @@
             const sequence = async () => {
                 // Accumulate the player's running total
                 sessionTotalScore += (d.my_score || 0);
-                const overlay = document.getElementById('reveal-countdown-overlay'); const text = document.getElementById('countdown-text');
+                const overlay = document.getElementById('reveal-countdown-overlay');
+                const text = document.getElementById('countdown-text');
                 overlay.style.display = 'flex';
-                for(let i=3; i>0; i--) { text.textContent = i; await new Promise(r => setTimeout(r, 1000)); }
+                text.textContent = 'Revealing...';
+                await new Promise(r => setTimeout(r, 2000));
                 overlay.style.display = 'none';
 
                 const chosenCol = d.op_choice; 
@@ -1047,13 +1224,6 @@
                 document.getElementById('result-popup').classList.add('active');
                 
                 spawnPointBubbles(d.my_score, d.op_score);
-                
-                if (d.code === 'CC' && Math.random() < 0.333) {
-                    const sq = document.getElementById('dance-squirrel');
-                    sq.classList.add('dancing');
-                    playSquirrelChiptune();
-                    setTimeout(() => sq.classList.remove('dancing'), 3000);
-                }
                 
                 await new Promise(r => setTimeout(r, 3000)); 
                 document.getElementById('result-popup').classList.remove('active');
@@ -1210,6 +1380,57 @@
             if(!confirm(`Are you sure you want to completely ban ${u}?`)) return;
             const res = await fetch('/ban_player', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username: u}) });
             if (res.ok) { customAlert('Player banned.'); loadAdminPlayers(); }
+        }
+
+        // =====================================================
+        // ADMIN CLASS CODE MANAGEMENT
+        // =====================================================
+        async function loadAdminClassCodes() {
+            try {
+                const res = await fetch('/get_class_codes');
+                const codes = await res.json();
+                const list = document.getElementById('admin-class-codes-list');
+                list.innerHTML = '';
+                if (codes.length === 0) {
+                    list.innerHTML = '<div style="color:#aaa; font-size:14px; padding:10px;">No class codes yet. Create one above.</div>';
+                    return;
+                }
+                codes.forEach(c => {
+                    const item = document.createElement('div');
+                    item.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:8px; margin:5px 0; background:rgba(0,0,0,0.3); border-radius:10px;';
+                    item.innerHTML = `<span style="color:#f1c40f; font-weight:bold;">${c.code}</span>
+                        <span style="color:#aaa; font-size:14px; flex:1; margin-left:15px;">${c.description || ''}</span>
+                        <button class="btn-small btn-danger" onclick="adminDeleteClassCode('${c.code}')" style="font-size:14px;">X</button>`;
+                    list.appendChild(item);
+                });
+            } catch(e) { console.log('Failed to load class codes', e); }
+        }
+
+        async function adminCreateClassCode() {
+            const code = document.getElementById('admin-class-code').value.trim();
+            const desc = document.getElementById('admin-class-desc').value.trim();
+            if (!code) return customAlert('Class code is required.');
+            
+            try {
+                const res = await fetch('/create_class_code', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ code: code, description: desc }) });
+                const data = await res.json();
+                if (res.ok) {
+                    customAlert('Class code created!');
+                    document.getElementById('admin-class-code').value = '';
+                    document.getElementById('admin-class-desc').value = '';
+                    loadAdminClassCodes();
+                } else {
+                    customAlert(data.error || 'Failed to create class code.');
+                }
+            } catch(e) { customAlert('Server error.'); }
+        }
+
+        async function adminDeleteClassCode(code) {
+            if (!confirm(`Delete class code "${code}"?`)) return;
+            try {
+                const res = await fetch('/delete_class_code', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ code: code }) });
+                if (res.ok) { customAlert('Class code deleted.'); loadAdminClassCodes(); }
+            } catch(e) { customAlert('Server error.'); }
         }
 
         // =====================================================
@@ -1442,6 +1663,8 @@
           await wait(300);
           document.getElementById('play-again-btn').classList.add('show');
         }
-    </script>    <script src="island.js"></script>
+    </script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="island.js"></script>
 </body>
 </html>

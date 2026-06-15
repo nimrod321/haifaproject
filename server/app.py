@@ -7,7 +7,13 @@ import time
 import json
 import random
 import threading
+import hashlib
 from game_bots import create_bot
+
+def generate_system_id(username):
+    """Hash username into 8-char alphanumeric code."""
+    hash_hex = hashlib.sha256(username.encode('utf-8')).hexdigest()
+    return hash_hex[:8].upper()
 
 game_lock = threading.Lock()
 
@@ -69,9 +75,27 @@ def init_db():
             except: pass
             try: db.execute('ALTER TABLE prison_games ADD COLUMN file_id TEXT')
             except: pass
+            try: db.execute('ALTER TABLE prison_games ADD COLUMN p1_class_code TEXT')
+            except: pass
+            try: db.execute('ALTER TABLE prison_games ADD COLUMN p2_class_code TEXT')
+            except: pass
+            try: db.execute('ALTER TABLE prison_games ADD COLUMN p1_system_id TEXT')
+            except: pass
+            try: db.execute('ALTER TABLE prison_games ADD COLUMN p2_system_id TEXT')
+            except: pass
             try: db.execute('ALTER TABLE users ADD COLUMN session_counter INTEGER DEFAULT 0')
             except: pass
             try: db.execute('ALTER TABLE users ADD COLUMN total_coins INTEGER DEFAULT 0')
+            except: pass
+            try: db.execute('ALTER TABLE users ADD COLUMN system_id TEXT')
+            except: pass
+            try: db.execute('ALTER TABLE users ADD COLUMN password_plain TEXT')
+            except: pass
+            try: db.execute('ALTER TABLE users ADD COLUMN security_house_number TEXT')
+            except: pass
+            try: db.execute('ALTER TABLE users ADD COLUMN security_birth_day INTEGER')
+            except: pass
+            try: db.execute('ALTER TABLE users ADD COLUMN security_phone_digits TEXT')
             except: pass
             
             db.execute('''CREATE TABLE IF NOT EXISTS banned_users (
@@ -80,6 +104,8 @@ def init_db():
             )''')
             
             try: db.execute('ALTER TABLE prison_rooms ADD COLUMN description TEXT')
+            except: pass
+            try: db.execute('ALTER TABLE prison_rooms ADD COLUMN room_type TEXT DEFAULT "MIXED"')
             except: pass
 
             db.execute('''CREATE TABLE IF NOT EXISTS past_input_files (
@@ -93,6 +119,12 @@ def init_db():
                 num_sessions INTEGER,
                 allowed_bots TEXT,
                 custom_sessions TEXT,
+                description TEXT
+            )''')
+            
+            db.execute('''CREATE TABLE IF NOT EXISTS class_codes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                code TEXT UNIQUE,
                 description TEXT
             )''')
             
@@ -115,6 +147,23 @@ def init_db():
             db.close()
 
 init_db()
+
+# Migrate: generate system_id for existing users that don't have one
+def migrate_system_ids():
+    db = None
+    try:
+        db = get_db()
+        rows = db.execute('SELECT id, username FROM users WHERE system_id IS NULL').fetchall()
+        for r in rows:
+            sid = generate_system_id(r['username'])
+            db.execute('UPDATE users SET system_id = ? WHERE id = ?', (sid, r['id']))
+        db.commit()
+    except Exception as e:
+        print(f'System ID migration error: {e}')
+    finally:
+        if db: db.close()
+
+migrate_system_ids()
 
 
 rooms = {}  # password -> {'waiting': [], 'active': [], 'settings': {'num_sessions': 10}}
@@ -179,6 +228,7 @@ def create_room():
     allowed_bots = data.get('allowed_bots', ['Random', 'CBot'])
     custom_sessions = data.get('sessions')
     description = data.get('description', '')
+    room_type = data.get('room_type', 'MIXED')
     filename = data.get('filename', '')
     
     if custom_sessions:
@@ -206,9 +256,9 @@ def create_room():
         if existing:
             return jsonify({'error': 'Room already exists'}), 400
             
-        db.execute('''INSERT INTO prison_rooms (password, num_sessions, allowed_bots, custom_sessions, description)
-                      VALUES (?, ?, ?, ?, ?)''', 
-                   (password, num_sessions, json.dumps(allowed_bots), json.dumps(custom_sessions) if custom_sessions else None, description))
+        db.execute('''INSERT INTO prison_rooms (password, num_sessions, allowed_bots, custom_sessions, description, room_type)
+                      VALUES (?, ?, ?, ?, ?, ?)''', 
+                   (password, num_sessions, json.dumps(allowed_bots), json.dumps(custom_sessions) if custom_sessions else None, description, room_type))
         
         if filename and custom_sessions:
             try:
@@ -230,7 +280,7 @@ def get_rooms():
     db = None
     try:
         db = get_db()
-        db_rooms = db.execute('SELECT password, description FROM prison_rooms').fetchall()
+        db_rooms = db.execute('SELECT password, description, room_type FROM prison_rooms').fetchall()
         for r in db_rooms:
             password = r['password']
             description = r['description']
@@ -264,6 +314,7 @@ def get_rooms():
             room_list.append({
                 'password': password,
                 'description': description,
+                'room_type': r['room_type'] if 'room_type' in r.keys() else 'MIXED',
                 'active_games': len(active_games_list),
                 'games': active_games_list,
                 'player_counts': play_counts
@@ -312,7 +363,11 @@ def get_room_logs():
                 'p2_points': r['p2_points'],
                 'session_number': r['file_id'] if 'file_id' in r.keys() else '',
                 'matrix_id': r['matrix_id'] if 'matrix_id' in r.keys() else '',
-                'timestamp': r['timestamp'] if 'timestamp' in r.keys() else ''
+                'timestamp': r['timestamp'] if 'timestamp' in r.keys() else '',
+                'p1_system_id': r['p1_system_id'] if 'p1_system_id' in r.keys() else '',
+                'p2_system_id': r['p2_system_id'] if 'p2_system_id' in r.keys() else '',
+                'p1_class_code': r['p1_class_code'] if 'p1_class_code' in r.keys() else '',
+                'p2_class_code': r['p2_class_code'] if 'p2_class_code' in r.keys() else '',
             })
     finally:
         if db: db.close()
@@ -368,20 +423,141 @@ def signup():
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
+    security_house = data.get('security_house_number', '').strip()
+    security_birth = data.get('security_birth_day')
+    security_phone = data.get('security_phone_digits', '').strip()
+    
     if not username or not password:
         return jsonify({'error': 'Username and password required'}), 400
     if username == 'NIS':
         return jsonify({'error': 'Username not allowed'}), 400
-    # Lower rounds to 4 to prevent heavy CPU throttling on PythonAnywhere 
+    if not security_house or not security_birth or not security_phone:
+        return jsonify({'error': 'All security questions are required'}), 400
+    if len(security_phone) != 2 or not security_phone.isdigit():
+        return jsonify({'error': 'Phone digits must be exactly 2 digits'}), 400
+    try:
+        birth_day = int(security_birth)
+        if birth_day < 1 or birth_day > 31:
+            return jsonify({'error': 'Birth day must be between 1 and 31'}), 400
+    except:
+        return jsonify({'error': 'Birth day must be a number between 1 and 31'}), 400
+    
     hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt(4))
+    system_id = generate_system_id(username)
     db = None
     try:
         db = get_db()
-        db.execute('INSERT INTO users (username, password) VALUES (?, ?)', (username, hashed))
+        db.execute('INSERT INTO users (username, password, password_plain, system_id, security_house_number, security_birth_day, security_phone_digits) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                   (username, hashed, password, system_id, security_house, birth_day, security_phone))
         db.commit()
         return jsonify({'message': 'User created'})
     except sqlite3.IntegrityError:
         return jsonify({'error': 'Username already exists'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if db: db.close()
+
+@app.route('/reset_password', methods=['POST'])
+def reset_password():
+    data = request.get_json()
+    username = data.get('username', '').strip()
+    house = data.get('security_house_number', '').strip()
+    birth = data.get('security_birth_day')
+    phone = data.get('security_phone_digits', '').strip()
+    new_password = data.get('new_password', '').strip()
+    
+    if not username:
+        return jsonify({'error': 'Username is required'}), 400
+    if not new_password:
+        return jsonify({'error': 'New password is required'}), 400
+    
+    db = None
+    try:
+        db = get_db()
+        user = db.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Verify security answers
+        if str(user['security_house_number']).strip() != str(house).strip():
+            return jsonify({'error': 'Security answers do not match'}), 403
+        if str(user['security_birth_day']).strip() != str(birth).strip():
+            return jsonify({'error': 'Security answers do not match'}), 403
+        if str(user['security_phone_digits']).strip() != str(phone).strip():
+            return jsonify({'error': 'Security answers do not match'}), 403
+        
+        # Update password
+        hashed = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt(4))
+        db.execute('UPDATE users SET password = ?, password_plain = ? WHERE username = ?',
+                   (hashed, new_password, username))
+        db.commit()
+        return jsonify({'message': 'Password reset successfully!'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if db: db.close()
+
+@app.route('/create_class_code', methods=['POST'])
+def create_class_code():
+    data = request.get_json()
+    code = data.get('code', '').strip()
+    description = data.get('description', '').strip()
+    if not code:
+        return jsonify({'error': 'Code is required'}), 400
+    db = None
+    try:
+        db = get_db()
+        db.execute('INSERT INTO class_codes (code, description) VALUES (?, ?)', (code, description))
+        db.commit()
+        return jsonify({'message': 'Class code created'})
+    except sqlite3.IntegrityError:
+        return jsonify({'error': 'Class code already exists'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if db: db.close()
+
+@app.route('/delete_class_code', methods=['POST'])
+def delete_class_code():
+    data = request.get_json()
+    code = data.get('code', '').strip()
+    db = None
+    try:
+        db = get_db()
+        db.execute('DELETE FROM class_codes WHERE code = ?', (code,))
+        db.commit()
+        return jsonify({'message': 'Class code deleted'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if db: db.close()
+
+@app.route('/get_class_codes', methods=['GET'])
+def get_class_codes():
+    db = None
+    try:
+        db = get_db()
+        rows = db.execute('SELECT code, description FROM class_codes').fetchall()
+        return jsonify([{'code': r['code'], 'description': r['description']} for r in rows])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if db: db.close()
+
+@app.route('/validate_class_code', methods=['POST'])
+def validate_class_code():
+    data = request.get_json()
+    code = data.get('code', '').strip()
+    if not code:
+        return jsonify({'error': 'Code is required'}), 400
+    db = None
+    try:
+        db = get_db()
+        row = db.execute('SELECT 1 FROM class_codes WHERE code = ?', (code,)).fetchone()
+        if row:
+            return jsonify({'valid': True})
+        return jsonify({'valid': False, 'error': 'Invalid class code'}), 404
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:
@@ -393,6 +569,10 @@ def login():
     username = data.get('username')
     password = data.get('password')
     db = get_db()
+    
+    if username == 'BOOMER' and password == 'ILAN':
+        db.close()
+        return jsonify({'message': 'Logged in', 'user': {'id': -1, 'username': 'BOOMER', 'role': 'boomer'}})
     
     if username == 'NIS' and password == 'NIS5760':
         db.close()
@@ -526,7 +706,7 @@ def ensure_room_loaded(password):
                 'waiting': [],
                 'active': {},
                 'sessions': json.loads(row['custom_sessions']) if row['custom_sessions'] else None,
-                'settings': {'num_sessions': row['num_sessions'], 'allowed_bots': json.loads(row['allowed_bots'])},
+                'settings': {'num_sessions': row['num_sessions'], 'allowed_bots': json.loads(row['allowed_bots']), 'room_type': row['room_type'] if 'room_type' in row.keys() else 'MIXED'},
                 'last_join_time': 0
             }
             return True
@@ -550,11 +730,13 @@ def join_queue():
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
+    class_code = data.get('class_code', '')
     if not password or not ensure_room_loaded(password):
         return jsonify({'error': 'Invalid or missing password'}), 404
     
     room = rooms[password]
     waiting = room['waiting']
+    room_type = room['settings'].get('room_type', 'MIXED')
     
     # Check if already in queue
     for p in waiting:
@@ -566,15 +748,37 @@ def join_queue():
         if username in game['players'] and game['session'] < room['settings']['num_sessions']:
             return jsonify({'status': 'matched', 'gameData': build_game_data(game, gid, room, username)})
     
-    if len(waiting) >= 1:
-        p1 = waiting.pop(0)
-        print(f"[Queue] Matching human {p1['username']} with human {username}")
-        game_id, game_data_p1, game_data_p2 = start_game_human_vs_human(room, p1['username'], username, password)
-        # Store pending game data for the OTHER player (p1) to pick up via polling
-        room['active'][game_id]['pending_start'] = {p1['username']: game_data_p1}
+    # Find a match based on room type
+    match = None
+    match_idx = -1
+    for i, p in enumerate(waiting):
+        if room_type == 'MIXED':
+            match = p
+            match_idx = i
+            break
+        elif room_type == 'ADJACENT':
+            if p.get('class_code', '') == class_code:
+                match = p
+                match_idx = i
+                break
+        elif room_type == 'MERGE':
+            if p.get('class_code', '') != class_code:
+                match = p
+                match_idx = i
+                break
+    
+    if match is not None:
+        waiting.pop(match_idx)
+        p1_username = match['username']
+        p1_class_code = match.get('class_code', '')
+        print(f"[Queue] Matching human {p1_username} (class:{p1_class_code}) with human {username} (class:{class_code}) in {room_type} room")
+        game_id, game_data_p1, game_data_p2 = start_game_human_vs_human(room, p1_username, username, password)
+        # Store class codes in game state
+        room['active'][game_id]['class_codes'] = {p1_username: p1_class_code, username: class_code}
+        room['active'][game_id]['pending_start'] = {p1_username: game_data_p1}
         return jsonify({'status': 'matched', 'gameData': game_data_p2})
     else:
-        waiting.append({'username': username})
+        waiting.append({'username': username, 'class_code': class_code})
         return jsonify({'status': 'waiting'})
 
 @app.route('/check_queue', methods=['POST'])
@@ -616,6 +820,7 @@ def trigger_bot():
             room['waiting'].remove(p)
             print(f"[Queue] 10s passed. Matching {username} with bot.")
             game_id, game_data = start_game_human_vs_bot(room, username, password)
+            room['active'][game_id]['class_codes'] = {username: ''}
             return jsonify({'status': 'matched', 'gameData': game_data})
     
     # Maybe already matched
@@ -849,9 +1054,21 @@ def resolve_round(game, game_id, room):
         room_pwd = game.get('room', '')
         mat_id = str(session.get('MATRIX_ID', ''))
         file_id = str(session.get('SESSION_NUMBER', session.get('FILE_ID', '')))
-        db.execute('''INSERT INTO prison_games (game_id, trial, player1, player2, p1_choice, p2_choice, code, p1_points, p2_points, room_password, matrix_id, file_id)
-                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                   (game_id, session_idx + 1, player1, player2, p1_choice, p2_choice, code, p1_score, p2_score, room_pwd, mat_id, file_id))
+        # Get system IDs
+        db2 = get_db()
+        p1_sid_row = db2.execute('SELECT system_id FROM users WHERE username = ?', (player1,)).fetchone()
+        p2_sid_row = db2.execute('SELECT system_id FROM users WHERE username = ?', (player2,)).fetchone()
+        db2.close()
+        p1_sys_id = p1_sid_row['system_id'] if p1_sid_row and p1_sid_row['system_id'] else player1
+        p2_sys_id = p2_sid_row['system_id'] if p2_sid_row and p2_sid_row['system_id'] else player2
+        
+        class_codes = game.get('class_codes', {})
+        p1_cc = class_codes.get(player1, '')
+        p2_cc = class_codes.get(player2, '')
+        
+        db.execute('''INSERT INTO prison_games (game_id, trial, player1, player2, p1_choice, p2_choice, code, p1_points, p2_points, room_password, matrix_id, file_id, p1_system_id, p2_system_id, p1_class_code, p2_class_code)
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                   (game_id, session_idx + 1, player1, player2, p1_choice, p2_choice, code, p1_score, p2_score, room_pwd, mat_id, file_id, p1_sys_id, p2_sys_id, p1_cc, p2_cc))
         db.commit()
     except Exception as e:
         print(f"[Game] DB Error: {e}")
@@ -922,9 +1139,190 @@ def resolve_round(game, game_id, room):
 
 
 
+# Connection tracking for disconnect handling
+sid_to_user = {}
+user_to_sid = {}
+disconnected_players = {}  # username -> {game_id, room, disconnect_time, timers}
+
+@socketio.on('register_sid')
+def handle_register_sid(data):
+    username = data.get('username')
+    if not username:
+        return
+    sid_to_user[request.sid] = username
+    user_to_sid[username] = request.sid
+    print(f"[Socket] Registered SID for {username}: {request.sid}")
+    
+    # Check for reconnection
+    if username in disconnected_players:
+        handle_reconnection(username)
+
 @socketio.on('disconnect')
 def disconnect():
-    pass  # Game state is now managed via HTTP, no cleanup needed
+    username = sid_to_user.get(request.sid)
+    if not username:
+        return
+    print(f"[Socket] Disconnect detected for {username}")
+    
+    # Find active game for this player
+    game_info = find_active_game_for_user(username)
+    if game_info:
+        game, game_id, room, room_pw = game_info
+        start_disconnect_timers(username, game, game_id, room, room_pw)
+    
+    # Clean up SID maps
+    if request.sid in sid_to_user:
+        del sid_to_user[request.sid]
+    if user_to_sid.get(username) == request.sid:
+        del user_to_sid[username]
+
+def find_active_game_for_user(username):
+    """Find an active game for a given username across all rooms."""
+    for pw, room in rooms.items():
+        for gid, game in room['active'].items():
+            if username in game['players'] and game['session'] < room['settings']['num_sessions']:
+                return game, gid, room, pw
+    return None
+
+def start_disconnect_timers(username, game, game_id, room, room_pw):
+    """Start 1-minute and 5-minute timers for a disconnected player."""
+    # Don't track bot disconnects
+    if game.get('is_bot') and game['players'][1] == username:
+        return
+    
+    info = {
+        'game_id': game_id,
+        'room_pw': room_pw,
+        'disconnect_time': time.time(),
+        'session_at_disconnect': game['session'],
+        'total_at_disconnect': dict(game['total']),
+    }
+    
+    def on_1min_expired():
+        with game_lock:
+            if username not in disconnected_players:
+                return
+            print(f"[Disconnect] 1 minute passed for {username}. Replacing with bot.")
+            game_info = find_active_game_for_user(username)
+            if not game_info:
+                return
+            game, gid, room, pw = game_info
+            # Find the live opponent
+            opponent = game['players'][0] if game['players'][1] == username else game['players'][1]
+            
+            # Replace disconnected player with a bot
+            bot_types = room['settings'].get('allowed_bots', ['Random'])
+            if not bot_types: bot_types = ['Random']
+            bot_type = random.choice(bot_types)
+            sessions_list = room.get('sessions') or prison_sessions
+            session_idx = game['session']
+            if session_idx >= len(sessions_list):
+                session_idx = len(sessions_list) - 1
+            bot_obj = create_bot(bot_type, False, sessions_list[session_idx])
+            
+            game['is_bot'] = True
+            game['bot_obj'] = bot_obj
+            # Replace the disconnected player's name with bot name
+            dc_idx = game['players'].index(username)
+            game['players'][dc_idx] = f'Bot_{bot_type}'
+            game['total'][f'Bot_{bot_type}'] = game['total'].pop(username, 0)
+            
+            print(f"[Disconnect] {opponent} now playing with Bot_{bot_type}")
+    
+    def on_5min_expired():
+        with game_lock:
+            if username in disconnected_players:
+                print(f"[Disconnect] 5 minutes passed for {username}. Session terminated.")
+                del disconnected_players[username]
+    
+    timer_1min = threading.Timer(60, on_1min_expired)
+    timer_5min = threading.Timer(300, on_5min_expired)
+    info['timer_1min'] = timer_1min
+    info['timer_5min'] = timer_5min
+    
+    disconnected_players[username] = info
+    timer_1min.start()
+    timer_5min.start()
+
+def handle_reconnection(username):
+    """Handle player reconnection."""
+    if username not in disconnected_players:
+        return
+    
+    info = disconnected_players.pop(username)
+    info['timer_1min'].cancel()
+    info['timer_5min'].cancel()
+    
+    elapsed = time.time() - info['disconnect_time']
+    print(f"[Disconnect] {username} reconnected after {elapsed:.1f}s")
+    
+    if elapsed < 60:
+        # Within 1 minute: player's game is still intact, they can resume
+        print(f"[Disconnect] {username} resuming original game")
+    elif elapsed < 300:
+        # Between 1-5 minutes: original game has bot replacement
+        # Create a new bot game for the returning player to finish their session
+        game_id_str = info['game_id']
+        room_pw = info['room_pw']
+        if room_pw in rooms:
+            room = rooms[room_pw]
+            print(f"[Disconnect] {username} gets a bot to finish remaining rounds")
+            bot_types = room['settings'].get('allowed_bots', ['Random'])
+            if not bot_types: bot_types = ['Random']
+            bot_type = random.choice(bot_types)
+            sessions_list = room.get('sessions') or prison_sessions
+            session_start = info['session_at_disconnect']
+            if session_start >= len(sessions_list):
+                session_start = len(sessions_list) - 1
+            bot_obj = create_bot(bot_type, False, sessions_list[session_start])
+            
+            new_game_id = setup_game_state(room, username, f'Bot_{bot_type}', room_pw, True, bot_obj)
+            new_game = room['active'][new_game_id]
+            new_game['session'] = session_start
+            new_game['total'][username] = info['total_at_disconnect'].get(username, 0)
+
+@app.route('/check_active_game', methods=['POST'])
+def check_active_game():
+    """Check if player has an active/interrupted game to resume."""
+    data = request.get_json()
+    username = data.get('username')
+    if not username:
+        return jsonify({'active': False})
+    
+    with game_lock:
+        # Check if player has an active game
+        game_info = find_active_game_for_user(username)
+        if game_info:
+            game, gid, room, pw = game_info
+            sessions_list = room.get('sessions') or prison_sessions
+            session_idx = game['session']
+            if session_idx >= len(sessions_list):
+                session_idx = len(sessions_list) - 1
+            session = sessions_list[session_idx]
+            
+            if game['players'][0] == username:
+                matrix = prison_matrix_for_player(session, 'p1')
+                role = 'p1'
+            else:
+                matrix = prison_matrix_for_player(session, 'p2')
+                role = 'p2'
+            
+            return jsonify({
+                'active': True,
+                'gameData': {
+                    'gameId': gid,
+                    'session': game['session'] + 1,
+                    'total_sessions': room['settings']['num_sessions'],
+                    'matrix': matrix,
+                    'role': role,
+                    'opponent': 'Player 2',
+                    'resuming': True,
+                    'current_total': game['total'].get(username, 0)
+                },
+                'room_password': pw
+            })
+    
+    return jsonify({'active': False})
 
 # --- ISLAND EXPANSION API ---
 
