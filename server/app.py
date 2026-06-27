@@ -5,6 +5,7 @@ import os
 import time
 import json
 import random
+import string
 import threading
 import hashlib
 from game_bots import create_bot
@@ -13,6 +14,10 @@ def generate_system_id(username):
     """Hash username into 8-char alphanumeric code."""
     hash_hex = hashlib.sha256(username.encode('utf-8')).hexdigest()
     return hash_hex[:8].upper()
+
+def generate_anon_id():
+    """Generate a random 8-char alphanumeric string for CSV anonymity."""
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=8))
 
 game_lock = threading.Lock()
 
@@ -95,7 +100,14 @@ def init_db():
             except: pass
             try: db.execute('ALTER TABLE users ADD COLUMN security_phone_digits TEXT')
             except: pass
+            try: db.execute('ALTER TABLE users ADD COLUMN anon_id TEXT')
+            except: pass
             
+            try: db.execute('ALTER TABLE prison_games ADD COLUMN p1_anon_id TEXT')
+            except: pass
+            try: db.execute('ALTER TABLE prison_games ADD COLUMN p2_anon_id TEXT')
+            except: pass
+
             db.execute('''CREATE TABLE IF NOT EXISTS banned_users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE
@@ -105,6 +117,19 @@ def init_db():
             except: pass
             try: db.execute('ALTER TABLE prison_rooms ADD COLUMN room_type TEXT DEFAULT "MIXED"')
             except: pass
+            try: db.execute('ALTER TABLE prison_rooms ADD COLUMN max_games INTEGER DEFAULT 1')
+            except: pass
+
+            db.execute('''CREATE TABLE IF NOT EXISTS class_leaderboard (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                class_code TEXT,
+                room_password TEXT,
+                username TEXT,
+                total_score INTEGER DEFAULT 0,
+                sessions_played INTEGER DEFAULT 0,
+                last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(class_code, room_password, username)
+            )''')
 
             db.execute('''CREATE TABLE IF NOT EXISTS past_input_files (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -163,6 +188,22 @@ def migrate_system_ids():
 
 migrate_system_ids()
 
+# Migrate: generate anon_id for existing users that don't have one
+def migrate_anon_ids():
+    db = None
+    try:
+        db = get_db()
+        rows = db.execute('SELECT id FROM users WHERE anon_id IS NULL').fetchall()
+        for r in rows:
+            aid = generate_anon_id()
+            db.execute('UPDATE users SET anon_id = ? WHERE id = ?', (aid, r['id']))
+        db.commit()
+    except Exception as e:
+        print(f'Anon ID migration error: {e}')
+    finally:
+        if db: db.close()
+
+migrate_anon_ids()
 
 rooms = {}  # password -> {'waiting': [], 'active': [], 'settings': {'num_sessions': 10}}
 
@@ -227,6 +268,7 @@ def create_room():
     custom_sessions = data.get('sessions')
     description = data.get('description', '')
     room_type = data.get('room_type', 'MIXED')
+    max_games = data.get('max_games', 1)
     filename = data.get('filename', '')
     
     if custom_sessions:
@@ -254,9 +296,9 @@ def create_room():
         if existing:
             return jsonify({'error': 'Room already exists'}), 400
             
-        db.execute('''INSERT INTO prison_rooms (password, num_sessions, allowed_bots, custom_sessions, description, room_type)
-                      VALUES (?, ?, ?, ?, ?, ?)''', 
-                   (password, num_sessions, json.dumps(allowed_bots), json.dumps(custom_sessions) if custom_sessions else None, description, room_type))
+        db.execute('''INSERT INTO prison_rooms (password, num_sessions, allowed_bots, custom_sessions, description, room_type, max_games)
+                      VALUES (?, ?, ?, ?, ?, ?, ?)''', 
+                   (password, num_sessions, json.dumps(allowed_bots), json.dumps(custom_sessions) if custom_sessions else None, description, room_type, max_games))
         
         if filename and custom_sessions:
             try:
@@ -278,7 +320,7 @@ def get_rooms():
     db = None
     try:
         db = get_db()
-        db_rooms = db.execute('SELECT password, description, room_type FROM prison_rooms').fetchall()
+        db_rooms = db.execute('SELECT password, description, room_type, allowed_bots, max_games FROM prison_rooms').fetchall()
         for r in db_rooms:
             password = r['password']
             description = r['description']
@@ -313,6 +355,8 @@ def get_rooms():
                 'password': password,
                 'description': description,
                 'room_type': r['room_type'] if 'room_type' in r.keys() else 'MIXED',
+                'allowed_bots': r['allowed_bots'] if 'allowed_bots' in r.keys() else '[]',
+                'max_games': r['max_games'] if 'max_games' in r.keys() else 1,
                 'active_games': len(active_games_list),
                 'games': active_games_list,
                 'player_counts': play_counts
@@ -364,6 +408,8 @@ def get_room_logs():
                 'timestamp': r['timestamp'] if 'timestamp' in r.keys() else '',
                 'p1_system_id': r['p1_system_id'] if 'p1_system_id' in r.keys() else '',
                 'p2_system_id': r['p2_system_id'] if 'p2_system_id' in r.keys() else '',
+                'p1_anon_id': r['p1_anon_id'] if 'p1_anon_id' in r.keys() else '',
+                'p2_anon_id': r['p2_anon_id'] if 'p2_anon_id' in r.keys() else '',
                 'p1_class_code': r['p1_class_code'] if 'p1_class_code' in r.keys() else '',
                 'p2_class_code': r['p2_class_code'] if 'p2_class_code' in r.keys() else '',
             })
@@ -416,6 +462,156 @@ def terminate_game():
         return jsonify({'message': 'Game terminated'})
     return jsonify({'error': 'Game not found'}), 404
 
+@app.route('/leave_game', methods=['POST'])
+def leave_game():
+    with game_lock:
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+        game_id = find_active_game_for_user(username)
+        if game_id and password in rooms:
+            room = rooms[password]
+            game = room['active'].get(game_id)
+            if game:
+                try:
+                    trigger_bot(game_id, room, password, username)
+                    return jsonify({'message': 'Left game and replaced with bot'})
+                except Exception as e:
+                    return jsonify({'error': str(e)}), 500
+        return jsonify({'message': 'No active game found'})
+
+@app.route('/get_identity_map_csv', methods=['GET'])
+def get_identity_map_csv():
+    db = None
+    try:
+        db = get_db()
+        rows = db.execute('SELECT username, system_id, anon_id FROM users').fetchall()
+        csv_lines = ['username,system_id,anon_id']
+        for r in rows:
+            csv_lines.append(f"{r['username']},{r['system_id'] or ''},{r['anon_id'] or ''}")
+        resp = make_response('\\n'.join(csv_lines))
+        resp.headers['Content-Type'] = 'text/csv'
+        resp.headers['Content-Disposition'] = 'attachment; filename=identity_map.csv'
+        return resp
+    finally:
+        if db: db.close()
+
+@app.route('/get_leaderboard', methods=['POST'])
+def get_leaderboard():
+    data = request.get_json()
+    class_code = data.get('class_code')
+    room_password = data.get('room_password')
+    db = None
+    try:
+        db = get_db()
+        class_lb = db.execute('''
+            SELECT username, SUM(total_score) as total, SUM(sessions_played) as sessions
+            FROM class_leaderboard
+            WHERE class_code = ?
+            GROUP BY username
+            ORDER BY total DESC
+            LIMIT 50
+        ''', (class_code,)).fetchall()
+        
+        room_lb = db.execute('''
+            SELECT username, total_score, sessions_played
+            FROM class_leaderboard
+            WHERE class_code = ? AND room_password = ? AND DATE(last_updated) = DATE('now', 'localtime')
+            ORDER BY total_score DESC
+            LIMIT 50
+        ''', (class_code, room_password)).fetchall()
+        
+        def safe_dict(r):
+            return {k: r[k] for k in r.keys()}
+        
+        return jsonify({
+            'class_leaderboard': [safe_dict(r) for r in class_lb],
+            'room_leaderboard': [safe_dict(r) for r in room_lb]
+        })
+    finally:
+        if db: db.close()
+
+@app.route('/get_class_leaderboard_csv', methods=['GET'])
+def get_class_leaderboard_csv():
+    class_code = request.args.get('class_code')
+    db = None
+    try:
+        db = get_db()
+        rows = db.execute('''
+            SELECT username, SUM(total_score) as total, SUM(sessions_played) as sessions
+            FROM class_leaderboard
+            WHERE class_code = ?
+            GROUP BY username
+            ORDER BY total DESC
+        ''', (class_code,)).fetchall()
+        csv_lines = ['anon_id,total_score,sessions_played']
+        for r in rows:
+            u_row = db.execute('SELECT anon_id FROM users WHERE username = ?', (r['username'],)).fetchone()
+            aid = u_row['anon_id'] if u_row and u_row['anon_id'] else r['username']
+            csv_lines.append(f"{aid},{r['total']},{r['sessions']}")
+            
+        resp = make_response('\\n'.join(csv_lines))
+        resp.headers['Content-Type'] = 'text/csv'
+        resp.headers['Content-Disposition'] = f'attachment; filename=class_{class_code}_leaderboard.csv'
+        return resp
+    finally:
+        if db: db.close()
+
+@app.route('/get_room_leaderboard_csv', methods=['GET'])
+def get_room_leaderboard_csv():
+    class_code = request.args.get('class_code')
+    room_pwd = request.args.get('room_password')
+    db = None
+    try:
+        db = get_db()
+        rows = db.execute('''
+            SELECT username, total_score, sessions_played, last_updated
+            FROM class_leaderboard
+            WHERE class_code = ? AND room_password = ? AND DATE(last_updated) = DATE('now', 'localtime')
+            ORDER BY total_score DESC
+        ''', (class_code, room_pwd)).fetchall()
+        csv_lines = ['anon_id,total_score,sessions_played,last_updated']
+        for r in rows:
+            u_row = db.execute('SELECT anon_id FROM users WHERE username = ?', (r['username'],)).fetchone()
+            aid = u_row['anon_id'] if u_row and u_row['anon_id'] else r['username']
+            csv_lines.append(f"{aid},{r['total_score']},{r['sessions_played']},{r['last_updated']}")
+            
+        resp = make_response('\\n'.join(csv_lines))
+        resp.headers['Content-Type'] = 'text/csv'
+        resp.headers['Content-Disposition'] = f'attachment; filename=room_{room_pwd}_daily_leaderboard.csv'
+        return resp
+    finally:
+        if db: db.close()
+
+@app.route('/update_room_file', methods=['POST'])
+def update_room_file():
+    data = request.get_json()
+    password = data.get('password')
+    file_id = data.get('file_id')
+    db = None
+    try:
+        db = get_db()
+        f_row = db.execute('SELECT sessions_data FROM past_input_files WHERE id = ?', (file_id,)).fetchone()
+        if not f_row:
+            return jsonify({'error': 'File not found'}), 404
+        
+        sess_str = f_row['sessions_data']
+        
+        db.execute('UPDATE prison_rooms SET custom_sessions = ? WHERE password = ?', (sess_str, password))
+        db.commit()
+        
+        if password in rooms:
+            rooms[password]['sessions'] = json.loads(sess_str)
+            rooms[password]['settings']['num_sessions'] = len(rooms[password]['sessions'])
+            db.execute('UPDATE prison_rooms SET num_sessions = ? WHERE password = ?', (len(rooms[password]['sessions']), password))
+            db.commit()
+            
+        return jsonify({'message': 'Room file updated successfully!'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if db: db.close()
+
 @app.route('/signup', methods=['POST'])
 def signup():
     data = request.get_json()
@@ -442,11 +638,12 @@ def signup():
     
     hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt(4))
     system_id = generate_system_id(username)
+    anon_id = generate_anon_id()
     db = None
     try:
         db = get_db()
-        db.execute('INSERT INTO users (username, password, password_plain, system_id, security_house_number, security_birth_day, security_phone_digits) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                   (username, hashed, password, system_id, security_house, birth_day, security_phone))
+        db.execute('INSERT INTO users (username, password, password_plain, system_id, anon_id, security_house_number, security_birth_day, security_phone_digits) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                   (username, hashed, password, system_id, anon_id, security_house, birth_day, security_phone))
         db.commit()
         return jsonify({'message': 'User created'})
     except sqlite3.IntegrityError:
@@ -704,7 +901,7 @@ def ensure_room_loaded(password):
                 'waiting': [],
                 'active': {},
                 'sessions': json.loads(row['custom_sessions']) if row['custom_sessions'] else None,
-                'settings': {'num_sessions': row['num_sessions'], 'allowed_bots': json.loads(row['allowed_bots']), 'room_type': row['room_type'] if 'room_type' in row.keys() else 'MIXED'},
+                'settings': {'num_sessions': row['num_sessions'], 'allowed_bots': json.loads(row['allowed_bots']), 'room_type': row['room_type'] if 'room_type' in row.keys() else 'MIXED', 'max_games': row['max_games'] if 'max_games' in row.keys() else 1},
                 'last_join_time': 0
             }
             return True
@@ -735,16 +932,37 @@ def join_queue():
     room = rooms[password]
     waiting = room['waiting']
     room_type = room['settings'].get('room_type', 'MIXED')
+    max_games = room['settings'].get('max_games', 1)
     
+    # Check if already in an active game first (so reconnecting is allowed)
+    for gid, game in room['active'].items():
+        if username in game['players'] and game['session'] < room['settings']['num_sessions']:
+            return jsonify({'status': 'matched', 'gameData': build_game_data(game, gid, room, username)})
+
+    # Enforce max games limit
+    db = None
+    try:
+        db = get_db()
+        # Count distinct games completed or started for this user in this room
+        # Exclude active games? Well, if they aren't active (checked above), any game_id here means a separate finished/started game.
+        count_row = db.execute('''
+            SELECT COUNT(DISTINCT game_id) as games_played
+            FROM prison_games 
+            WHERE room_password = ? AND (player1 = ? OR player2 = ?)
+        ''', (password, username, username)).fetchone()
+        
+        if count_row and count_row['games_played'] >= max_games:
+            return jsonify({'error': 'Maximum amount of games played has been reached! come back next time!'}), 403
+    except Exception as e:
+        print("DB error in join_queue:", e)
+    finally:
+        if db: db.close()
+
     # Check if already in queue
     for p in waiting:
         if p['username'] == username:
             return jsonify({'status': 'waiting'})
     
-    # Check if already in an active game
-    for gid, game in room['active'].items():
-        if username in game['players'] and game['session'] < room['settings']['num_sessions']:
-            return jsonify({'status': 'matched', 'gameData': build_game_data(game, gid, room, username)})
     
     # Find a match based on room type
     match = None
@@ -1054,19 +1272,21 @@ def resolve_round(game, game_id, room):
         file_id = str(session.get('SESSION_NUMBER', session.get('FILE_ID', '')))
         # Get system IDs
         db2 = get_db()
-        p1_sid_row = db2.execute('SELECT system_id FROM users WHERE username = ?', (player1,)).fetchone()
-        p2_sid_row = db2.execute('SELECT system_id FROM users WHERE username = ?', (player2,)).fetchone()
+        p1_sid_row = db2.execute('SELECT system_id, anon_id FROM users WHERE username = ?', (player1,)).fetchone()
+        p2_sid_row = db2.execute('SELECT system_id, anon_id FROM users WHERE username = ?', (player2,)).fetchone()
         db2.close()
         p1_sys_id = p1_sid_row['system_id'] if p1_sid_row and p1_sid_row['system_id'] else player1
         p2_sys_id = p2_sid_row['system_id'] if p2_sid_row and p2_sid_row['system_id'] else player2
+        p1_anon_id = p1_sid_row['anon_id'] if p1_sid_row and p1_sid_row['anon_id'] else player1
+        p2_anon_id = p2_sid_row['anon_id'] if p2_sid_row and p2_sid_row['anon_id'] else player2
         
         class_codes = game.get('class_codes', {})
         p1_cc = class_codes.get(player1, '')
         p2_cc = class_codes.get(player2, '')
         
-        db.execute('''INSERT INTO prison_games (game_id, trial, player1, player2, p1_choice, p2_choice, code, p1_points, p2_points, room_password, matrix_id, file_id, p1_system_id, p2_system_id, p1_class_code, p2_class_code)
-                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                   (game_id, session_idx + 1, player1, player2, p1_choice, p2_choice, code, p1_score, p2_score, room_pwd, mat_id, file_id, p1_sys_id, p2_sys_id, p1_cc, p2_cc))
+        db.execute('''INSERT INTO prison_games (game_id, trial, player1, player2, p1_choice, p2_choice, code, p1_points, p2_points, room_password, matrix_id, file_id, p1_system_id, p2_system_id, p1_class_code, p2_class_code, p1_anon_id, p2_anon_id)
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                   (game_id, session_idx + 1, player1, player2, p1_choice, p2_choice, code, p1_score, p2_score, room_pwd, mat_id, file_id, p1_sys_id, p2_sys_id, p1_cc, p2_cc, p1_anon_id, p2_anon_id))
         db.commit()
     except Exception as e:
         print(f"[Game] DB Error: {e}")
@@ -1089,9 +1309,29 @@ def resolve_round(game, game_id, room):
         try:
             db = get_db()
             db.execute('UPDATE users SET session_counter = session_counter + 1 WHERE username IN (?, ?)', (player1, player2))
+            
+            # Update Leaderboard
+            room_pwd = game.get('room', '')
+            class_codes = game.get('class_codes', {})
+            p1_cc = class_codes.get(player1, '')
+            p2_cc = class_codes.get(player2, '')
+            
+            if p1_cc:
+                db.execute('''INSERT INTO class_leaderboard (class_code, room_password, username, total_score, sessions_played) 
+                              VALUES (?, ?, ?, ?, 1)
+                              ON CONFLICT(class_code, room_password, username) 
+                              DO UPDATE SET total_score = total_score + excluded.total_score, sessions_played = sessions_played + 1, last_updated = CURRENT_TIMESTAMP''',
+                           (p1_cc, room_pwd, player1, game['total'][player1]))
+            if p2_cc and not game.get('is_bot'):
+                db.execute('''INSERT INTO class_leaderboard (class_code, room_password, username, total_score, sessions_played) 
+                              VALUES (?, ?, ?, ?, 1)
+                              ON CONFLICT(class_code, room_password, username) 
+                              DO UPDATE SET total_score = total_score + excluded.total_score, sessions_played = sessions_played + 1, last_updated = CURRENT_TIMESTAMP''',
+                           (p2_cc, room_pwd, player2, game['total'][player2]))
+            
             db.commit()
-        except:
-            pass
+        except Exception as e:
+            print(f"[Game] Done update error: {e}")
         finally:
             if db: db.close()
 
