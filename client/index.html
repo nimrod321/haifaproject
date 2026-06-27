@@ -959,9 +959,9 @@
                     <div style="margin-top:10px; display:flex; gap:5px; font-family:sans-serif; align-items:center;">
                         <select id="update-file-${room.password}" style="padding:4px; border-radius:5px; width:150px; font-size:12px;">
                             <option value="">Update Input File...</option>
-                            ${pastFiles.map(f => \`<option value="\${f.id}">\${f.filename}</option>\`).join('')}
+                            ${pastFiles.map(f => `<option value="${f.id}">${f.filename}</option>`).join('')}
                         </select>
-                        <button class="btn-small" style="background:#f39c12; font-size:12px; padding:4px 8px;" onclick="updateRoomFile('\${room.password}')">Update</button>
+                        <button class="btn-small" style="background:#f39c12; font-size:12px; padding:4px 8px;" onclick="updateRoomFile('${room.password}')">Update</button>
                     </div>
                 `;
                 
