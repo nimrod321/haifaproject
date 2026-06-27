@@ -482,10 +482,10 @@
                     <input type="text" id="admin-room-description" placeholder="Room Description (Optional)">
                     <input type="number" id="admin-room-rounds" placeholder="Rounds" value="10">
                     <input type="number" id="admin-room-max-games" placeholder="Max Games per Player" value="1" style="margin-top:10px;">
-                    <div style="display:flex; align-items:center; gap:10px; margin: 10px auto; width: min(300px, 85%);">
+                    <div style="display:flex; flex-direction:column; gap:10px; margin: 10px auto; width: 100%;">
                         <input type="file" id="admin-room-excel" accept=".xlsx, .xls" style="margin:0; width:100%; border-radius:5px; padding:5px; font-size:14px;">
-                        <span style="color:#fff; font-weight:bold;">OR</span>
-                        <select id="admin-past-files" style="flex:1; padding:8px; border-radius:50px; outline:none; border:3px solid #2ecc71; font-family:'Bubblegum Sans', cursive; font-size:16px;">
+                        <span style="color:#fff; font-weight:bold; text-align:center;">OR</span>
+                        <select id="admin-past-files" style="width:100%; padding:8px; border-radius:50px; outline:none; border:3px solid #2ecc71; font-family:'Bubblegum Sans', cursive; font-size:16px;">
                             <option value="">Select past file...</option>
                         </select>
                     </div>
@@ -719,7 +719,11 @@
                         } catch(e) {}
                     }, 10000);
                     if(currentUserRole === 'admin') { 
-                        document.getElementById('admin-panel').classList.remove('hidden'); loadAdminRooms(); loadAdminPlayers(); loadAdminPastFiles(); loadAdminClassCodes();
+                        document.getElementById('admin-panel').classList.remove('hidden'); 
+                        await loadAdminPastFiles(); 
+                        loadAdminRooms(); 
+                        loadAdminPlayers(); 
+                        loadAdminClassCodes();
                     } else if(currentUserRole === 'boomer') {
                         // BOOMER sees the full island experience
                         islandEngine.loadPrivateIsland(currentUsername); 
