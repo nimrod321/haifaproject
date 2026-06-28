@@ -584,7 +584,7 @@
             </div>
 
             <div id="prison" class="hidden">
-                <button id="exit-game-btn" class="btn-danger" style="position: absolute; top: 20px; left: 20px; z-index: 100; font-size: 16px; font-weight: bold; box-shadow: 0 0 10px rgba(0,0,0,0.5);" onclick="leaveGame()">Exit Game</button>
+                <div id="countdown-overlay" style="display:none; position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); font-size:120px; font-weight:bold; color:#fff; text-shadow:0 0 20px #000; z-index:999; animation:pulse 1s infinite;"></div>
                 <div class="game-board-panel">
             <div class="board-layout">
                         <div id="other-player-banner">OTHER PLAYER</div>
@@ -1850,6 +1850,7 @@
 
         async function openLeaderboard() {
             document.getElementById('gameover-screen').style.display = 'none';
+            document.getElementById('prison').classList.add('hidden');
             document.getElementById('leaderboard-modal').classList.remove('hidden');
             await fetchLeaderboards();
         }
