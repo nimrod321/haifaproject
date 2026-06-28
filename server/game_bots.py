@@ -93,22 +93,29 @@ class SERSBot(IBot):
                 EV_B = ps * self.AB2 + (1.0 - ps) * self.BB2
 
         if EV_A > EV_B:
-            self.next_choice = 'C'
+            best_button = 'A'
         elif EV_A < EV_B:
-            self.next_choice = 'D'
+            best_button = 'B'
         else:
-            self.next_choice = 'C' if random.random() < 0.5 else 'D'
+            best_button = 'A' if random.random() < 0.5 else 'B'
+            
+        p_a_mean = self.p1_A_meaning if self.is_player_1 else self.p2_A_meaning
+        if best_button == 'A':
+            self.next_choice = 'C' if str(p_a_mean).lower().startswith('c') else 'D'
+        else:
+            self.next_choice = 'D' if str(p_a_mean).lower().startswith('c') else 'C'
 
     def get_choice(self):
         return self.next_choice
 
     def record_result(self, my_last_choice, opponent_last_choice):
-        my_meaning = self.p1_A_meaning if my_last_choice == 'C' else "defect"
-        op_meaning = self.p2_A_meaning if opponent_last_choice == 'C' else "defect"
-
         if self.is_player_1:
+            my_meaning = self.p1_A_meaning if my_last_choice == 'C' else "defect"
+            op_meaning = self.p2_A_meaning if opponent_last_choice == 'C' else "defect"
             self.session_history.append({'p1': my_meaning, 'p2': op_meaning})
         else:
+            my_meaning = self.p2_A_meaning if my_last_choice == 'C' else "defect"
+            op_meaning = self.p1_A_meaning if opponent_last_choice == 'C' else "defect"
             self.session_history.append({'p1': op_meaning, 'p2': my_meaning})
             
         self.calculate_next_choice()
