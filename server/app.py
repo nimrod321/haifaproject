@@ -521,19 +521,21 @@ def get_leaderboard():
     try:
         db = get_db()
         class_lb = db.execute('''
-            SELECT username, SUM(total_score) as total, SUM(sessions_played) as sessions
-            FROM class_leaderboard
-            WHERE class_code = ?
-            GROUP BY username
+            SELECT c.username, SUM(c.total_score) as total, SUM(c.sessions_played) as sessions, u.system_id
+            FROM class_leaderboard c
+            LEFT JOIN users u ON c.username = u.username
+            WHERE c.class_code = ? AND DATE(c.last_updated) = DATE('now', 'localtime')
+            GROUP BY c.username
             ORDER BY total DESC
             LIMIT 50
         ''', (class_code,)).fetchall()
         
         room_lb = db.execute('''
-            SELECT username, total_score, sessions_played
-            FROM class_leaderboard
-            WHERE class_code = ? AND room_password = ? AND DATE(last_updated) = DATE('now', 'localtime')
-            ORDER BY total_score DESC
+            SELECT c.username, c.total_score as total, c.sessions_played as sessions, u.system_id
+            FROM class_leaderboard c
+            LEFT JOIN users u ON c.username = u.username
+            WHERE c.class_code = ? AND c.room_password = ? AND DATE(c.last_updated) = DATE('now', 'localtime')
+            ORDER BY total DESC
             LIMIT 50
         ''', (class_code, room_password)).fetchall()
         

@@ -626,19 +626,29 @@
 
     <!-- Leaderboard Modal -->
     <div id="leaderboard-modal" class="hidden glass-panel" style="position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); width:min(90%, 800px); max-height:90vh; overflow-y:auto; z-index:9999; text-align:center;">
-        <h2 style="font-size:32px; color:#f1c40f; text-shadow:2px 2px 5px rgba(0,0,0,0.5); margin-bottom:10px;">Leaderboards</h2>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; text-align:left; color:#fff; font-family:sans-serif;">
-            <div style="background:rgba(0,0,0,0.5); padding:15px; border-radius:10px; border:1px solid #3498db;">
-                <h3 style="color:#3498db; text-align:center;">Class All-Time</h3>
-                <div id="lb-class-list" style="max-height:300px; overflow-y:auto; margin-top:10px; font-size:14px;"></div>
-            </div>
-            <div style="background:rgba(0,0,0,0.5); padding:15px; border-radius:10px; border:1px solid #2ecc71;">
-                <h3 style="color:#2ecc71; text-align:center;">Room Daily</h3>
-                <div id="lb-room-list" style="max-height:300px; overflow-y:auto; margin-top:10px; font-size:14px;"></div>
+        <h2 style="font-size:32px; color:#f1c40f; text-shadow:2px 2px 5px rgba(0,0,0,0.5); margin-bottom:10px;">Daily Leaderboards</h2>
+        
+        <div class="lb-tabs" style="display:flex; justify-content:center; gap:10px; margin-bottom:15px;">
+            <button class="btn-small" id="lb-tab-btn-class" style="background:#3498db; font-size:18px;" onclick="switchLbTab('class')">Class Leaderboard</button>
+            <button class="btn-small" id="lb-tab-btn-room" style="background:#7f8c8d; font-size:18px;" onclick="switchLbTab('room')">Room Leaderboard</button>
+        </div>
+
+        <div id="lb-tab-class">
+            <div style="background:rgba(0,0,0,0.5); padding:15px; border-radius:10px; border:2px solid #3498db;">
+                <h3 style="color:#3498db; margin-bottom:10px;">Class Daily Results</h3>
+                <div id="lb-class-list" style="max-height:400px; overflow-y:auto; font-size:16px; text-align:left; font-family:sans-serif;"></div>
             </div>
         </div>
+
+        <div id="lb-tab-room" class="hidden">
+            <div style="background:rgba(0,0,0,0.5); padding:15px; border-radius:10px; border:2px solid #2ecc71;">
+                <h3 style="color:#2ecc71; margin-bottom:10px;">Room Daily Results</h3>
+                <div id="lb-room-list" style="max-height:400px; overflow-y:auto; font-size:16px; text-align:left; font-family:sans-serif;"></div>
+            </div>
+        </div>
+
         <div style="margin-top:20px; display:flex; gap:15px; justify-content:center;">
-            <button class="btn-small" style="background:#f39c12; font-size:18px;" onclick="fetchLeaderboards()">Refresh</button>
+            <button class="btn-small" style="background:#f39c12; font-size:18px;" onclick="fetchLeaderboards()">Refresh Lists</button>
             <button class="btn-small btn-danger" style="font-size:18px;" onclick="exitLeaderboard()">Exit to Lobby</button>
         </div>
     </div>
@@ -1846,12 +1856,30 @@
             location.reload();
         }
         
+        function switchLbTab(tab) {
+            document.getElementById('lb-tab-class').classList.add('hidden');
+            document.getElementById('lb-tab-room').classList.add('hidden');
+            document.getElementById('lb-tab-btn-class').style.background = '#7f8c8d';
+            document.getElementById('lb-tab-btn-room').style.background = '#7f8c8d';
+            
+            document.getElementById(`lb-tab-${tab}`).classList.remove('hidden');
+            if(tab === 'class') document.getElementById('lb-tab-btn-class').style.background = '#3498db';
+            if(tab === 'room') document.getElementById('lb-tab-btn-room').style.background = '#2ecc71';
+        }
+
+        function getRankColor(i) {
+            if (i === 0) return '#ffd700'; // Gold
+            if (i === 1) return '#c0c0c0'; // Silver
+            if (i === 2) return '#cd7f32'; // Bronze
+            return '#ffffff';
+        }
+
         async function fetchLeaderboards() {
             try {
                 const res = await fetch('/get_leaderboard', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ class_code: document.getElementById('room-class-code').value || '', room_password: currentRoomPassword })
+                    body: JSON.stringify({ class_code: currentClassCode || '', room_password: currentRoomPassword })
                 });
                 const data = await res.json();
                 
@@ -1861,12 +1889,26 @@
                 
                 if (data.class_leaderboard) {
                     data.class_leaderboard.forEach((r, i) => {
-                        cList.innerHTML += `<div style="padding:5px; border-bottom:1px solid #444; ${r.username===currentUser?'background:rgba(241,196,15,0.3)':''}">${i+1}. ${r.username} - <strong>${r.total}</strong> pts (${r.sessions} plays)</div>`;
+                        const isMe = (r.username === currentUsername);
+                        const dispName = isMe ? 'YOU' : r.system_id;
+                        const bgColor = isMe ? 'rgba(241,196,15,0.3)' : (i%2===0 ? 'rgba(255,255,255,0.05)' : 'transparent');
+                        const rColor = getRankColor(i);
+                        cList.innerHTML += `<div style="padding:10px; border-bottom:1px solid #444; background:${bgColor}; display:flex; justify-content:space-between; align-items:center;">
+                            <span><strong style="color:${rColor}; font-size:18px;">#${i+1}</strong> <span style="${isMe?'color:#f1c40f; font-weight:bold;':''} margin-left:10px; font-size:18px;">${dispName}</span></span>
+                            <span><strong>${r.total}</strong> pts <span style="font-size:12px; color:#aaa;">(${r.sessions} plays)</span></span>
+                        </div>`;
                     });
                 }
                 if (data.room_leaderboard) {
                     data.room_leaderboard.forEach((r, i) => {
-                        rList.innerHTML += `<div style="padding:5px; border-bottom:1px solid #444; ${r.username===currentUser?'background:rgba(241,196,15,0.3)':''}">${i+1}. ${r.username} - <strong>${r.total_score}</strong> pts</div>`;
+                        const isMe = (r.username === currentUsername);
+                        const dispName = isMe ? 'YOU' : r.system_id;
+                        const bgColor = isMe ? 'rgba(241,196,15,0.3)' : (i%2===0 ? 'rgba(255,255,255,0.05)' : 'transparent');
+                        const rColor = getRankColor(i);
+                        rList.innerHTML += `<div style="padding:10px; border-bottom:1px solid #444; background:${bgColor}; display:flex; justify-content:space-between; align-items:center;">
+                            <span><strong style="color:${rColor}; font-size:18px;">#${i+1}</strong> <span style="${isMe?'color:#f1c40f; font-weight:bold;':''} margin-left:10px; font-size:18px;">${dispName}</span></span>
+                            <span><strong>${r.total}</strong> pts <span style="font-size:12px; color:#aaa;">(${r.sessions} plays)</span></span>
+                        </div>`;
                     });
                 }
             } catch(e) { console.error("Error fetching leaderboards", e); }
