@@ -957,15 +957,27 @@
                 item.style.borderBottom = '1px solid #777';
                 item.style.paddingBottom = '10px';
                 let descHtml = room.description ? `<div style="font-size:14px; color:#ccc; margin-top:5px; font-family:sans-serif;">${room.description}</div>` : '';
-                let typeHtml = `<div style="font-size:13px; color:#cd3ace; margin-top:3px; font-family:sans-serif;">Type: <strong>${room.room_type || 'MIXED'}</strong> | Max Games: <strong>${room.max_games || 1}</strong><br>Bots: <strong>${room.allowed_bots || '[]'}</strong></div>`;
+                let typeHtml = `
+                    <div style="font-size:13px; color:#cd3ace; margin-top:3px; font-family:sans-serif; display:flex; flex-direction:column; gap:5px;">
+                        <span>Type: <strong>${room.room_type || 'MIXED'}</strong></span>
+                        <div style="display:flex; gap:5px; align-items:center;">
+                            <span>Max Games:</span>
+                            <input type="number" id="update-max-games-${room.password}" value="${room.max_games || 1}" style="width:50px; padding:2px; font-size:12px; margin:0;">
+                            <button class="btn-small" style="background:#9b59b6; font-size:12px; padding:2px 6px;" onclick="updateRoomMaxGames('${room.password}')">Update Max</button>
+                        </div>
+                        <span>Bots: <strong>${room.allowed_bots || '[]'}</strong></span>
+                    </div>
+                `;
                 
                 let fileUpdateHtml = `
-                    <div style="margin-top:10px; display:flex; gap:5px; font-family:sans-serif; align-items:center;">
-                        <select id="update-file-${room.password}" style="padding:4px; border-radius:5px; width:150px; font-size:12px;">
-                            <option value="">Update Input File...</option>
+                    <div style="margin-top:10px; display:flex; flex-direction:column; gap:5px; font-family:sans-serif; background:rgba(0,0,0,0.2); padding:8px; border-radius:5px;">
+                        <span style="font-size:12px; color:#f1c40f;">Update Input File:</span>
+                        <input type="file" id="update-new-file-${room.password}" accept=".xlsx, .xls" style="padding:2px; font-size:12px; border-radius:3px; width:100%;">
+                        <select id="update-file-${room.password}" style="padding:4px; border-radius:5px; width:100%; font-size:12px;">
+                            <option value="">Or Select Past File...</option>
                             ${pastFiles.map(f => `<option value="${f.id}">${f.filename}</option>`).join('')}
                         </select>
-                        <button class="btn-small" style="background:#f39c12; font-size:12px; padding:4px 8px;" onclick="updateRoomFile('${room.password}')">Update</button>
+                        <button class="btn-small" style="background:#f39c12; font-size:12px; padding:4px 8px; width:100%;" onclick="updateRoomFile('${room.password}')">Update File</button>
                     </div>
                 `;
                 
@@ -993,19 +1005,50 @@
             });
         }
 
+        async function updateRoomMaxGames(pw) {
+            const maxGamesInput = document.getElementById(`update-max-games-${pw}`);
+            const maxGames = parseInt(maxGamesInput.value) || 1;
+            try {
+                const res = await fetch('/update_room_max_games', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ password: pw, max_games: maxGames })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    customAlert('Max games updated!');
+                    loadAdminRooms();
+                } else customAlert(data.error || 'Failed to update max games');
+            } catch (e) { console.error(e); customAlert('Error updating max games'); }
+        }
+
         async function updateRoomFile(pw) {
+            const fileInput = document.getElementById(`update-new-file-${pw}`);
             const sel = document.getElementById(`update-file-${pw}`);
-            if (!sel.value) return customAlert('Select a file first');
+            
+            let payload = { password: pw };
+            
+            if (fileInput.files.length > 0) {
+                const sess = await parseExcel(fileInput.files[0]);
+                if (!sess || sess.length === 0) return customAlert("Invalid or empty Excel file");
+                payload.sessions = sess;
+                payload.filename = fileInput.files[0].name;
+            } else if (sel.value) {
+                payload.file_id = sel.value;
+            } else {
+                return customAlert('Please select a past file or upload a new one first');
+            }
+            
             try {
                 const res = await fetch('/update_room_file', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ password: pw, file_id: sel.value })
+                    body: JSON.stringify(payload)
                 });
                 const data = await res.json();
                 if (res.ok) {
                     customAlert('Room file updated!');
-                    loadAdminRooms();
+                    loadAdminPastFiles().then(() => loadAdminRooms());
                 }
                 else customAlert(data.error || 'Failed to update file');
             } catch (e) { console.error(e); customAlert('Error updating file'); }

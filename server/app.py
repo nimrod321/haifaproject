@@ -22,8 +22,8 @@ def generate_anon_id():
 game_lock = threading.Lock()
 
 import sys
-sys.stdout = open('server_log.txt', 'a', encoding='utf-8')
-sys.stderr = sys.stdout
+#sys.stdout = open('server_log.txt', 'a', encoding='utf-8')
+#sys.stderr = sys.stdout
 
 app = Flask(__name__, static_folder='../client', static_url_path='')
 app.secret_key = 'super-secret-key-123'
@@ -588,14 +588,34 @@ def update_room_file():
     data = request.get_json()
     password = data.get('password')
     file_id = data.get('file_id')
+    sessions = data.get('sessions')
+    filename = data.get('filename')
+    
     db = None
     try:
         db = get_db()
-        f_row = db.execute('SELECT sessions_data FROM past_input_files WHERE id = ?', (file_id,)).fetchone()
-        if not f_row:
-            return jsonify({'error': 'File not found'}), 404
-        
-        sess_str = f_row['sessions_data']
+        sess_str = None
+        if sessions:
+            cleaned_list = []
+            for s in sessions:
+                c = {}
+                for k, v in s.items():
+                    kw = str(k).upper().strip()
+                    try: c[kw] = int(float(v)) if str(v).strip() != '' else 0
+                    except: c[kw] = str(v).strip()
+                for req in ['AA1','AA2','AB1','AB2','BA1','BA2','BB1','BB2']:
+                    if req not in c: c[req] = 0
+                cleaned_list.append(c)
+            sess_str = json.dumps(cleaned_list)
+            if filename:
+                db.execute('INSERT OR IGNORE INTO past_input_files (filename, sessions_data) VALUES (?, ?)', (filename, sess_str))
+                db.commit()
+        elif file_id:
+            f_row = db.execute('SELECT sessions_data FROM past_input_files WHERE id = ?', (file_id,)).fetchone()
+            if not f_row: return jsonify({'error': 'File not found'}), 404
+            sess_str = f_row['sessions_data']
+        else:
+            return jsonify({'error': 'No file data provided'}), 400
         
         db.execute('UPDATE prison_rooms SET custom_sessions = ? WHERE password = ?', (sess_str, password))
         db.commit()
@@ -607,6 +627,27 @@ def update_room_file():
             db.commit()
             
         return jsonify({'message': 'Room file updated successfully!'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if db: db.close()
+
+@app.route('/update_room_max_games', methods=['POST'])
+def update_room_max_games():
+    data = request.get_json()
+    password = data.get('password')
+    max_games = data.get('max_games')
+    try: max_games = int(max_games)
+    except: return jsonify({'error': 'Invalid max_games value'}), 400
+    
+    db = None
+    try:
+        db = get_db()
+        db.execute('UPDATE prison_rooms SET max_games = ? WHERE password = ?', (max_games, password))
+        db.commit()
+        if password in rooms:
+            rooms[password]['settings']['max_games'] = max_games
+        return jsonify({'message': 'Max games updated successfully!'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:
