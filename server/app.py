@@ -524,7 +524,7 @@ def get_leaderboard():
             SELECT c.username, SUM(c.total_score) as total, SUM(c.sessions_played) as sessions, u.system_id
             FROM class_leaderboard c
             LEFT JOIN users u ON c.username = u.username
-            WHERE c.class_code = ? AND DATE(c.last_updated) = DATE('now', 'localtime')
+            WHERE c.class_code = ? AND DATE(c.last_updated, 'localtime') = DATE('now', 'localtime')
             GROUP BY c.username
             ORDER BY total DESC
             LIMIT 50
@@ -534,7 +534,7 @@ def get_leaderboard():
             SELECT c.username, c.total_score as total, c.sessions_played as sessions, u.system_id
             FROM class_leaderboard c
             LEFT JOIN users u ON c.username = u.username
-            WHERE c.class_code = ? AND c.room_password = ? AND DATE(c.last_updated) = DATE('now', 'localtime')
+            WHERE c.class_code = ? AND c.room_password = ? AND DATE(c.last_updated, 'localtime') = DATE('now', 'localtime')
             ORDER BY total DESC
             LIMIT 50
         ''', (class_code, room_password)).fetchall()
@@ -1154,7 +1154,7 @@ def trigger_bot():
             room['waiting'].remove(p)
             print(f"[Queue] 10s passed. Matching {username} with bot.")
             game_id, game_data = start_game_human_vs_bot(room, username, password)
-            room['active'][game_id]['class_codes'] = {username: ''}
+            room['active'][game_id]['class_codes'] = {username: p.get('class_code', '')}
             return jsonify({'status': 'matched', 'gameData': game_data})
     
     # Maybe already matched
@@ -1434,13 +1434,13 @@ def resolve_round(game, game_id, room):
             p1_cc = class_codes.get(player1, '')
             p2_cc = class_codes.get(player2, '')
             
-            if p1_cc:
-                db.execute('''INSERT INTO class_leaderboard (class_code, room_password, username, total_score, sessions_played) 
-                              VALUES (?, ?, ?, ?, 1)
-                              ON CONFLICT(class_code, room_password, username) 
-                              DO UPDATE SET total_score = total_score + excluded.total_score, sessions_played = sessions_played + 1, last_updated = CURRENT_TIMESTAMP''',
-                           (p1_cc, room_pwd, player1, game['total'][player1]))
-            if p2_cc and not game.get('is_bot'):
+            db.execute('''INSERT INTO class_leaderboard (class_code, room_password, username, total_score, sessions_played) 
+                          VALUES (?, ?, ?, ?, 1)
+                          ON CONFLICT(class_code, room_password, username) 
+                          DO UPDATE SET total_score = total_score + excluded.total_score, sessions_played = sessions_played + 1, last_updated = CURRENT_TIMESTAMP''',
+                       (p1_cc, room_pwd, player1, game['total'][player1]))
+                       
+            if not game.get('is_bot'):
                 db.execute('''INSERT INTO class_leaderboard (class_code, room_password, username, total_score, sessions_played) 
                               VALUES (?, ?, ?, ?, 1)
                               ON CONFLICT(class_code, room_password, username) 
