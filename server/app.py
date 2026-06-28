@@ -441,7 +441,10 @@ def delete_room():
     db = None
     try:
         db = get_db()
-        res = db.execute('DELETE FROM prison_rooms WHERE password = ?', (password,))
+        db.execute('DELETE FROM prison_rooms WHERE password = ?', (password,))
+        db.execute('DELETE FROM prison_games WHERE room_password = ?', (password,))
+        db.execute('DELETE FROM class_leaderboard WHERE room_password = ?', (password,))
+        db.execute('DELETE FROM user_bans WHERE ban_type = "ROOM" AND target = ?', (password,))
         db.commit()
     finally:
         if db: db.close()
@@ -531,13 +534,14 @@ def get_leaderboard():
         ''', (class_code,)).fetchall()
         
         room_lb = db.execute('''
-            SELECT c.username, c.total_score as total, c.sessions_played as sessions, u.system_id
+            SELECT c.username, SUM(c.total_score) as total, SUM(c.sessions_played) as sessions, u.system_id
             FROM class_leaderboard c
             LEFT JOIN users u ON c.username = u.username
-            WHERE c.class_code = ? AND c.room_password = ? AND DATE(c.last_updated, 'localtime') = DATE('now', 'localtime')
+            WHERE c.room_password = ? AND DATE(c.last_updated, 'localtime') = DATE('now', 'localtime')
+            GROUP BY c.username
             ORDER BY total DESC
             LIMIT 50
-        ''', (class_code, room_password)).fetchall()
+        ''', (room_password,)).fetchall()
         
         def safe_dict(r):
             return {k: r[k] for k in r.keys()}
