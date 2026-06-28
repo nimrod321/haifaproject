@@ -112,6 +112,22 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE
             )''')
+            db.execute('''CREATE TABLE IF NOT EXISTS user_bans (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT,
+                ban_type TEXT,
+                target TEXT,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            )''')
+            # Migrate old bans
+            try:
+                old_bans = db.execute('SELECT username FROM banned_users').fetchall()
+                for b in old_bans:
+                    u = b['username']
+                    exists = db.execute('SELECT 1 FROM user_bans WHERE username = ? AND ban_type = "GLOBAL"', (u,)).fetchone()
+                    if not exists:
+                        db.execute('INSERT INTO user_bans (username, ban_type) VALUES (?, "GLOBAL")', (u,))
+            except: pass
             
             try: db.execute('ALTER TABLE prison_rooms ADD COLUMN description TEXT')
             except: pass
@@ -820,7 +836,7 @@ def login():
             db.close()
             return jsonify({'error': 'Invalid credentials'}), 401
         
-        is_banned = db.execute('SELECT 1 FROM banned_users WHERE username = ?', (username,)).fetchone()
+        is_banned = db.execute('SELECT 1 FROM user_bans WHERE username = ? AND ban_type = "GLOBAL"', (username,)).fetchone()
         db.close()
         if is_banned:
             return jsonify({'error': 'This account has been banned from the platform.'}), 403
@@ -835,28 +851,75 @@ def get_players():
     db = None
     try:
         db = get_db()
-        rows = db.execute('SELECT username, session_counter FROM users').fetchall()
-        banned = db.execute('SELECT username FROM banned_users').fetchall()
-        banned_set = set([b['username'] for b in banned])
+        users = db.execute('SELECT username, session_counter, total_coins FROM users').fetchall()
+        all_bans = db.execute('SELECT id, username, ban_type, target, timestamp FROM user_bans').fetchall()
+        bans_by_user = {}
+        for b in all_bans:
+            u = b['username']
+            if u not in bans_by_user: bans_by_user[u] = []
+            bans_by_user[u].append({'id': b['id'], 'ban_type': b['ban_type'], 'target': b['target'], 'timestamp': b['timestamp']})
+            
+        all_games = db.execute('SELECT player1, player2, room_password, p1_class_code, p2_class_code FROM prison_games').fetchall()
+        history_by_user = {}
+        for g in all_games:
+            for p, cp in [(g['player1'], g['p1_class_code']), (g['player2'], g['p2_class_code'])]:
+                if p:
+                    if p not in history_by_user: history_by_user[p] = {'rooms': set(), 'classes': set()}
+                    if g['room_password']: history_by_user[p]['rooms'].add(g['room_password'])
+                    if cp: history_by_user[p]['classes'].add(cp)
+        
+        players = []
+        for u in users:
+            name = u['username']
+            if name in ['BOOMER', 'NIS']: continue
+            p_hist = history_by_user.get(name, {'rooms': set(), 'classes': set()})
+            p_bans = bans_by_user.get(name, [])
+            players.append({
+                'username': name,
+                'session_counter': u['session_counter'],
+                'total_coins': u['total_coins'],
+                'rooms': list(p_hist['rooms']),
+                'classes': list(p_hist['classes']),
+                'bans': p_bans
+            })
+        return jsonify(players)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
     finally:
         if db: db.close()
-    
-    players = []
-    for r in rows:
-        if r['username'] not in banned_set:
-            players.append({'username': r['username'], 'session_counter': r['session_counter']})
-    return jsonify(players)
 
-@app.route('/ban_player', methods=['POST'])
-def ban_player():
+@app.route('/ban_player_custom', methods=['POST'])
+def ban_player_custom():
     data = request.get_json()
     username = data.get('username')
+    ban_type = data.get('ban_type', 'GLOBAL')
+    target = data.get('target', None)
     db = None
     try:
         db = get_db()
-        db.execute('INSERT INTO banned_users (username) VALUES (?)', (username,))
+        exists = db.execute('SELECT 1 FROM user_bans WHERE username=? AND ban_type=? AND (target=? OR (target IS NULL AND ? IS NULL))', 
+                            (username, ban_type, target, target)).fetchone()
+        if not exists:
+            db.execute('INSERT INTO user_bans (username, ban_type, target) VALUES (?, ?, ?)', (username, ban_type, target))
+            db.commit()
+        return jsonify({'message': 'Ban applied successfully!'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if db: db.close()
+
+@app.route('/revoke_ban', methods=['POST'])
+def revoke_ban():
+    data = request.get_json()
+    ban_id = data.get('ban_id')
+    db = None
+    try:
+        db = get_db()
+        db.execute('DELETE FROM user_bans WHERE id = ?', (ban_id,))
         db.commit()
-    except: pass
+        return jsonify({'message': 'Ban revoked successfully!'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
     finally:
         if db: db.close()
     # If the user is currently in active games or queues, you could eject them here as an enhancement.
@@ -975,6 +1038,18 @@ def join_queue():
     room_type = room['settings'].get('room_type', 'MIXED')
     max_games = room['settings'].get('max_games', 1)
     
+    db = None
+    try:
+        db = get_db()
+        bans = db.execute('SELECT ban_type, target FROM user_bans WHERE username = ?', (username,)).fetchall()
+        for b in bans:
+            if b['ban_type'] == 'GLOBAL': return jsonify({'error': 'You are banned from the platform.'}), 403
+            if b['ban_type'] == 'ROOM' and b['target'] == password: return jsonify({'error': 'You are banned from this room.'}), 403
+            if b['ban_type'] == 'CLASS' and b['target'] == class_code: return jsonify({'error': 'You are banned from this class code.'}), 403
+    except: pass
+    finally:
+        if db: db.close()
+
     # Check if already in an active game first (so reconnecting is allowed)
     for gid, game in room['active'].items():
         if username in game['players'] and game['session'] < room['settings']['num_sessions']:
