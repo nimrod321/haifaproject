@@ -1213,7 +1213,11 @@
                 const data = await res.json();
                 if (!res.ok || data.error) {
                     customAlert(data.error || 'Failed to join queue.');
-                    document.getElementById('start-game-btn').style.display = 'block';
+                    if (data.error && data.error.toLowerCase().includes('maximum')) {
+                        openLeaderboard();
+                    } else {
+                        document.getElementById('start-game-btn').style.display = 'block';
+                    }
                     document.getElementById('lobby-message').innerHTML = '';
                     return;
                 }
