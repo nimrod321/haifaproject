@@ -1201,6 +1201,12 @@
                     body: JSON.stringify({ username: currentUsername, password: pw, class_code: currentClassCode })
                 });
                 const data = await res.json();
+                if (!res.ok || data.error) {
+                    customAlert(data.error || 'Failed to join queue.');
+                    document.getElementById('start-game-btn').style.display = 'block';
+                    document.getElementById('lobby-message').innerHTML = '';
+                    return;
+                }
                 
                 if(data.status === 'matched') {
                     startGameFromData(data.gameData);
