@@ -9,6 +9,8 @@ import string
 import threading
 import hashlib
 from game_bots import create_bot
+import csv
+import io
 
 def generate_system_id(username):
     """Hash username into 8-char alphanumeric code."""
@@ -505,10 +507,14 @@ def get_identity_map_csv():
     try:
         db = get_db()
         rows = db.execute('SELECT username, system_id, anon_id FROM users').fetchall()
-        csv_lines = ['username,system_id,anon_id']
+        
+        si = io.StringIO()
+        cw = csv.writer(si)
+        cw.writerow(['username', 'system_id', 'anon_id'])
         for r in rows:
-            csv_lines.append(f"{r['username']},{r['system_id'] or ''},{r['anon_id'] or ''}")
-        resp = make_response('\\n'.join(csv_lines))
+            cw.writerow([r['username'], r['system_id'] or '', r['anon_id'] or ''])
+            
+        resp = make_response(si.getvalue())
         resp.headers['Content-Type'] = 'text/csv'
         resp.headers['Content-Disposition'] = 'attachment; filename=identity_map.csv'
         return resp
@@ -566,13 +572,17 @@ def get_class_leaderboard_csv():
             GROUP BY username
             ORDER BY total DESC
         ''', (class_code,)).fetchall()
-        csv_lines = ['anon_id,total_score,sessions_played']
+        
+        si = io.StringIO()
+        cw = csv.writer(si)
+        cw.writerow(['anon_id', 'total_score', 'sessions_played'])
+        
         for r in rows:
             u_row = db.execute('SELECT anon_id FROM users WHERE username = ?', (r['username'],)).fetchone()
             aid = u_row['anon_id'] if u_row and u_row['anon_id'] else r['username']
-            csv_lines.append(f"{aid},{r['total']},{r['sessions']}")
+            cw.writerow([aid, r['total'], r['sessions']])
             
-        resp = make_response('\\n'.join(csv_lines))
+        resp = make_response(si.getvalue())
         resp.headers['Content-Type'] = 'text/csv'
         resp.headers['Content-Disposition'] = f'attachment; filename=class_{class_code}_leaderboard.csv'
         return resp
@@ -589,19 +599,47 @@ def get_room_leaderboard_csv():
         rows = db.execute('''
             SELECT username, total_score, sessions_played, last_updated
             FROM class_leaderboard
-            WHERE class_code = ? AND room_password = ? AND DATE(last_updated) = DATE('now', 'localtime')
+            WHERE class_code = ? AND room_password = ? AND DATE(last_updated, 'localtime') = DATE('now', 'localtime')
             ORDER BY total_score DESC
         ''', (class_code, room_pwd)).fetchall()
-        csv_lines = ['anon_id,total_score,sessions_played,last_updated']
+        
+        si = io.StringIO()
+        cw = csv.writer(si)
+        cw.writerow(['anon_id', 'total_score', 'sessions_played', 'last_updated'])
+        
         for r in rows:
             u_row = db.execute('SELECT anon_id FROM users WHERE username = ?', (r['username'],)).fetchone()
             aid = u_row['anon_id'] if u_row and u_row['anon_id'] else r['username']
-            csv_lines.append(f"{aid},{r['total_score']},{r['sessions_played']},{r['last_updated']}")
+            cw.writerow([aid, r['total_score'], r['sessions_played'], r['last_updated']])
             
-        resp = make_response('\\n'.join(csv_lines))
+        resp = make_response(si.getvalue())
         resp.headers['Content-Type'] = 'text/csv'
         resp.headers['Content-Disposition'] = f'attachment; filename=room_{room_pwd}_daily_leaderboard.csv'
         return resp
+    finally:
+        if db: db.close()
+
+@app.route('/update_room_settings', methods=['POST'])
+def update_room_settings():
+    data = request.get_json()
+    password = data.get('password')
+    allowed_bots = data.get('allowed_bots', ['Random'])
+    bot_wait_time = data.get('bot_wait_time', 10)
+    if not password:
+        return jsonify({'error': 'Password required'}), 400
+    
+    db = None
+    try:
+        db = get_db()
+        db.execute('UPDATE prison_rooms SET allowed_bots = ? WHERE password = ?', (json.dumps(allowed_bots), password))
+        # Bot wait time is currently memory-only as there's no column yet, but we'll store it in active rooms dict.
+        db.commit()
+        if password in rooms:
+            rooms[password]['settings']['allowed_bots'] = allowed_bots
+            rooms[password]['settings']['bot_wait_time'] = bot_wait_time
+        return jsonify({'message': 'Settings updated'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
     finally:
         if db: db.close()
 
@@ -948,10 +986,13 @@ def get_total_coins():
     db = None
     try:
         db = get_db()
-        row = db.execute('SELECT total_coins FROM users WHERE username = ?', (username,)).fetchone()
-        if not row:
-            return jsonify({'error': 'User not found'}), 404
-        return jsonify({'total_coins': row['total_coins'] or 0})
+        row = db.execute('''
+            SELECT SUM(CASE WHEN player1 = ? THEN p1_points ELSE p2_points END) as daily_score
+            FROM prison_games
+            WHERE (player1 = ? OR player2 = ?) AND DATE(timestamp, 'localtime') = DATE('now', 'localtime')
+        ''', (username, username, username)).fetchone()
+        daily = row['daily_score'] if row and row['daily_score'] else 0
+        return jsonify({'total_coins': daily})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:
@@ -1117,7 +1158,7 @@ def join_queue():
         return jsonify({'status': 'matched', 'gameData': game_data_p2})
     else:
         waiting.append({'username': username, 'class_code': class_code})
-        return jsonify({'status': 'waiting'})
+        return jsonify({'status': 'waiting', 'bot_wait_time': room['settings'].get('bot_wait_time', 10)})
 
 @app.route('/check_queue', methods=['POST'])
 def check_queue():
@@ -1141,7 +1182,7 @@ def check_queue():
             else:
                 return jsonify({'status': 'matched', 'gameData': build_game_data(game, gid, room, username)})
     
-    return jsonify({'status': 'waiting'})
+    return jsonify({'status': 'waiting', 'bot_wait_time': room['settings'].get('bot_wait_time', 10)})
 
 @app.route('/trigger_bot', methods=['POST'])
 def trigger_bot():
