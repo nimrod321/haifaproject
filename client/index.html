@@ -1013,10 +1013,22 @@
                     </div>
                 `;
 
+                let parsedBots = [];
+                try { parsedBots = typeof room.allowed_bots === 'string' ? JSON.parse(room.allowed_bots) : room.allowed_bots || []; } catch(e){}
+
                 let botsHtml = `
                     <div style="font-size:13px; margin-top:5px; font-family:sans-serif;">
                         <span>Allowed Bots:</span><br>
-                        <input type="text" id="update-bots-${room.password}" value='${room.allowed_bots || '[]'}' style="width:100%; padding:2px; font-size:12px;">
+                        <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:5px; padding:5px; background:rgba(0,0,0,0.3); border-radius:5px;">
+                            <label><input type="checkbox" class="update-bot-check-${room.password}" value="Random" ${parsedBots.includes("Random") ? 'checked' : ''}> Random</label>
+                            <label><input type="checkbox" class="update-bot-check-${room.password}" value="CBot" ${parsedBots.includes("CBot") ? 'checked' : ''}> CBot</label>
+                            <label><input type="checkbox" class="update-bot-check-${room.password}" value="DBot" ${parsedBots.includes("DBot") ? 'checked' : ''}> DBot</label>
+                            <label><input type="checkbox" class="update-bot-check-${room.password}" value="TitForTat" ${parsedBots.includes("TitForTat") ? 'checked' : ''}> TitForTat</label>
+                            <label><input type="checkbox" class="update-bot-check-${room.password}" value="Copycat" ${parsedBots.includes("Copycat") ? 'checked' : ''}> Copycat</label>
+                            <label><input type="checkbox" class="update-bot-check-${room.password}" value="SERS_1" ${parsedBots.includes("SERS_1") ? 'checked' : ''}> SERS_1</label>
+                            <label><input type="checkbox" class="update-bot-check-${room.password}" value="SERS_3" ${parsedBots.includes("SERS_3") ? 'checked' : ''}> SERS_3</label>
+                            <label><input type="checkbox" class="update-bot-check-${room.password}" value="SERS_5" ${parsedBots.includes("SERS_5") ? 'checked' : ''}> SERS_5</label>
+                        </div>
                         <div style="display:flex; gap:5px; align-items:center; margin-top:5px;">
                             <span>Bot Wait Time (s):</span>
                             <input type="number" id="update-bot-wait-${room.password}" value="${room.bot_wait_time || 10}" style="width:50px; padding:2px; font-size:12px;">
@@ -1063,16 +1075,14 @@
         }
 
         async function updateRoomBots(pw) {
-            const botsStr = document.getElementById(`update-bots-${pw}`).value;
+            const bots = []; document.querySelectorAll(`.update-bot-check-${pw}`).forEach(c => { if(c.checked) bots.push(c.value); });
             const waitTime = parseInt(document.getElementById(`update-bot-wait-${pw}`).value) || 10;
-            let allowedBots = [];
-            try { allowedBots = JSON.parse(botsStr); } catch(e) { return customAlert('Invalid JSON for bots'); }
             
             try {
                 const res = await fetch('/update_room_settings', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ password: pw, allowed_bots: allowedBots, bot_wait_time: waitTime })
+                    body: JSON.stringify({ password: pw, allowed_bots: bots, bot_wait_time: waitTime })
                 });
                 const data = await res.json();
                 if (res.ok) {
