@@ -1010,6 +1010,9 @@
                             <input type="number" id="update-max-games-${room.password}" value="${room.max_games || 1}" style="width:50px; padding:2px; font-size:12px; margin:0;">
                             <button class="btn-small" style="background:#9b59b6; font-size:12px; padding:2px 6px;" onclick="updateRoomMaxGames('${room.password}')">Update Max</button>
                         </div>
+                    </div>
+                `;
+
                 let botsHtml = `
                     <div style="font-size:13px; margin-top:5px; font-family:sans-serif;">
                         <span>Allowed Bots:</span><br>
