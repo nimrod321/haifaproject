@@ -52,6 +52,33 @@ class CopycatBot(IBot):
         self.is_first_turn = False
         self.opponent_last_move = opponent_last_choice
 
+class MirrorBot(IBot):
+    def __init__(self, cooperate_rounds=3, mirror_pct=0.83):
+        self.cooperate_rounds = cooperate_rounds
+        self.mirror_pct = mirror_pct
+        self.round_count = 1
+        self.opponent_choice = 'C'
+        self.cc_streak = 0
+
+    def set_opponent_choice(self, choice):
+        self.opponent_choice = choice
+
+    def get_choice(self):
+        if self.round_count <= self.cooperate_rounds:
+            return 'C'
+        
+        if random.random() < self.mirror_pct:
+            return self.opponent_choice
+        else:
+            return 'C' if random.random() < 0.5 else 'D'
+
+    def record_result(self, my_last_choice, opponent_last_choice):
+        self.round_count += 1
+        if my_last_choice == 'C' and opponent_last_choice == 'C':
+            self.cc_streak += 1
+        else:
+            self.cc_streak = 0
+
 class SERSBot(IBot):
     def __init__(self, stack_size, is_player_1, p1_A_meaning, p2_A_meaning, 
                  aa1, ab1, ba1, bb1, aa2, ab2, ba2, bb2):
@@ -126,6 +153,11 @@ def create_bot(bot_type, is_player_1, session_data):
     if bot_type == 'Random': return RandomBot()
     if bot_type == 'TitForTat': return TitForTatBot()
     if bot_type == 'Copycat': return CopycatBot()
+    if bot_type == 'MirrorBot':
+        return MirrorBot(
+            cooperate_rounds=session_data.get('cooperate_rounds', 3),
+            mirror_pct=session_data.get('mirror_pct', 0.83)
+        )
     
     if bot_type.startswith('SERS_'):
         stack_size = int(bot_type.split('_')[1])
