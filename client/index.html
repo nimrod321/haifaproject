@@ -502,6 +502,7 @@
                 
                 <button class="admin-nav-btn active" onclick="switchAdminSidebar('dashboard')" style="background:transparent; border:none; color:#fff; font-size:22px; text-align:left; padding:15px 25px; cursor:pointer; width:100%; transition:all 0.2s;">Dashboard</button>
                 <button class="admin-nav-btn" onclick="switchAdminSidebar('room-manager')" style="background:transparent; border:none; color:#fff; font-size:22px; text-align:left; padding:15px 25px; cursor:pointer; width:100%; transition:all 0.2s;">Room Manager</button>
+                <button class="admin-nav-btn" onclick="switchAdminSidebar('live-inputs')" style="background:transparent; border:none; color:#fff; font-size:22px; text-align:left; padding:15px 25px; cursor:pointer; width:100%; transition:all 0.2s;">Live Input Files</button>
                 <button class="admin-nav-btn" onclick="switchAdminSidebar('player-identity')" style="background:transparent; border:none; color:#fff; font-size:22px; text-align:left; padding:15px 25px; cursor:pointer; width:100%; transition:all 0.2s;">Player Identity</button>
                 <button class="admin-nav-btn" onclick="switchAdminSidebar('data-logs')" style="background:transparent; border:none; color:#fff; font-size:22px; text-align:left; padding:15px 25px; cursor:pointer; width:100%; transition:all 0.2s;">Data & Logs</button>
                 
@@ -610,6 +611,52 @@
                     </div>
                 </div>
 
+                <!-- Live Input Files Section -->
+                <div id="admin-sec-live-inputs" class="admin-section hidden">
+                    <h2 style="color: #f1c40f; text-align: left; border-bottom: 2px solid #8e44ad; padding-bottom: 10px;">Live Input Files (Active Sessions)</h2>
+                    
+                    <div style="background: #1e1e1e; border: 2px solid #333; border-radius: 15px; padding: 20px; margin-top: 20px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px; margin-bottom:20px;">
+                            <div>
+                                <h3 style="color:#9b59b6; margin:0;">Active Session Rows in Live Rooms</h3>
+                                <p style="color:#aaa; font-size:14px; margin:5px 0 0 0;">View and sort through all session input rows currently attached to running game rooms.</p>
+                            </div>
+                            <div style="display:flex; gap:10px;">
+                                <button style="background:#2ecc71; font-size:18px; padding:10px 20px; border:none; color:white; border-radius:50px; cursor:pointer; display:flex; align-items:center; gap:8px;" onclick="downloadChainedLiveInputs()">
+                                    <span>Download Chained Live Inputs (CSV)</span>
+                                </button>
+                                <button style="background:#3498db; font-size:18px; padding:10px 20px; border:none; color:white; border-radius:50px; cursor:pointer;" onclick="loadAdminLiveInputs()">Refresh</button>
+                            </div>
+                        </div>
+
+                        <div style="display:flex; gap:10px; margin-bottom:15px;">
+                            <input type="text" id="filter-live-session" placeholder="Filter by SESSION_NUMBER..." oninput="renderLiveInputsTable()" style="margin:0; flex:1; font-family:'Bubblegum Sans', cursive; font-size:18px; padding:10px;">
+                            <input type="text" id="filter-live-room" placeholder="Filter by Room Password..." oninput="renderLiveInputsTable()" style="margin:0; flex:1; font-family:'Bubblegum Sans', cursive; font-size:18px; padding:10px;">
+                            <button onclick="sortLiveInputs('session')" style="background:#8e44ad; color:white; border:none; padding:10px 15px; border-radius:10px; cursor:pointer; font-size:16px;">Sort by Session #</button>
+                            <button onclick="sortLiveInputs('room')" style="background:#8e44ad; color:white; border:none; padding:10px 15px; border-radius:10px; cursor:pointer; font-size:16px;">Sort by Room</button>
+                        </div>
+
+                        <div style="max-height: 55vh; overflow-y: auto; background: #2c2c2c; border: 1px solid #555; border-radius: 10px; padding: 10px;">
+                            <table style="width:100%; border-collapse:collapse; color:white; font-size:16px; text-align:left;">
+                                <thead>
+                                    <tr style="border-bottom:2px solid #555; color:#f1c40f;">
+                                        <th style="padding:10px;">Room Password</th>
+                                        <th style="padding:10px;">Session #</th>
+                                        <th style="padding:10px;">Round / Trial</th>
+                                        <th style="padding:10px;">AA (P1/P2)</th>
+                                        <th style="padding:10px;">AB (P1/P2)</th>
+                                        <th style="padding:10px;">BA (P1/P2)</th>
+                                        <th style="padding:10px;">BB (P1/P2)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="live-inputs-tbody">
+                                    <tr><td colspan="7" style="text-align:center; padding:20px; color:#aaa;">Loading live session inputs...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Player Identity Section -->
                 <div id="admin-sec-player-identity" class="admin-section hidden">
                     <h2 style="color: #f1c40f; text-align: left; border-bottom: 2px solid #8e44ad; padding-bottom: 10px;">Player Identity & Classes</h2>
@@ -640,14 +687,43 @@
                     <h2 style="color: #f1c40f; text-align: left; border-bottom: 2px solid #8e44ad; padding-bottom: 10px;">Data & Logs</h2>
                     
                     <div style="background: #1e1e1e; border: 2px solid #333; border-radius: 15px; padding: 20px; margin-top: 20px;">
-                        <h3 style="color:#9b59b6; margin-top:0;">CSV Downloads</h3>
-                        <button style="background:#8e44ad; font-size:18px; padding:10px 20px; margin-bottom: 20px; border:none; color:white; border-radius:50px; cursor:pointer;" onclick="window.open('/get_identity_map_csv', '_blank')">Download Identity Map (CSV)</button>
+                        <h3 style="color:#9b59b6; margin-top:0;">CSV Downloads & Archiving</h3>
+                        <div style="margin-bottom: 20px;">
+                            <button style="background:#e74c3c; font-size:18px; padding:10px 20px; border:none; color:white; border-radius:50px; cursor:pointer;" onclick="archiveLogsNow()">Archive & Wipe All Logs Now</button>
+                            <p style="color:#aaa; font-size:14px; margin-top:5px;">This dumps all active game logs into persistent server storage and wipes them from the active database to keep the system fast.</p>
+                        </div>
                         
-                        <div style="display:flex; gap:10px; align-items:center;">
+                        <div style="display:flex; gap:10px; align-items:center; border-top: 1px solid #444; padding-top: 15px;">
                             <input type="text" id="admin-lb-class-code" placeholder="Class Code" style="margin:0; width:200px; font-family:'Bubblegum Sans', cursive; font-size:18px;">
                             <input type="text" id="admin-lb-room-pwd" placeholder="Room Pwd (Optional)" style="margin:0; width:200px; font-family:'Bubblegum Sans', cursive; font-size:18px;">
                             <button style="background:#2ecc71; font-size:18px; margin:0; border:none; color:white; border-radius:50px; padding:10px 20px; cursor:pointer;" onclick="downloadAdminLeaderboard('class')">Class CSV</button>
                             <button style="background:#3498db; font-size:18px; margin:0; border:none; color:white; border-radius:50px; padding:10px 20px; cursor:pointer;" onclick="downloadAdminLeaderboard('room')">Room CSV</button>
+                        </div>
+                    </div>
+
+                    <div style="background: #1e1e1e; border: 2px solid #333; border-radius: 15px; padding: 20px; margin-top: 20px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                            <div>
+                                <h3 style="color:#9b59b6; margin:0;">Archived Cloud Storage Browser</h3>
+                                <p style="color:#aaa; font-size:14px; margin:5px 0 0 0;">Browse and download permanent CSV spreadsheets stored on your Lightsail server's hard drive.</p>
+                            </div>
+                            <button style="background:#3498db; font-size:16px; padding:8px 16px; border:none; color:white; border-radius:50px; cursor:pointer;" onclick="loadStorageFiles()">Refresh File List</button>
+                        </div>
+                        <div style="max-height: 350px; overflow-y: auto; background: #2c2c2c; border: 1px solid #555; border-radius: 10px; padding: 10px;">
+                            <table style="width:100%; border-collapse:collapse; color:white; font-size:15px; text-align:left;">
+                                <thead>
+                                    <tr style="border-bottom:2px solid #555; color:#f1c40f;">
+                                        <th style="padding:8px;">Filename</th>
+                                        <th style="padding:8px;">Category</th>
+                                        <th style="padding:8px;">Size</th>
+                                        <th style="padding:8px;">Date Modified</th>
+                                        <th style="padding:8px; text-align:right;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="storage-files-tbody">
+                                    <tr><td colspan="5" style="text-align:center; padding:20px; color:#aaa;">Loading storage files...</td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
 
@@ -1305,6 +1381,7 @@
                     <div class="room-card-header">
                         <span style="font-weight:bold; color:#f1c40f; font-size:24px;">${room.password}</span>
                         <div style="display:flex; gap:10px;">
+                            <button style="background:#3498db; border:none; padding:5px 15px; border-radius:50px; color:white; cursor:pointer;" onclick="downloadLogs('${room.password}')">Download Logs</button>
                             <button style="background:#e67e22; border:none; padding:5px 15px; border-radius:50px; color:white; cursor:pointer;" onclick="openRoomSettings('${room.password}')">Edit Settings</button>
                             <button style="background:#e74c3c; border:none; padding:5px 15px; border-radius:50px; color:white; cursor:pointer;" onclick="deleteRoom('${room.password}')">Delete</button>
                         </div>
@@ -1343,10 +1420,117 @@
 
         function switchAdminSidebar(section) {
             document.querySelectorAll('.admin-nav-btn').forEach(b => b.classList.remove('active'));
-            document.querySelector(`.admin-nav-btn[onclick="switchAdminSidebar('${section}')"]`).classList.add('active');
+            const btn = document.querySelector(`.admin-nav-btn[onclick="switchAdminSidebar('${section}')"]`);
+            if(btn) btn.classList.add('active');
             
             document.querySelectorAll('.admin-section').forEach(s => s.classList.add('hidden'));
-            document.getElementById('admin-sec-' + section).classList.remove('hidden');
+            const sec = document.getElementById('admin-sec-' + section);
+            if(sec) sec.classList.remove('hidden');
+
+            if(section === 'live-inputs') loadAdminLiveInputs();
+            if(section === 'data-logs') loadStorageFiles();
+        }
+
+        let liveInputsData = [];
+        let liveInputsSort = 'session';
+
+        async function loadAdminLiveInputs() {
+            const tbody = document.getElementById('live-inputs-tbody');
+            if(!tbody) return;
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px; color:#aaa;">Loading live session inputs...</td></tr>';
+            try {
+                const res = await fetch('/get_live_inputs');
+                liveInputsData = await res.json();
+                renderLiveInputsTable();
+            } catch(e) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px; color:#e74c3c;">Failed to load live inputs.</td></tr>';
+            }
+        }
+
+        function sortLiveInputs(by) {
+            liveInputsSort = by;
+            renderLiveInputsTable();
+        }
+
+        function renderLiveInputsTable() {
+            const tbody = document.getElementById('live-inputs-tbody');
+            if(!tbody) return;
+            const filterSess = (document.getElementById('filter-live-session')?.value || '').toLowerCase();
+            const filterRoom = (document.getElementById('filter-live-room')?.value || '').toLowerCase();
+
+            let filtered = liveInputsData.filter(item => {
+                const sMatch = (item.session_number || '').toString().toLowerCase().includes(filterSess);
+                const rMatch = (item.room_password || '').toString().toLowerCase().includes(filterRoom);
+                return sMatch && rMatch;
+            });
+
+            if(liveInputsSort === 'session') {
+                filtered.sort((a,b) => {
+                    const na = parseInt(a.session_number), nb = parseInt(b.session_number);
+                    if(!isNaN(na) && !isNaN(nb)) return na - nb;
+                    return (a.session_number || '').toString().localeCompare((b.session_number || '').toString());
+                });
+            } else if(liveInputsSort === 'room') {
+                filtered.sort((a,b) => a.room_password.localeCompare(b.room_password) || (a.round_index - b.round_index));
+            }
+
+            if(filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px; color:#aaa;">No matching session inputs found.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = '';
+            filtered.forEach((item, i) => {
+                const d = item.data || {};
+                const bg = i % 2 === 0 ? 'rgba(255,255,255,0.03)' : 'transparent';
+                tbody.innerHTML += `
+                    <tr style="background:${bg}; border-bottom:1px solid #444;">
+                        <td style="padding:10px; font-weight:bold; color:#f1c40f;">${item.room_password}</td>
+                        <td style="padding:10px; color:#2ecc71; font-weight:bold;">${item.session_number || '-'}</td>
+                        <td style="padding:10px;">Round ${item.round_index}</td>
+                        <td style="padding:10px;">${d.AA1 || 0} / ${d.AA2 || 0}</td>
+                        <td style="padding:10px;">${d.AB1 || 0} / ${d.AB2 || 0}</td>
+                        <td style="padding:10px;">${d.BA1 || 0} / ${d.BA2 || 0}</td>
+                        <td style="padding:10px;">${d.BB1 || 0} / ${d.BB2 || 0}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        function downloadChainedLiveInputs() {
+            window.open('/export_chained_live_inputs', '_blank');
+        }
+
+        async function loadStorageFiles() {
+            const tbody = document.getElementById('storage-files-tbody');
+            if(!tbody) return;
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:#aaa;">Loading storage files...</td></tr>';
+            try {
+                const res = await fetch('/get_storage_files');
+                const files = await res.json();
+                if(files.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:#aaa;">No archived storage files found yet.</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = '';
+                files.forEach((f, i) => {
+                    const bg = i % 2 === 0 ? 'rgba(255,255,255,0.03)' : 'transparent';
+                    const catColor = f.category === 'INPUTS' ? '#9b59b6' : '#3498db';
+                    tbody.innerHTML += `
+                        <tr style="background:${bg}; border-bottom:1px solid #444;">
+                            <td style="padding:8px; font-weight:bold; color:#fff;">${f.filename}</td>
+                            <td style="padding:8px;"><span style="background:${catColor}; padding:2px 8px; border-radius:10px; font-size:12px; font-weight:bold;">${f.category}</span></td>
+                            <td style="padding:8px; color:#aaa;">${f.size_kb} KB</td>
+                            <td style="padding:8px; color:#aaa;">${f.modified}</td>
+                            <td style="padding:8px; text-align:right;">
+                                <button style="background:#2ecc71; border:none; padding:4px 12px; border-radius:15px; color:white; font-size:13px; cursor:pointer;" onclick="window.open('/download_storage_file?path=${encodeURIComponent(f.path)}', '_blank')">Download CSV</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch(e) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:#e74c3c;">Failed to load storage files.</td></tr>';
+            }
         }
 
         function openRoomSettings(pw) {
@@ -1555,6 +1739,24 @@
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Session_Logs");
             XLSX.writeFile(workbook, `Room_${pw}_Logs.csv`);
+        }
+
+        async function archiveLogsNow() {
+            if(!confirm("Are you sure? This will dump all active game logs to CSV flat files on the server and WIPE them from the volatile database!")) return;
+            showLoading("Archiving logs...");
+            try {
+                const res = await fetch('/archive_logs_now', { method: 'POST' });
+                const data = await res.json();
+                hideLoading();
+                if(data.success) {
+                    customAlert(`Success! Archived ${data.archived_count} log entries to server storage.`);
+                } else {
+                    customAlert('Failed to archive logs.');
+                }
+            } catch(e) {
+                hideLoading();
+                customAlert('Server error during archive.');
+            }
         }
 
         async function deleteRoom(pw) {

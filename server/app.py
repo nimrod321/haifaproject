@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, make_response
+from flask import Flask, request, jsonify, make_response, send_from_directory
 import sqlite3
 import bcrypt
 import os
@@ -8,6 +8,7 @@ import random
 import string
 import threading
 import hashlib
+import re
 from game_bots import create_bot
 import csv
 import io
@@ -20,6 +21,52 @@ def generate_system_id(username):
 def generate_anon_id():
     """Generate a random 8-char alphanumeric string for CSV anonymity."""
     return ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+
+def archive_input_file(filename, sessions_list, db=None):
+    if not filename or not sessions_list:
+        return
+    try:
+        s_nums = []
+        for s in sessions_list:
+            val = s.get('SESSION_NUMBER', s.get('SESSION', s.get('FILE_ID', '')))
+            if str(val).strip() != '' and str(val).strip() not in s_nums:
+                s_nums.append(str(val).strip())
+        
+        display_name = filename
+        clean_base = filename
+        for ext in ['.xlsx', '.xls', '.csv', '.json']:
+            if clean_base.lower().endswith(ext):
+                clean_base = clean_base[:-len(ext)]
+                break
+                
+        if s_nums:
+            if len(s_nums) == 1:
+                tag = f"Session_{s_nums[0]}"
+            else:
+                tag = f"Sessions_{s_nums[0]}_to_{s_nums[-1]}"
+            if "Session" not in filename and "session" not in filename:
+                display_name = f"{filename} [{tag}]"
+            file_save_name = f"{clean_base}_{tag}.csv"
+        else:
+            file_save_name = f"{clean_base}.csv"
+            
+        file_save_name = re.sub(r'[\\/*?:"<>|]', '_', file_save_name)
+        
+        os.makedirs('/home/ubuntu/haifa_project/server/storage/inputs', exist_ok=True)
+        filepath = os.path.join('/home/ubuntu/haifa_project/server/storage/inputs', file_save_name)
+        with open(filepath, 'w', newline='', encoding='utf-8') as f:
+            if sessions_list:
+                keys = sessions_list[0].keys()
+                cw = csv.DictWriter(f, fieldnames=keys)
+                cw.writeheader()
+                for row in sessions_list:
+                    cw.writerow(dict(row))
+                    
+        if db:
+            db.execute('INSERT OR IGNORE INTO past_input_files (filename, sessions_data) VALUES (?, ?)',
+                       (display_name, json.dumps(sessions_list)))
+    except Exception as e:
+        print(f"[Archive Input] Error: {e}")
 
 game_lock = threading.Lock()
 
@@ -342,10 +389,7 @@ def create_room():
                    (password, num_sessions, json.dumps(allowed_bots), json.dumps(custom_sessions) if custom_sessions else None, description, room_type, max_games, json.dumps(dd_split_config) if dd_split_config else None, json.dumps(block_config) if block_config else None, int(disconnect_timeout)))
         
         if filename and custom_sessions:
-            try:
-                db.execute('INSERT OR IGNORE INTO past_input_files (filename, sessions_data) VALUES (?, ?)',
-                           (filename, json.dumps(custom_sessions)))
-            except: pass
+            archive_input_file(filename, custom_sessions, db)
         
         db.commit()
     except Exception as e:
@@ -419,6 +463,138 @@ def get_past_files():
         return jsonify({'error': str(e)}), 500
     finally:
         if db: db.close()
+
+@app.route('/get_live_inputs', methods=['GET'])
+def get_live_inputs():
+    db = None
+    try:
+        db = get_db()
+        rooms_rows = db.execute('SELECT password, custom_sessions, num_sessions, description FROM prison_rooms').fetchall()
+        live_inputs = []
+        for r in rooms_rows:
+            pw = r['password']
+            c_sess = r['custom_sessions']
+            desc = r['description'] or ''
+            sessions = []
+            if c_sess:
+                try: sessions = json.loads(c_sess)
+                except: pass
+            else:
+                sessions = tutorial_matrix
+            
+            for idx, s in enumerate(sessions):
+                s_num = str(s.get('SESSION_NUMBER', s.get('SESSION', s.get('FILE_ID', idx+1)))).strip()
+                row_item = {
+                    'room_password': pw,
+                    'room_desc': desc,
+                    'session_number': s_num,
+                    'round_index': idx + 1,
+                    'data': s
+                }
+                live_inputs.append(row_item)
+        return jsonify(live_inputs)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if db: db.close()
+
+@app.route('/export_chained_live_inputs', methods=['GET'])
+def export_chained_live_inputs():
+    db = None
+    try:
+        db = get_db()
+        rooms_rows = db.execute('SELECT password, custom_sessions FROM prison_rooms').fetchall()
+        chained_rows = []
+        seen_sessions = set()
+        
+        for r in rooms_rows:
+            c_sess = r['custom_sessions']
+            sessions = []
+            if c_sess:
+                try: sessions = json.loads(c_sess)
+                except: pass
+            else:
+                sessions = tutorial_matrix
+                
+            for idx, s in enumerate(sessions):
+                s_num = str(s.get('SESSION_NUMBER', s.get('SESSION', s.get('FILE_ID', idx+1)))).strip()
+                if s_num not in seen_sessions:
+                    seen_sessions.add(s_num)
+                    row_dict = dict(s)
+                    if 'SESSION_NUMBER' not in row_dict:
+                        row_dict['SESSION_NUMBER'] = s_num
+                    chained_rows.append(row_dict)
+        
+        if not chained_rows:
+            return "No live input sessions found", 404
+            
+        def sort_key(x):
+            val = x.get('SESSION_NUMBER', '')
+            try: return (0, int(val))
+            except: return (1, str(val))
+        chained_rows.sort(key=sort_key)
+        
+        si = io.StringIO()
+        headers = []
+        for row in chained_rows:
+            for k in row.keys():
+                if k not in headers: headers.append(k)
+        if 'SESSION_NUMBER' in headers:
+            headers.remove('SESSION_NUMBER')
+            headers.insert(0, 'SESSION_NUMBER')
+            
+        cw = csv.DictWriter(si, fieldnames=headers)
+        cw.writeheader()
+        for row in chained_rows:
+            cw.writerow(row)
+            
+        resp = make_response(si.getvalue())
+        resp.headers['Content-Type'] = 'text/csv'
+        resp.headers['Content-Disposition'] = 'attachment; filename=chained_live_inputs.csv'
+        return resp
+    except Exception as e:
+        return str(e), 500
+    finally:
+        if db: db.close()
+
+@app.route('/get_storage_files', methods=['GET'])
+def get_storage_files():
+    results = []
+    base_dir = '/home/ubuntu/haifa_project/server/storage'
+    for sub in ['logs', 'inputs']:
+        folder = os.path.join(base_dir, sub)
+        if os.path.exists(folder):
+            for fname in os.listdir(folder):
+                if fname.endswith('.csv') or fname.endswith('.json') or fname.endswith('.xlsx'):
+                    fpath = os.path.join(folder, fname)
+                    try:
+                        stat = os.stat(fpath)
+                        size_kb = round(stat.st_size / 1024, 1)
+                        mod_time = datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+                        results.append({
+                            'filename': fname,
+                            'category': sub.upper(),
+                            'size_kb': size_kb,
+                            'modified': mod_time,
+                            'path': f'{sub}/{fname}'
+                        })
+                    except: pass
+    results.sort(key=lambda x: x['modified'], reverse=True)
+    return jsonify(results)
+
+@app.route('/download_storage_file', methods=['GET'])
+def download_storage_file():
+    rel_path = request.args.get('path', '')
+    if not rel_path or '..' in rel_path or rel_path.startswith('/'):
+        return "Invalid path", 400
+    base_dir = '/home/ubuntu/haifa_project/server/storage'
+    full_path = os.path.join(base_dir, rel_path)
+    if not os.path.exists(full_path):
+        return "File not found", 404
+    
+    directory = os.path.dirname(full_path)
+    filename = os.path.basename(full_path)
+    return send_from_directory(directory, filename, as_attachment=True)
 
 @app.route('/get_room_logs', methods=['POST'])
 def get_room_logs():
@@ -715,8 +891,7 @@ def update_room_file():
                 cleaned_list.append(c)
             sess_str = json.dumps(cleaned_list)
             if filename:
-                db.execute('INSERT OR IGNORE INTO past_input_files (filename, sessions_data) VALUES (?, ?)', (filename, sess_str))
-                db.commit()
+                archive_input_file(filename, cleaned_list, db)
         elif file_id:
             f_row = db.execute('SELECT sessions_data FROM past_input_files WHERE id = ?', (file_id,)).fetchone()
             if not f_row: return jsonify({'error': 'File not found'}), 404
@@ -2199,6 +2374,62 @@ def tutorial_practice():
         'bot_score': p2_score,
         'matrix': prison_matrix_for_player(tutorial_matrix, 'p1')
     })
+
+import os
+from datetime import datetime
+import eventlet
+
+def archive_and_wipe_logs():
+    db = None
+    try:
+        db = get_db()
+        logs = db.execute('SELECT * FROM prison_games').fetchall()
+        if not logs:
+            return 0
+        
+        rooms_data = {}
+        for r in logs:
+            pw = r['room_password']
+            if pw not in rooms_data:
+                rooms_data[pw] = []
+            rooms_data[pw].append(r)
+            
+        os.makedirs('/home/ubuntu/haifa_project/server/storage/logs', exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        count = 0
+        for pw, room_logs in rooms_data.items():
+            filepath = f'/home/ubuntu/haifa_project/server/storage/logs/room_{pw}_{timestamp}.csv'
+            with open(filepath, 'w', newline='', encoding='utf-8') as f:
+                if not room_logs: continue
+                keys = room_logs[0].keys()
+                cw = csv.DictWriter(f, fieldnames=keys)
+                cw.writeheader()
+                for log in room_logs:
+                    cw.writerow(dict(log))
+            count += len(room_logs)
+            
+        db.execute('DELETE FROM prison_games')
+        db.commit()
+        return count
+    except Exception as e:
+        print(f"[Archive] Error: {e}")
+        return 0
+    finally:
+        if db: db.close()
+
+@app.route('/archive_logs_now', methods=['POST'])
+def api_archive_logs_now():
+    count = archive_and_wipe_logs()
+    return jsonify({'success': True, 'archived_count': count})
+
+def auto_archive_loop():
+    while True:
+        eventlet.sleep(86400)
+        print("[Archive] Running scheduled archive...")
+        archive_and_wipe_logs()
+
+eventlet.spawn(auto_archive_loop)
 
 # --- SOCKET.IO EVENT HANDLERS ---
 
