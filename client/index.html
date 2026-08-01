@@ -366,7 +366,7 @@
 
         /* Settings Modal */
         #admin-settings-modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); z-index: 100000; display: flex; align-items: center; justify-content: center; overflow-y: auto; }
-        .admin-modal-content { background: #1e1e1e; border: 2px solid #8e44ad; border-radius: 15px; padding: 30px; width: 90%; max-width: 600px; color: #fff; font-family: sans-serif; box-shadow: 0 0 30px rgba(142,68,173,0.5); margin: 20px 0;}
+        .admin-modal-content { background: #1e1e1e; border: 2px solid #8e44ad; border-radius: 15px; padding: 30px; width: 90%; max-width: 900px; color: #fff; font-family: sans-serif; box-shadow: 0 0 30px rgba(142,68,173,0.5); margin: 20px 0;}
         .admin-modal-content h2 { color: #f1c40f; font-family: 'Bubblegum Sans', cursive; margin-top: 0;}
         .admin-modal-content input, .admin-modal-content select { width: 100%; padding: 8px; margin: 5px 0 15px; border-radius: 5px; border: 1px solid #555; background: #2c2c2c; color: #fff; }
         .admin-modal-content label { font-size: 14px; font-weight: bold; color: #ccc; }
@@ -484,7 +484,7 @@
                 <h2>Enter Class Code</h2>
                 <input type="text" id="class-code-input" placeholder="Class Code" onkeypress="if(event.keyCode===13) submitClassCode()">
                 <button onclick="submitClassCode()" style="font-size:clamp(18px,4vw,24px);">Continue</button>
-                <button onclick="backToLogin()" style="background:#95a5a6; margin-top:5px; font-size:16px;">Back to Lobby</button>
+                <button onclick="backToLogin()" style="background:#95a5a6; margin-top:5px; font-size:16px;">Back to Login</button>
             </div>
             <div id="room-password-section" class="glass-panel hidden">
                 <h2>Enter Room Password</h2>
@@ -796,6 +796,8 @@
 
             <div id="room-lobby" class="glass-panel hidden">
                 <button onclick="queueForGame()" id="start-game-btn" class="submit-btn" style="padding: 10px 40px; font-size:30px;">START GAME</button>
+                <br>
+                <button onclick="backToRoomInput()" id="back-room-btn" style="background:#95a5a6; margin-top:20px; font-size:18px; padding:10px 20px;">Back to Room Code</button>
                 <div id="lobby-message" style="margin-top:20px; font-weight:bold; color:#f1c40f;"></div>
             </div>
 
@@ -932,6 +934,10 @@
         });
 
         socket.on('queue_error', function(data) {
+            document.getElementById('start-game-btn').style.display = 'inline-block';
+            const backBtn = document.getElementById('back-room-btn');
+            if (backBtn) backBtn.style.display = 'inline-block';
+            document.getElementById('lobby-message').innerHTML = '';
             hideLoading();
             customAlert(data.error);
         });
@@ -1255,6 +1261,23 @@
         function backToLogin() {
             document.getElementById('player-lobby').classList.add('hidden');
             document.getElementById('auth').classList.remove('hidden');
+            document.getElementById('login-section').classList.remove('hidden');
+        }
+
+        function backToRoomInput() {
+            document.getElementById('room-lobby').classList.add('hidden');
+            document.getElementById('start-game-btn').style.display = 'inline-block';
+            const backBtn = document.getElementById('back-room-btn');
+            if (backBtn) backBtn.style.display = 'inline-block';
+            document.getElementById('lobby-message').innerHTML = '';
+            
+            if(currentClassCode) {
+                document.getElementById('game').classList.add('hidden');
+                document.getElementById('player-lobby').classList.remove('hidden');
+                document.getElementById('room-password-section').classList.remove('hidden');
+            } else {
+                document.getElementById('prison-join-form').classList.remove('hidden');
+            }
         }
 
         let pastFiles = [];
@@ -1941,6 +1964,8 @@
         async function queueForGame() { 
             const pw = document.getElementById('prison-password').value; 
             document.getElementById('start-game-btn').style.display = 'none';
+            const backBtn = document.getElementById('back-room-btn');
+            if(backBtn) backBtn.style.display = 'none';
             document.getElementById('lobby-message').innerHTML = '<div style="font-size: 22px; color: #aaa;">Connecting...</div>';
             
             socket.emit('join_queue', { username: currentUsername, password: pw, class_code: currentClassCode });
