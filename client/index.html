@@ -1583,78 +1583,106 @@
             const html = `
                 <input type="hidden" id="edit-room-pw" value="${pw}">
                 
-                <label>Room Description</label>
-                <input type="text" id="edit-room-desc" value="${room.description || ''}">
+                <h3 style="color:#9b59b6; margin-top:0; border-bottom:1px solid #444; padding-bottom:5px;">Basic Room Settings</h3>
+                <label style="color:#f1c40f; font-size:14px; display:block; margin-top:10px; text-align:left;">Room Description</label>
+                <input type="text" id="edit-room-desc" placeholder="Room Description" value="${room.description || ''}" style="margin-top:5px; width:100%; font-size:14px; padding:8px;">
 
-                <label>Rounds (Num Sessions)</label>
-                <input type="number" id="edit-room-rounds" value="${room.num_sessions || 10}">
+                <label style="color:#f1c40f; font-size:14px; display:block; margin-top:10px; text-align:left;">Rounds (Num Sessions)</label>
+                <input type="number" id="edit-room-rounds" placeholder="Rounds" value="${room.num_sessions || 10}" style="margin-top:5px; width:100%; font-size:14px; padding:8px;">
 
-                <label>Room Type</label>
-                <select id="edit-room-type" style="width:100%; padding:8px; margin-bottom:10px;">
-                    <option value="MIXED" ${room.room_type === 'MIXED' ? 'selected' : ''}>MIXED</option>
-                    <option value="ADJACENT" ${room.room_type === 'ADJACENT' ? 'selected' : ''}>ADJACENT</option>
-                    <option value="MERGE" ${room.room_type === 'MERGE' ? 'selected' : ''}>MERGE</option>
-                </select>
+                <label style="color:#f1c40f; font-size:14px; display:block; margin-top:10px; text-align:left;">Max Games Per Player</label>
+                <input type="number" id="edit-max-games" placeholder="Max Games per Player" value="${room.max_games || 1}" style="margin-top:5px; width:100%; font-size:14px; padding:8px;">
 
-                <label>Max Games Per Player</label>
-                <input type="number" id="edit-max-games" value="${room.max_games || 1}">
-                
-                <label>Disconnect Timeout (s)</label>
-                <input type="number" id="edit-disconnect-timeout" value="${room.disconnect_timeout || 60}">
-                
-                <label>Bot Wait Time (s)</label>
-                <input type="number" id="edit-bot-wait" value="${room.bot_wait_time || 10}">
-
-                <label>Allowed Bots</label>
-                <div class="bot-selection">
-                    <label style="display:inline-block; width:45%; margin-bottom:5px;"><input type="checkbox" class="edit-bot-check" value="Random" ${parsedBots.includes("Random") ? 'checked' : ''}> Random</label>
-                    <label style="display:inline-block; width:45%; margin-bottom:5px;"><input type="checkbox" class="edit-bot-check" value="CBot" ${parsedBots.includes("CBot") ? 'checked' : ''}> CBot</label>
-                    <label style="display:inline-block; width:45%; margin-bottom:5px;"><input type="checkbox" class="edit-bot-check" value="DBot" ${parsedBots.includes("DBot") ? 'checked' : ''}> DBot</label>
-                    <label style="display:inline-block; width:45%; margin-bottom:5px;"><input type="checkbox" class="edit-bot-check" value="TitForTat" ${parsedBots.includes("TitForTat") ? 'checked' : ''}> TitForTat</label>
-                    <label style="display:inline-block; width:45%; margin-bottom:5px;"><input type="checkbox" class="edit-bot-check" value="SERS_1" ${parsedBots.includes("SERS_1") ? 'checked' : ''}> SERS_1</label>
-                    <label style="display:inline-block; width:45%; margin-bottom:5px;"><input type="checkbox" class="edit-bot-check" value="SERS_3" ${parsedBots.includes("SERS_3") ? 'checked' : ''}> SERS_3</label>
-                    <label style="display:inline-block; width:45%; margin-bottom:5px;"><input type="checkbox" class="edit-bot-check" value="SERS_5" ${parsedBots.includes("SERS_5") ? 'checked' : ''}> SERS_5</label>
-                    <label style="display:inline-block; width:45%; margin-bottom:5px;"><input type="checkbox" class="edit-bot-check" value="MirrorBot" ${parsedBots.includes("MirrorBot") ? 'checked' : ''}> MirrorBot</label>
+                <div style="margin-top:10px; text-align:left;">
+                    <label style="color:#f1c40f; font-size:14px;">Room Type:</label>
+                    <select id="edit-room-type" style="padding:8px; border-radius:5px; outline:none; border:3px solid #8e44ad; font-family:'Bubblegum Sans', cursive; font-size:16px; width: 100%; display:block; margin:5px 0;">
+                        <option value="MIXED" ${room.room_type === 'MIXED' ? 'selected' : ''}>MIXED ROOM (any match)</option>
+                        <option value="ADJACENT" ${room.room_type === 'ADJACENT' ? 'selected' : ''}>ADJACENT ROOM (same class code)</option>
+                        <option value="MERGE" ${room.room_type === 'MERGE' ? 'selected' : ''}>MERGE ROOM (different class code)</option>
+                    </select>
                 </div>
 
-                <label style="color:#2ecc71;">DD-Split Intervention Config</label>
-                <div style="background:#2c2c2c; padding:10px; border-radius:5px; margin-bottom:15px;">
-                    <label style="display:block; font-weight:normal;"><input type="checkbox" id="edit-dd-enable" ${dd.enabled ? 'checked' : ''}> Enable DD-Split</label>
-                    <input type="number" id="edit-dd-threshold" placeholder="Consecutive DDs to Trigger Split" value="${dd.dd_threshold || 3}">
-                    <input type="number" id="edit-dd-cc-threshold" placeholder="CC Streak to Rejoin" value="${dd.cc_rejoin_threshold || 3}">
-                    
-                    <div style="margin-top:10px; padding:10px; background:#1e1e1e; border:1px dashed #8e44ad; border-radius:5px;">
-                        <label style="color:#f1c40f; font-size:14px;">Intervention Bots</label>
-                        <div id="edit-dd-intervention-bots-list">
-                            ${(dd.intervention_bots && dd.intervention_bots.length > 0 ? dd.intervention_bots : [{bot:'MirrorBot', probability:100}]).map(b => `
-                                <div class="dd-bot-row" style="display:flex; gap:10px; margin-top:5px; align-items:center;">
-                                    <select class="dd-bot-type" style="padding:5px; border-radius:5px; flex:2;">
-                                        <option value="MirrorBot" ${b.bot === 'MirrorBot' ? 'selected' : ''}>Mirror Bot</option>
-                                        <option value="TitForTat" ${b.bot === 'TitForTat' ? 'selected' : ''}>Tit-For-Tat</option>
-                                        <option value="Random" ${b.bot === 'Random' ? 'selected' : ''}>Random Bot</option>
-                                        <option value="CBot" ${b.bot === 'CBot' ? 'selected' : ''}>CBot</option>
-                                    </select>
-                                    <input type="number" class="dd-bot-prob" placeholder="%" value="${b.probability}" style="padding:5px; width:60px; border-radius:5px;">
-                                    <button onclick="this.parentElement.remove()" style="background:#e74c3c; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;">X</button>
-                                </div>
-                            `).join('')}
+                <h3 style="color:#9b59b6; margin-top:20px; border-bottom:1px solid #444; padding-bottom:5px;">Bot Configurations</h3>
+                
+                <label style="color:#f1c40f; font-size:14px; display:block; margin-top:10px; text-align:left;">Disconnect Timeout & Bot Wait Time (s)</label>
+                <div style="display:flex; gap:10px; margin-top:5px;">
+                    <input type="number" id="edit-disconnect-timeout" placeholder="Disconnect Timeout" value="${room.disconnect_timeout || 60}" style="width:100%; font-size:14px; padding:8px;" title="Disconnect Timeout (s)">
+                    <input type="number" id="edit-bot-wait" placeholder="Bot Wait Time" value="${room.bot_wait_time || 10}" style="width:100%; font-size:14px; padding:8px;" title="Bot Wait Time (s)">
+                </div>
+
+                <label style="color:#f1c40f; font-size:14px; display:block; margin-top:10px; text-align:left;">Allowed Bots</label>
+                <div class="bot-selection" style="background:#2c2c2c; border:1px solid #555; padding: 10px; border-radius: 5px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align:left;">
+                    <div class="bot-line"><label style="display:flex; align-items:center; gap:8px; color:white; font-size:14px;"><input type="checkbox" class="edit-bot-check" value="Random" ${parsedBots.includes("Random") ? 'checked' : ''}> Random Bot</label></div>
+                    <div class="bot-line"><label style="display:flex; align-items:center; gap:8px; color:white; font-size:14px;"><input type="checkbox" class="edit-bot-check" value="CBot" ${parsedBots.includes("CBot") ? 'checked' : ''}> Always Cooperate</label></div>
+                    <div class="bot-line"><label style="display:flex; align-items:center; gap:8px; color:white; font-size:14px;"><input type="checkbox" class="edit-bot-check" value="DBot" ${parsedBots.includes("DBot") ? 'checked' : ''}> Always Defect</label></div>
+                    <div class="bot-line"><label style="display:flex; align-items:center; gap:8px; color:white; font-size:14px;"><input type="checkbox" class="edit-bot-check" value="TitForTat" ${parsedBots.includes("TitForTat") ? 'checked' : ''}> Tit-For-Tat</label></div>
+                    <div class="bot-line"><label style="display:flex; align-items:center; gap:8px; color:white; font-size:14px;"><input type="checkbox" class="edit-bot-check" value="SERS_1" ${parsedBots.includes("SERS_1") ? 'checked' : ''}> SERS Bot (1 Mem)</label></div>
+                    <div class="bot-line"><label style="display:flex; align-items:center; gap:8px; color:white; font-size:14px;"><input type="checkbox" class="edit-bot-check" value="SERS_3" ${parsedBots.includes("SERS_3") ? 'checked' : ''}> SERS Bot (3 Mem)</label></div>
+                    <div class="bot-line"><label style="display:flex; align-items:center; gap:8px; color:white; font-size:14px;"><input type="checkbox" class="edit-bot-check" value="SERS_5" ${parsedBots.includes("SERS_5") ? 'checked' : ''}> SERS Bot (5 Mem)</label></div>
+                    <div class="bot-line"><label style="display:flex; align-items:center; gap:8px; color:white; font-size:14px;"><input type="checkbox" class="edit-bot-check" value="MirrorBot" ${parsedBots.includes("MirrorBot") ? 'checked' : ''}> Mirror Bot</label></div>
+                </div>
+
+                <h3 style="color:#9b59b6; margin-top:20px; border-bottom:1px solid #444; padding-bottom:5px;">Advanced Mechanics</h3>
+                
+                <div style="margin-top:15px; background:#2c2c2c; padding:10px; border-radius:10px; border:1px solid #555; text-align:left;">
+                    <div style="display:flex; justify-content:space-between; cursor:pointer;" onclick="document.getElementById('edit-dd-config-panel').classList.toggle('hidden')">
+                        <span style="color:#f1c40f; font-weight:bold; font-size:16px;">⚙️ DD-Split Intervention Config</span>
+                        <span style="color:#fff;">▼</span>
+                    </div>
+                    <div id="edit-dd-config-panel" class="hidden" style="margin-top:10px; border-top:1px solid #555; padding-top:10px;">
+                        <label style="display:flex; align-items:center; gap:8px; color:#fff; font-size:14px;"><input type="checkbox" id="edit-dd-enable" ${dd.enabled ? 'checked' : ''}> Enable DD-Split</label>
+                        
+                        <label style="color:#aaa; font-size:12px; display:block; margin-top:10px;">Consecutive DDs to Trigger Split</label>
+                        <input type="number" id="edit-dd-threshold" placeholder="Consecutive DDs to Trigger Split" value="${dd.dd_threshold || 3}" style="margin:5px auto; width:100%; font-size:14px; padding:8px;">
+                        
+                        <label style="color:#aaa; font-size:12px; display:block; margin-top:10px;">CC Streak to Rejoin</label>
+                        <input type="number" id="edit-dd-cc-threshold" placeholder="CC Streak to Rejoin" value="${dd.cc_rejoin_threshold || 3}" style="margin:5px auto; width:100%; font-size:14px; padding:8px;">
+                        
+                        <div style="margin-top:10px; padding:10px; background:#1e1e1e; border:1px dashed #8e44ad; border-radius:5px;">
+                            <label style="color:#f1c40f; font-size:14px;">Intervention Bots (Probabilities %)</label>
+                            <div id="edit-dd-intervention-bots-list">
+                                ${(dd.intervention_bots && dd.intervention_bots.length > 0 ? dd.intervention_bots : [{bot:'MirrorBot', probability:100}]).map(b => `
+                                    <div class="dd-bot-row" style="display:flex; gap:10px; margin-top:5px; align-items:center;">
+                                        <select class="dd-bot-type" style="padding:5px; border-radius:5px; flex:2;">
+                                            <option value="MirrorBot" ${b.bot === 'MirrorBot' ? 'selected' : ''}>Mirror Bot</option>
+                                            <option value="TitForTat" ${b.bot === 'TitForTat' ? 'selected' : ''}>Tit-For-Tat</option>
+                                            <option value="Random" ${b.bot === 'Random' ? 'selected' : ''}>Random Bot</option>
+                                            <option value="CBot" ${b.bot === 'CBot' ? 'selected' : ''}>CBot</option>
+                                        </select>
+                                        <input type="number" class="dd-bot-prob" placeholder="%" value="${b.probability}" style="padding:5px; width:60px; border-radius:5px;">
+                                        <button onclick="this.parentElement.remove()" style="background:#e74c3c; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;">X</button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            <button onclick="addDdBotRow('edit-dd-intervention-bots-list')" style="margin-top:10px; background:#3498db; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-size:12px;">+ Add Bot</button>
                         </div>
-                        <button onclick="addDdBotRow('edit-dd-intervention-bots-list')" style="margin-top:10px; background:#3498db; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-size:12px;">+ Add Bot</button>
-                    </div>
 
-                    <div style="margin-top:10px; padding:10px; background:#1e1e1e; border:1px dashed #8e44ad; border-radius:5px;">
-                        <label style="color:#f1c40f; font-size:14px;">MirrorBot Specific Config</label>
-                        <input type="number" id="edit-dd-cooperate-rounds" placeholder="MirrorBot Initial Cooperate Rounds" value="${dd.cooperate_rounds || 3}">
-                        <input type="number" id="edit-dd-mirror-pct" placeholder="MirrorBot Mirror % (0-100)" value="${(dd.mirror_pct || 0.83) * 100}" min="0" max="100">
+                        <div style="margin-top:10px; padding:10px; background:#1e1e1e; border:1px dashed #8e44ad; border-radius:5px;">
+                            <label style="color:#f1c40f; font-size:14px;">MirrorBot Specific Config</label>
+                            <label style="color:#aaa; font-size:12px; display:block; margin-top:5px;">Initial Cooperate Rounds</label>
+                            <input type="number" id="edit-dd-cooperate-rounds" placeholder="MirrorBot Initial Cooperate Rounds" value="${dd.cooperate_rounds || 3}" style="margin:5px auto; width:100%; font-size:14px; padding:8px;">
+                            
+                            <label style="color:#aaa; font-size:12px; display:block; margin-top:5px;">Mirror % (0-100)</label>
+                            <input type="number" id="edit-dd-mirror-pct" placeholder="MirrorBot Mirror % (0-100)" value="${(dd.mirror_pct || 0.83) * 100}" min="0" max="100" style="margin:5px auto; width:100%; font-size:14px; padding:8px;">
+                        </div>
                     </div>
                 </div>
 
-                <label style="color:#e74c3c;">Block Score Config</label>
-                <div style="background:#2c2c2c; padding:10px; border-radius:5px; margin-bottom:15px;">
-                    <label style="display:block; font-weight:normal;"><input type="checkbox" id="edit-block-enable" ${bl.enabled ? 'checked' : ''}> Enable Block Score Cards</label>
-                    <label style="display:block; font-weight:normal;"><input type="checkbox" id="edit-block-show" ${bl.show_on_gameover ? 'checked' : ''}> Show on Game Over Screen</label>
-                    <input type="number" id="edit-block-a" placeholder="Block A Ends at Round" value="${bl.block_a_rounds || 5}">
-                    <input type="number" id="edit-block-b" placeholder="Block B Ends at Round" value="${bl.block_b_rounds || 10}">
+                <div style="margin-top:10px; background:#2c2c2c; padding:10px; border-radius:10px; border:1px solid #555; text-align:left;">
+                    <div style="display:flex; justify-content:space-between; cursor:pointer;" onclick="document.getElementById('edit-block-config-panel').classList.toggle('hidden')">
+                        <span style="color:#2ecc71; font-weight:bold; font-size:16px;">📊 Block Score Splitting Config</span>
+                        <span style="color:#fff;">▼</span>
+                    </div>
+                    <div id="edit-block-config-panel" class="hidden" style="margin-top:10px; border-top:1px solid #555; padding-top:10px;">
+                        <label style="display:flex; align-items:center; gap:8px; color:#fff; font-size:14px;"><input type="checkbox" id="edit-block-enable" ${bl.enabled ? 'checked' : ''}> Enable Block Score Cards</label>
+                        <label style="display:flex; align-items:center; gap:8px; color:#fff; font-size:14px; margin-top:5px;"><input type="checkbox" id="edit-block-show" ${bl.show_on_gameover ? 'checked' : ''}> Show on Game Over Screen</label>
+                        
+                        <label style="color:#aaa; font-size:12px; display:block; margin-top:10px;">Block A Ends at Round</label>
+                        <input type="number" id="edit-block-a" placeholder="Block A Ends at Round" value="${bl.block_a_rounds || 5}" style="margin:5px auto; width:100%; font-size:14px; padding:8px;">
+                        
+                        <label style="color:#aaa; font-size:12px; display:block; margin-top:10px;">Block B Ends at Round</label>
+                        <input type="number" id="edit-block-b" placeholder="Block B Ends at Round" value="${bl.block_b_rounds || 10}" style="margin:5px auto; width:100%; font-size:14px; padding:8px;">
+                    </div>
                 </div>
             `;
             document.getElementById('edit-room-modal-body').innerHTML = html;
