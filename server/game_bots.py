@@ -38,20 +38,6 @@ class TitForTatBot(IBot):
         self.is_first_turn = False
         self.opponent_last_move = opponent_last_choice
 
-class CopycatBot(IBot):
-    def __init__(self):
-        self.is_first_turn = True
-        self.opponent_last_move = 'C'
-
-    def get_choice(self):
-        if self.is_first_turn:
-            return 'C' if random.random() < 0.5 else 'D'
-        return self.opponent_last_move
-
-    def record_result(self, my_last_choice, opponent_last_choice):
-        self.is_first_turn = False
-        self.opponent_last_move = opponent_last_choice
-
 class MirrorBot(IBot):
     def __init__(self, cooperate_rounds=3, mirror_pct=0.83):
         self.cooperate_rounds = cooperate_rounds
@@ -152,7 +138,6 @@ def create_bot(bot_type, is_player_1, session_data):
     if bot_type == 'DBot': return DBot()
     if bot_type == 'Random': return RandomBot()
     if bot_type == 'TitForTat': return TitForTatBot()
-    if bot_type == 'Copycat': return CopycatBot()
     if bot_type == 'MirrorBot':
         return MirrorBot(
             cooperate_rounds=session_data.get('cooperate_rounds', 3),

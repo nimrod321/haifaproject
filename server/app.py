@@ -508,6 +508,7 @@ def export_chained_live_inputs():
         seen_sessions = set()
         
         for r in rooms_rows:
+            room_pwd = r['password']
             c_sess = r['custom_sessions']
             sessions = []
             if c_sess:
@@ -518,11 +519,13 @@ def export_chained_live_inputs():
                 
             for idx, s in enumerate(sessions):
                 s_num = str(s.get('SESSION_NUMBER', s.get('SESSION', s.get('FILE_ID', idx+1)))).strip()
-                if s_num not in seen_sessions:
-                    seen_sessions.add(s_num)
+                unique_key = f"{room_pwd}_{s_num}"
+                if unique_key not in seen_sessions:
+                    seen_sessions.add(unique_key)
                     row_dict = dict(s)
                     if 'SESSION_NUMBER' not in row_dict:
                         row_dict['SESSION_NUMBER'] = s_num
+                    row_dict['ROOM_PASSWORD'] = room_pwd
                     chained_rows.append(row_dict)
         
         if not chained_rows:
@@ -829,7 +832,7 @@ def update_room_settings():
     if not password:
         return jsonify({'error': 'Password required'}), 400
     
-    settings_keys = ['dd_split_config', 'block_config', 'disconnect_timeout', 'allowed_bots', 'bot_wait_time']
+    settings_keys = ['dd_split_config', 'block_config', 'disconnect_timeout', 'allowed_bots', 'bot_wait_time', 'description', 'num_sessions', 'room_type']
     
     db = None
     try:
@@ -2105,26 +2108,55 @@ def check_dd_split(game, game_id, room, room_pw, result):
         game['dd_split_occurred'] = True
         execute_dd_split(game, game_id, room, room_pw, dd_config)
 
-def execute_dd_split(game, game_id, room, room_pw, dd_config):
-    """Split two players into separate Mirror Bot sessions."""
-    from game_bots import MirrorBot
+def choose_intervention_bot(dd_config):
+    import random
+    bots_cfg = dd_config.get('intervention_bots')
+    if not bots_cfg:
+        bots_cfg = [{'bot': 'MirrorBot', 'probability': 100}]
     
+    total = sum(b.get('probability', 0) for b in bots_cfg)
+    bot_name = 'MirrorBot'
+    if total > 0:
+        r = random.uniform(0, total)
+        current = 0
+        for b in bots_cfg:
+            current += b.get('probability', 0)
+            if r <= current:
+                bot_name = b.get('bot', 'MirrorBot')
+                break
+
+    from game_bots import MirrorBot, TitForTatBot, RandomBot, CBot, DBot, SERSBot
+    cooperate_rounds = dd_config.get('cooperate_rounds', 3)
+    mirror_pct = dd_config.get('mirror_pct', 0.83)
+
+    if bot_name == 'MirrorBot':
+        return MirrorBot(cooperate_rounds=cooperate_rounds, mirror_pct=mirror_pct), 'Bot_Mirror'
+    elif bot_name == 'TitForTat':
+        return TitForTatBot(), 'Bot_TitForTat'
+    elif bot_name == 'Random':
+        return RandomBot(), 'Bot_Random'
+    elif bot_name == 'CBot':
+        return CBot(), 'Bot_CBot'
+    elif bot_name == 'DBot':
+        return DBot(), 'Bot_DBot'
+    else:
+        return MirrorBot(cooperate_rounds=cooperate_rounds, mirror_pct=mirror_pct), 'Bot_Mirror'
+
+def execute_dd_split(game, game_id, room, room_pw, dd_config):
+    """Split two players into separate Bot sessions based on DD config."""
     p1 = game['players'][0]
     p2 = game['players'][1]
     split_session = game['session']
-    sessions_list = room.get('sessions') or prison_sessions
     
-    cooperate_rounds = dd_config.get('cooperate_rounds', 3)
-    mirror_pct = dd_config.get('mirror_pct', 0.83)
     cc_rejoin_threshold = dd_config.get('cc_rejoin_threshold', 3)
     
-    # Create Mirror Bot sub-game for Player 1
-    bot1 = MirrorBot(cooperate_rounds=cooperate_rounds, mirror_pct=mirror_pct)
-    sub_game_id_1 = setup_game_state(room, p1, 'Bot_Mirror', room_pw, True, bot1)
+    # Create Bot sub-game for Player 1
+    bot1, bname1 = choose_intervention_bot(dd_config)
+    sub_game_id_1 = setup_game_state(room, p1, bname1, room_pw, True, bot1)
     sub_game_1 = room['active'][sub_game_id_1]
     sub_game_1['session'] = split_session
     sub_game_1['total'][p1] = game['total'].get(p1, 0)
-    sub_game_1['total']['Bot_Mirror'] = 0
+    sub_game_1['total'][bname1] = 0
     sub_game_1['is_mirror_split'] = True
     sub_game_1['original_game_id'] = game_id
     sub_game_1['cc_rejoin_threshold'] = cc_rejoin_threshold
@@ -2133,13 +2165,13 @@ def execute_dd_split(game, game_id, room, room_pw, dd_config):
     sub_game_1['class_codes'] = game.get('class_codes', {})
     sub_game_1['dd_split_occurred'] = True  # Prevent recursive splits
     
-    # Create Mirror Bot sub-game for Player 2
-    bot2 = MirrorBot(cooperate_rounds=cooperate_rounds, mirror_pct=mirror_pct)
-    sub_game_id_2 = setup_game_state(room, p2, 'Bot_Mirror', room_pw, True, bot2)
+    # Create Bot sub-game for Player 2
+    bot2, bname2 = choose_intervention_bot(dd_config)
+    sub_game_id_2 = setup_game_state(room, p2, bname2, room_pw, True, bot2)
     sub_game_2 = room['active'][sub_game_id_2]
     sub_game_2['session'] = split_session
     sub_game_2['total'][p2] = game['total'].get(p2, 0)
-    sub_game_2['total']['Bot_Mirror'] = 0
+    sub_game_2['total'][bname2] = 0
     sub_game_2['is_mirror_split'] = True
     sub_game_2['original_game_id'] = game_id
     sub_game_2['cc_rejoin_threshold'] = cc_rejoin_threshold
@@ -2283,20 +2315,24 @@ def calculate_block_scores(game, room, room_pw):
         rows = db.execute('SELECT trial, p1_points, p2_points FROM prison_games WHERE game_id = ? ORDER BY trial', (game_id,)).fetchall()
         
         p1_block_a = 0
+        p2_block_a = 0
         p1_block_b = 0
+        p2_block_b = 0
         for r in rows:
             trial = r['trial']
             if trial <= block_a_end:
                 p1_block_a += r['p1_points']
+                p2_block_a += r['p2_points']
             if trial >= block_b_start:
                 p1_block_b += r['p1_points']
+                p2_block_b += r['p2_points']
         
         max_rounds = room['settings']['num_sessions']
         return {
             'enabled': True,
             'show_on_gameover': True,
-            'block_a': {'label': 'Block A', 'rounds': f'1-{block_a_end}', 'score': p1_block_a},
-            'block_b': {'label': 'Block B', 'rounds': f'{block_b_start}-{max_rounds}', 'score': p1_block_b}
+            'block_a': {'label': 'Block A', 'rounds': f'1-{block_a_end}', 'p1_score': p1_block_a, 'p2_score': p2_block_a},
+            'block_b': {'label': 'Block B', 'rounds': f'{block_b_start}-{max_rounds}', 'p1_score': p1_block_b, 'p2_score': p2_block_b}
         }
     except Exception as e:
         print(f'[Block] Score calculation error: {e}')
@@ -2387,12 +2423,21 @@ def archive_and_wipe_logs():
         if not logs:
             return 0
         
+        users_rows = db.execute('SELECT id, username FROM users').fetchall()
+        user_map = {r['username']: f"User_{r['id']}" for r in users_rows}
+        
         rooms_data = {}
         for r in logs:
-            pw = r['room_password']
+            r_dict = dict(r)
+            if r_dict['player1'] in user_map:
+                r_dict['player1'] = user_map[r_dict['player1']]
+            if r_dict['player2'] in user_map:
+                r_dict['player2'] = user_map[r_dict['player2']]
+                
+            pw = r_dict['room_password']
             if pw not in rooms_data:
                 rooms_data[pw] = []
-            rooms_data[pw].append(r)
+            rooms_data[pw].append(r_dict)
             
         os.makedirs('/home/ubuntu/haifa_project/server/storage/logs', exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
