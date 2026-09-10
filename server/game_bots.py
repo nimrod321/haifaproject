@@ -122,15 +122,15 @@ class SERSBot(IBot):
         return self.next_choice
 
     def record_result(self, my_last_choice, opponent_last_choice):
-        if self.is_player_1:
-            my_meaning = self.p1_A_meaning if my_last_choice == 'C' else "defect"
-            op_meaning = self.p2_A_meaning if opponent_last_choice == 'C' else "defect"
-            self.session_history.append({'p1': my_meaning, 'p2': op_meaning})
-        else:
-            my_meaning = self.p2_A_meaning if my_last_choice == 'C' else "defect"
-            op_meaning = self.p1_A_meaning if opponent_last_choice == 'C' else "defect"
-            self.session_history.append({'p1': op_meaning, 'p2': my_meaning})
+        def get_btn(choice, meaning):
+            is_a_c = str(meaning).lower().startswith('c')
+            if choice == 'C': return 'A' if is_a_c else 'B'
+            return 'B' if is_a_c else 'A'
             
+        p1_btn = get_btn(my_last_choice, self.p1_A_meaning) if self.is_player_1 else get_btn(opponent_last_choice, self.p1_A_meaning)
+        p2_btn = get_btn(opponent_last_choice, self.p2_A_meaning) if self.is_player_1 else get_btn(my_last_choice, self.p2_A_meaning)
+        
+        self.session_history.append({'p1': p1_btn, 'p2': p2_btn})
         self.calculate_next_choice()
 
 def create_bot(bot_type, is_player_1, session_data):

@@ -2757,5 +2757,18 @@ def handle_leave_game(data):
         else:
             emit('left_game', {'message': 'No active game found'})
 
+@socketio.on('admin_terminate_game')
+def handle_admin_terminate_game(data):
+    password = data.get('password')
+    game_id = data.get('game_id')
+    with game_lock:
+        if password in rooms and 'active' in rooms[password] and game_id in rooms[password]['active']:
+            game = rooms[password]['active'][game_id]
+            for p in game['players']:
+                if p in connected_users:
+                    emit('game_terminated', {'message': 'Session terminated by admin'}, room=connected_users[p])
+            del rooms[password]['active'][game_id]
+            socketio.emit('admin_update', {'type': 'room_state_change'}, room='admin_room')
+
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)

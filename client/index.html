@@ -952,6 +952,14 @@
             handleRoundResult(result);
         });
 
+        socket.on('game_terminated', function(data) {
+            clearInterval(roundPollInterval);
+            document.getElementById('game').classList.add('hidden');
+            document.getElementById('room-lobby').classList.add('hidden');
+            document.getElementById('player-lobby').classList.remove('hidden');
+            customAlert(data.message);
+        });
+
         socket.on('opponent_disconnected', function(data) {
             const banner = document.getElementById('disconnect-banner');
             if (banner) {
@@ -1056,9 +1064,11 @@
         function showLoading(t) { const o=document.querySelector('#loading-overlay'); o.style.display='flex'; o.querySelector('#loading-text').textContent=t; }
         function hideLoading() { document.querySelector('#loading-overlay').style.display='none'; }
         
-        function customAlert(msg) {
+        function customAlert(msg, type = 'error') {
             const ab = document.getElementById('custom-alert-box');
-            ab.textContent = msg; ab.style.display = 'block';
+            ab.textContent = msg;
+            ab.style.backgroundColor = (type === 'success') ? 'rgba(52, 152, 219, 0.95)' : 'rgba(231, 76, 60, 0.95)';
+            ab.style.display = 'block';
             setTimeout(() => { ab.style.opacity = '1'; }, 10);
             setTimeout(() => { 
                 ab.style.opacity = '0'; 
@@ -1176,7 +1186,7 @@
                 const res = await fetch('/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p, security_house_number: house, security_birth_day: birth, security_phone_digits: phone }) });
                 const data = await res.json(); 
                 hideLoading();
-                if (res.ok) { customAlert('Account created! Please login.'); hideSignupForm(); } else { customAlert(data.error); }
+                if (res.ok) { customAlert('Account created! Please login.', 'success'); hideSignupForm(); } else { customAlert(data.error); }
             } catch (e) {
                 hideLoading();
                 customAlert('Server connection error. Please refresh and try again.');
@@ -1399,6 +1409,12 @@
         
         let adminRoomsData = [];
 
+        function terminateSession(roomPw, gameId) {
+            if(confirm('Terminate this session?')) {
+                socket.emit('admin_terminate_game', {password: roomPw, game_id: gameId});
+            }
+        }
+
         async function loadAdminRooms() {
             const res = await fetch('/get_rooms'); 
             const data = await res.json();
@@ -1412,7 +1428,7 @@
 
             data.forEach(room => {
                 let currentQueued = room.queued_players || 0;
-                let currentActiveGames = (room.active_pairs ? room.active_pairs.length : 0);
+                let currentActiveGames = (room.games ? room.games.length : 0);
                 queuedPlayers += currentQueued;
                 activeGames += currentActiveGames;
 
@@ -1422,8 +1438,12 @@
                 let typeHtml = `<span style="color:#cd3ace;">Type: <strong>${room.room_type || 'MIXED'}</strong> | Rounds: ${room.num_sessions}</span>`;
                 
                 let activePairsHtml = `<ul style="list-style-type:none; padding:0; margin:0; font-size:14px; color:#ccc;">`;
-                if(room.active_pairs && room.active_pairs.length > 0) {
-                    room.active_pairs.forEach(p => { activePairsHtml += `<li>${p.p1} vs ${p.p2}</li>`; });
+                if(room.games && room.games.length > 0) {
+                    room.games.forEach(g => { 
+                        activePairsHtml += `<li style="margin-bottom: 5px;">${g.players[0]} vs ${g.players[1]} 
+                        <button onclick="terminateSession('${room.password}', '${g.game_id}')" style="background:#e74c3c; color:white; border:none; border-radius:3px; cursor:pointer; font-size:11px; padding:2px 6px; margin-left:10px;">Terminate</button>
+                        </li>`; 
+                    });
                 } else {
                     activePairsHtml += `<li>No active games.</li>`;
                 }
