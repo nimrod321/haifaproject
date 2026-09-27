@@ -88,22 +88,12 @@ class SERSBot(IBot):
         ps = self.calculate_ps()
         EV_A = 0.0
         EV_B = 0.0
-        same_meaning = (self.p1_A_meaning == self.p2_A_meaning)
-
         if self.is_player_1:
-            if same_meaning:
-                EV_A = ps * self.AA1 + (1.0 - ps) * self.AB1
-                EV_B = ps * self.BB1 + (1.0 - ps) * self.BA1
-            else:
-                EV_A = ps * self.AB1 + (1.0 - ps) * self.AA1
-                EV_B = ps * self.BA1 + (1.0 - ps) * self.BB1
+            EV_A = ps * self.AA1 + (1.0 - ps) * self.AB1
+            EV_B = ps * self.BB1 + (1.0 - ps) * self.BA1
         else:
-            if same_meaning:
-                EV_A = ps * self.AA2 + (1.0 - ps) * self.BA2
-                EV_B = ps * self.BB2 + (1.0 - ps) * self.AB2
-            else:
-                EV_A = ps * self.BA2 + (1.0 - ps) * self.AA2
-                EV_B = ps * self.AB2 + (1.0 - ps) * self.BB2
+            EV_A = ps * self.AA2 + (1.0 - ps) * self.BA2
+            EV_B = ps * self.BB2 + (1.0 - ps) * self.AB2
 
         if EV_A > EV_B:
             best_button = 'A'
@@ -133,15 +123,19 @@ class SERSBot(IBot):
         self.session_history.append({'p1': p1_btn, 'p2': p2_btn})
         self.calculate_next_choice()
 
-def create_bot(bot_type, is_player_1, session_data):
+def create_bot(bot_type, is_player_1, session_data, room_settings=None):
     if bot_type == 'CBot': return CBot()
     if bot_type == 'DBot': return DBot()
     if bot_type == 'Random': return RandomBot()
     if bot_type == 'TitForTat': return TitForTatBot()
     if bot_type == 'MirrorBot':
+        default_pct = 0.6
+        if room_settings and 'mirror_pct' in room_settings:
+            default_pct = room_settings['mirror_pct']
+            
         return MirrorBot(
             cooperate_rounds=session_data.get('cooperate_rounds', 3),
-            mirror_pct=session_data.get('mirror_pct', 0.83)
+            mirror_pct=session_data.get('mirror_pct', default_pct)
         )
     
     if bot_type.startswith('SERS_'):

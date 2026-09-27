@@ -358,6 +358,7 @@ def create_room():
     dd_split_config = data.get('dd_split_config')
     block_config = data.get('block_config')
     disconnect_timeout = data.get('disconnect_timeout', 60)
+    bot_wait_time = data.get('bot_wait_time', 30)
     
     if custom_sessions:
         cleaned_list = []
@@ -384,9 +385,9 @@ def create_room():
         if existing:
             return jsonify({'error': 'Room already exists'}), 400
             
-        db.execute('''INSERT INTO prison_rooms (password, num_sessions, allowed_bots, custom_sessions, description, room_type, max_games, dd_split_config, block_config, disconnect_timeout)
-                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
-                   (password, num_sessions, json.dumps(allowed_bots), json.dumps(custom_sessions) if custom_sessions else None, description, room_type, max_games, json.dumps(dd_split_config) if dd_split_config else None, json.dumps(block_config) if block_config else None, int(disconnect_timeout)))
+        db.execute('''INSERT INTO prison_rooms (password, num_sessions, allowed_bots, custom_sessions, description, room_type, max_games, dd_split_config, block_config, disconnect_timeout, bot_wait_time)
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
+                   (password, num_sessions, json.dumps(allowed_bots), json.dumps(custom_sessions) if custom_sessions else None, description, room_type, max_games, json.dumps(dd_split_config) if dd_split_config else None, json.dumps(block_config) if block_config else None, int(disconnect_timeout), int(bot_wait_time)))
         
         if filename and custom_sessions:
             archive_input_file(filename, custom_sessions, db)
@@ -402,11 +403,11 @@ def create_room():
 
 @app.route('/get_rooms', methods=['GET'])
 def get_rooms():
-    room_list = []
     db = None
+    room_list = []
     try:
         db = get_db()
-        db_rooms = db.execute('SELECT password, description, room_type, allowed_bots, max_games FROM prison_rooms').fetchall()
+        db_rooms = db.execute('SELECT password, description, room_type, allowed_bots, max_games, num_sessions, dd_split_config, block_config, bot_wait_time FROM prison_rooms').fetchall()
         for r in db_rooms:
             password = r['password']
             description = r['description']
@@ -421,6 +422,11 @@ def get_rooms():
                         'session': game.get('session', 0)
                     })
                     
+            # Fetch queued players
+            queued_list = []
+            if password in rooms and 'queue' in rooms[password]:
+                queued_list = rooms[password]['queue']
+
             # Fetch player play counts
             play_counts = {}
             cursor = db.execute('''
@@ -440,9 +446,15 @@ def get_rooms():
             room_list.append({
                 'password': password,
                 'description': description,
+                'queue': queued_list,
+                'queued_players': len(queued_list),
                 'room_type': r['room_type'] if 'room_type' in r.keys() else 'MIXED',
                 'allowed_bots': r['allowed_bots'] if 'allowed_bots' in r.keys() else '[]',
                 'max_games': r['max_games'] if 'max_games' in r.keys() else 1,
+                'num_sessions': r['num_sessions'] if 'num_sessions' in r.keys() else 10,
+                'dd_split_config': json.loads(r['dd_split_config']) if 'dd_split_config' in r.keys() and r['dd_split_config'] else None,
+                'block_config': json.loads(r['block_config']) if 'block_config' in r.keys() and r['block_config'] else None,
+                'bot_wait_time': r['bot_wait_time'] if 'bot_wait_time' in r.keys() else 30,
                 'active_games': len(active_games_list),
                 'games': active_games_list,
                 'player_counts': play_counts
@@ -613,12 +625,13 @@ def get_room_logs():
         rows = cursor.fetchall()
         
         logs = []
-        for r in rows:
+            sys1 = r['p1_system_id'] if r['p1_system_id'] else (r['player1'] if r['player1'].startswith('Bot_') else r['player1'])
+            sys2 = r['p2_system_id'] if r['p2_system_id'] else (r['player2'] if r['player2'].startswith('Bot_') else r['player2'])
             logs.append({
                 'game_id': r['game_id'],
                 'trial': r['trial'] if 'trial' in r.keys() else '',
-                'player1': r['player1'],
-                'player2': r['player2'],
+                'system_id1': sys1,
+                'system_id2': sys2,
                 'p1_choice': r['p1_choice'],
                 'p2_choice': r['p2_choice'],
                 'code': r['code'],
@@ -627,10 +640,6 @@ def get_room_logs():
                 'session_number': r['file_id'] if 'file_id' in r.keys() else '',
                 'matrix_id': r['matrix_id'] if 'matrix_id' in r.keys() else '',
                 'timestamp': r['timestamp'] if 'timestamp' in r.keys() else '',
-                'p1_system_id': r['p1_system_id'] if 'p1_system_id' in r.keys() else '',
-                'p2_system_id': r['p2_system_id'] if 'p2_system_id' in r.keys() else '',
-                'p1_anon_id': r['p1_anon_id'] if 'p1_anon_id' in r.keys() else '',
-                'p2_anon_id': r['p2_anon_id'] if 'p2_anon_id' in r.keys() else '',
                 'p1_class_code': r['p1_class_code'] if 'p1_class_code' in r.keys() else '',
                 'p2_class_code': r['p2_class_code'] if 'p2_class_code' in r.keys() else '',
                 'session_status': r['session_status'] if 'session_status' in r.keys() else '',
@@ -832,7 +841,7 @@ def update_room_settings():
     if not password:
         return jsonify({'error': 'Password required'}), 400
     
-    settings_keys = ['dd_split_config', 'block_config', 'disconnect_timeout', 'allowed_bots', 'bot_wait_time', 'description', 'num_sessions', 'room_type']
+    settings_keys = ['dd_split_config', 'block_config', 'disconnect_timeout', 'allowed_bots', 'bot_wait_time', 'description', 'num_sessions', 'room_type', 'max_games']
     
     db = None
     try:
@@ -907,9 +916,8 @@ def update_room_file():
         
         if password in rooms:
             rooms[password]['sessions'] = json.loads(sess_str)
-            rooms[password]['settings']['num_sessions'] = len(rooms[password]['sessions'])
-            db.execute('UPDATE prison_rooms SET num_sessions = ? WHERE password = ?', (len(rooms[password]['sessions']), password))
-            db.commit()
+            # Do NOT aggressively overwrite num_sessions here anymore.
+            # Allow the user's explicit num_sessions setting to persist.
             
         return jsonify({'message': 'Room file updated successfully!'})
     except Exception as e:
@@ -1505,7 +1513,7 @@ def start_game_human_vs_bot(room, username, pw):
     bots_name = f"Bot_{bot_type}"
     
     sessions_list = room.get('sessions') or prison_sessions
-    bot_obj = create_bot(bot_type, False, sessions_list[0])
+    bot_obj = create_bot(bot_type, False, sessions_list[0], room.get('settings', {}))
     
     game_id = setup_game_state(room, username, bots_name, pw, True, bot_obj)
     
@@ -1688,9 +1696,9 @@ def resolve_round(game, game_id, room):
         p1_cc = class_codes.get(player1, '')
         p2_cc = class_codes.get(player2, '')
         
-        db.execute('''INSERT INTO prison_games (game_id, trial, player1, player2, p1_choice, p2_choice, code, p1_points, p2_points, room_password, matrix_id, file_id, p1_system_id, p2_system_id, p1_class_code, p2_class_code, p1_anon_id, p2_anon_id, session_status, original_game_id)
-                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                   (game_id, session_idx + 1, player1, player2, p1_choice, p2_choice, code, p1_score, p2_score, room_pwd, mat_id, file_id, p1_sys_id, p2_sys_id, p1_cc, p2_cc, p1_anon_id, p2_anon_id, game.get('session_status', 'normal'), game.get('original_game_id')))
+        db.execute('''INSERT INTO prison_games (game_id, trial, player1, player2, p1_choice, p2_choice, code, p1_points, p2_points, room_password, matrix_id, file_id, p1_system_id, p2_system_id, p1_class_code, p2_class_code, p1_anon_id, p2_anon_id, session_status, original_game_id, split_reason)
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                   (game_id, session_idx + 1, player1, player2, p1_choice, p2_choice, code, p1_score, p2_score, room_pwd, mat_id, file_id, p1_sys_id, p2_sys_id, p1_cc, p2_cc, p1_anon_id, p2_anon_id, game.get('session_status', 'normal'), game.get('original_game_id'), game.get('split_reason', '')))
         db.commit()
     except Exception as e:
         print(f"[Game] DB Error: {e}")
@@ -1867,17 +1875,15 @@ def start_disconnect_timers(username, game, game_id, room, room_pw, timeout=60):
             session_idx = game['session']
             if session_idx >= len(sessions_list):
                 session_idx = len(sessions_list) - 1
-            bot_obj = create_bot(bot_type, False, sessions_list[session_idx])
+            bot_obj = create_bot(bot_type, False, sessions_list[session_idx], room.get('settings', {}))
             
             game['is_bot'] = True
             game['bot_obj'] = bot_obj
+            game['split_reason'] = 'Disconnection'
             # Replace the disconnected player's name with bot name
             dc_idx = game['players'].index(username)
             game['players'][dc_idx] = f'Bot_{bot_type}'
             game['total'][f'Bot_{bot_type}'] = game['total'].pop(username, 0)
-            
-            if opponent in user_sockets and not opponent.startswith('Bot_'):
-                socketio.emit('bot_stepped_in', {'message': 'Your opponent has been replaced.'}, room=user_sockets[opponent])
             
             print(f"[Disconnect] {opponent} now playing with Bot_{bot_type}")
     
@@ -1926,7 +1932,7 @@ def handle_reconnection(username):
             session_start = info['session_at_disconnect']
             if session_start >= len(sessions_list):
                 session_start = len(sessions_list) - 1
-            bot_obj = create_bot(bot_type, False, sessions_list[session_start])
+            bot_obj = create_bot(bot_type, False, sessions_list[session_start], room.get('settings', {}))
             
             new_game_id = setup_game_state(room, username, f'Bot_{bot_type}', room_pw, True, bot_obj)
             new_game = room['active'][new_game_id]
@@ -2179,6 +2185,9 @@ def execute_dd_split(game, game_id, room, room_pw, dd_config):
     sub_game_2['split_partner'] = p1
     sub_game_2['class_codes'] = game.get('class_codes', {})
     sub_game_2['dd_split_occurred'] = True
+    
+    sub_game_1['split_reason'] = 'Defection'
+    sub_game_2['split_reason'] = 'Defection'
     
     # Link sub-games to each other
     sub_game_1['partner_sub_game_id'] = sub_game_id_2
@@ -2508,10 +2517,6 @@ def handle_disconnect():
                     if username not in disconnected_players:
                         disconnect_timeout = room['settings'].get('disconnect_timeout', 60)
                         start_disconnect_timers(username, game, gid, room, pw, disconnect_timeout)
-                        # Notify opponent
-                        opponent = game['players'][0] if game['players'][1] == username else game['players'][1]
-                        if opponent in user_sockets and not opponent.startswith('Bot_'):
-                            socketio.emit('opponent_disconnected', {'timeout': disconnect_timeout}, room=user_sockets[opponent])
 
 @socketio.on('join_queue')
 def handle_join_queue(data):
@@ -2744,7 +2749,7 @@ def handle_leave_game(data):
             session_idx = game['session']
             if session_idx >= len(sessions_list):
                 session_idx = len(sessions_list) - 1
-            bot_obj = create_bot(bot_type, False, sessions_list[session_idx])
+            bot_obj = create_bot(bot_type, False, sessions_list[session_idx], room.get('settings', {}))
             
             dc_idx = game['players'].index(username)
             bot_name = f'Bot_{bot_type}'

@@ -291,16 +291,19 @@
           backdrop-filter: blur(14px);
           border: 5px solid #f1c40f;
           border-radius: 26px;
-          padding: 16px 54px;
+          padding: 16px 20px;
           text-align: center;
+          width: 90%;
+          max-width: 450px;
+          box-sizing: border-box;
           opacity: 0;
           transition: opacity 0.5s ease, transform 0.6s cubic-bezier(0.175,0.885,0.32,1.275);
           box-shadow: 0 0 50px rgba(241,196,15,0.6), 0 10px 40px rgba(0,0,0,0.6);
           pointer-events: none;
         }
         #score-banner.show { opacity: 1; transform: translateX(-50%) scale(1); }
-        #score-banner .lbl { font-size: 22px; color: #aaa; display: block; margin-bottom: 4px; }
-        #score-banner .val { font-size: 76px; color: #f1c40f; text-shadow: 4px 4px 0 #7a3d00, 0 0 30px rgba(255,200,0,0.9); display: block; }
+        #score-banner .lbl { font-size: clamp(16px, 4vw, 22px); color: #aaa; display: block; margin-bottom: 4px; line-height: 1.2; }
+        #score-banner .val { font-size: clamp(40px, 12vw, 76px); color: #f1c40f; text-shadow: 4px 4px 0 #7a3d00, 0 0 30px rgba(255,200,0,0.9); display: block; line-height: 1.1; word-wrap: break-word; }
 
         /* CHEST IMAGE */
         #chest-container {
@@ -501,7 +504,7 @@
                 <h2 style="color: #f1c40f; text-align: center; font-size: 32px; text-shadow: 0 0 10px rgba(142,68,173,0.8); margin-bottom: 30px;">Admin Panel</h2>
                 
                 <button class="admin-nav-btn active" onclick="switchAdminSidebar('dashboard')" style="background:transparent; border:none; color:#fff; font-size:22px; text-align:left; padding:15px 25px; cursor:pointer; width:100%; transition:all 0.2s;">Dashboard</button>
-                <button class="admin-nav-btn" onclick="switchAdminSidebar('room-manager')" style="background:transparent; border:none; color:#fff; font-size:22px; text-align:left; padding:15px 25px; cursor:pointer; width:100%; transition:all 0.2s;">Room Manager</button>
+                <button class="admin-nav-btn" onclick="switchAdminSidebar('room-manager')" style="background:transparent; border:none; color:#fff; font-size:22px; text-align:left; padding:15px 25px; cursor:pointer; width:100%; transition:all 0.2s;">Create Room</button>
                 <button class="admin-nav-btn" onclick="switchAdminSidebar('live-inputs')" style="background:transparent; border:none; color:#fff; font-size:22px; text-align:left; padding:15px 25px; cursor:pointer; width:100%; transition:all 0.2s;">Live Input Files</button>
                 <button class="admin-nav-btn" onclick="switchAdminSidebar('player-identity')" style="background:transparent; border:none; color:#fff; font-size:22px; text-align:left; padding:15px 25px; cursor:pointer; width:100%; transition:all 0.2s;">Player Identity</button>
                 <button class="admin-nav-btn" onclick="switchAdminSidebar('data-logs')" style="background:transparent; border:none; color:#fff; font-size:22px; text-align:left; padding:15px 25px; cursor:pointer; width:100%; transition:all 0.2s;">Data & Logs</button>
@@ -542,7 +545,7 @@
 
                 <!-- Room Manager Section (contains creation form) -->
                 <div id="admin-sec-room-manager" class="admin-section hidden">
-                    <h2 style="color: #f1c40f; text-align: left; border-bottom: 2px solid #8e44ad; padding-bottom: 10px;">Room Manager</h2>
+                    <h2 style="color: #f1c40f; text-align: left; border-bottom: 2px solid #8e44ad; padding-bottom: 10px;">Create Room</h2>
                     
                     <div style="background: #1e1e1e; border: 2px solid #333; border-radius: 15px; padding: 20px; max-width: 800px; margin-top: 20px;">
                         <h3 style="color:#9b59b6; margin-top:0; border-bottom:1px solid #444; padding-bottom:5px;">Basic Room Settings</h3>
@@ -580,6 +583,12 @@
                             <div class="bot-line"><label style="display:flex; align-items:center; gap:8px; color:white;"><input type="checkbox" class="bot-check" value="SERS_3"> SERS Bot (3 Mem)</label></div>
                             <div class="bot-line"><label style="display:flex; align-items:center; gap:8px; color:white;"><input type="checkbox" class="bot-check" value="SERS_5" checked> SERS Bot (5 Mem)</label></div>
                             <div class="bot-line"><label style="display:flex; align-items:center; gap:8px; color:white;"><input type="checkbox" class="bot-check" value="MirrorBot"> Mirror Bot</label></div>
+                        </div>
+
+                        <label style="color:#f1c40f; font-size:14px; display:block; margin-top:10px; text-align:left;">Disconnect Timeout & Bot Wait Time (s)</label>
+                        <div style="display:flex; gap:10px; margin-top:5px;">
+                            <input type="number" id="admin-disconnect-timeout" placeholder="Disconnect Timeout" value="60" style="width:100%; font-size:14px; padding:8px;" title="Disconnect Timeout (s)">
+                            <input type="number" id="admin-bot-wait" placeholder="Bot Wait Time" value="10" style="width:100%; font-size:14px; padding:8px;" title="Bot Wait Time (s)">
                         </div>
 
                         <h3 style="color:#9b59b6; margin-top:20px; border-bottom:1px solid #444; padding-bottom:5px;">Advanced Mechanics</h3>
@@ -629,7 +638,7 @@
                                 <label style="display:flex; align-items:center; gap:8px; color:#fff; font-size:14px;"><input type="checkbox" id="block-score-enable"> Enable Block Score Cards</label>
                                 <label style="display:flex; align-items:center; gap:8px; color:#fff; font-size:14px; margin-top:5px;"><input type="checkbox" id="block-show-gameover" checked> Show on Game Over Screen</label>
                                 <input type="number" id="block-a-max" placeholder="Block A Ends at Round (e.g. 5)" style="margin:5px auto; width:100%; font-size:14px; padding:8px;">
-                                <input type="number" id="block-b-max" placeholder="Block B Ends at Round (e.g. 10)" style="margin:5px auto; width:100%; font-size:14px; padding:8px;">
+                                <input type="number" id="block-b-max" placeholder="Block B Starts at Round (e.g. 6)" style="margin:5px auto; width:100%; font-size:14px; padding:8px;">
                             </div>
                         </div>
 
@@ -1067,7 +1076,7 @@
         function customAlert(msg, type = 'error') {
             const ab = document.getElementById('custom-alert-box');
             ab.textContent = msg;
-            ab.style.backgroundColor = (type === 'success') ? 'rgba(52, 152, 219, 0.95)' : 'rgba(231, 76, 60, 0.95)';
+            ab.style.backgroundColor = (type === 'success') ? 'rgba(46, 204, 113, 0.95)' : 'rgba(231, 76, 60, 0.95)';
             ab.style.display = 'block';
             setTimeout(() => { ab.style.opacity = '1'; }, 10);
             setTimeout(() => { 
@@ -1310,8 +1319,11 @@
             const desc = document.getElementById('admin-room-description').value;
             const roomType = document.getElementById('admin-room-type').value;
             const maxGames = parseInt(document.getElementById('admin-room-max-games').value) || 1;
+            const disconnectTimeout = parseInt(document.getElementById('admin-disconnect-timeout').value) || 60;
+            const botWaitTime = parseInt(document.getElementById('admin-bot-wait').value) || 10;
             if(!pw) return customAlert('Password required');
             const bots = []; document.querySelectorAll('.bot-check').forEach(c => { if(c.checked) bots.push(c.value); });
+            if (bots.length === 0) bots.push('MirrorBot');
 
             let sess = null; 
             let fname = null;
@@ -1348,8 +1360,8 @@
             const blockConfig = {
                 enabled: document.getElementById('block-score-enable').checked,
                 show_on_gameover: document.getElementById('block-show-gameover').checked,
-                block_a_rounds: parseInt(document.getElementById('block-a-max').value) || 5,
-                block_b_rounds: parseInt(document.getElementById('block-b-max').value) || 10
+                block_a_end: parseInt(document.getElementById('block-a-max').value) || 5,
+                block_b_start: parseInt(document.getElementById('block-b-max').value) || 6
             };
 
             const res = await fetch('/create_room', { 
@@ -1366,12 +1378,15 @@
                     max_games: maxGames,
                     dd_split_config: ddConfig,
                     block_config: blockConfig,
-                    disconnect_timeout: 60
+                    disconnect_timeout: disconnectTimeout,
+                    bot_wait_time: botWaitTime
                 }) 
             });
             
             if(res.ok) {
                 document.getElementById('admin-room-password').value = '';
+                document.getElementById('admin-room-rounds').value = 10;
+                document.getElementById('admin-room-max-games').value = 1;
                 adminShowSuccessModal(`Room "${pw}" created successfully!`);
                 loadAdminRooms();
                 document.getElementById('admin-room-description').value = '';
@@ -1495,6 +1510,7 @@
         socket.on('admin_update', (data) => {
             if(currentUserRole === 'admin') {
                 loadAdminRooms();
+                loadAdminPlayers();
             }
         });
 
@@ -1721,10 +1737,10 @@
                         <label style="display:flex; align-items:center; gap:8px; color:#fff; font-size:14px; margin-top:5px;"><input type="checkbox" id="edit-block-show" ${bl.show_on_gameover ? 'checked' : ''}> Show on Game Over Screen</label>
                         
                         <label style="color:#aaa; font-size:12px; display:block; margin-top:10px;">Block A Ends at Round</label>
-                        <input type="number" id="edit-block-a" placeholder="Block A Ends at Round" value="${bl.block_a_rounds || 5}" style="margin:5px auto; width:100%; font-size:14px; padding:8px;">
+                        <input type="number" id="edit-block-a" placeholder="Block A Ends at Round" value="${bl.block_a_end || 5}" style="margin:5px auto; width:100%; font-size:14px; padding:8px;">
                         
-                        <label style="color:#aaa; font-size:12px; display:block; margin-top:10px;">Block B Ends at Round</label>
-                        <input type="number" id="edit-block-b" placeholder="Block B Ends at Round" value="${bl.block_b_rounds || 10}" style="margin:5px auto; width:100%; font-size:14px; padding:8px;">
+                        <label style="color:#aaa; font-size:12px; display:block; margin-top:10px;">Block B Starts at Round</label>
+                        <input type="number" id="edit-block-b" placeholder="Block B Starts at Round" value="${bl.block_b_start || 6}" style="margin:5px auto; width:100%; font-size:14px; padding:8px;">
                     </div>
                 </div>
             `;
@@ -1761,8 +1777,8 @@
             const blockConfig = {
                 enabled: document.getElementById('edit-block-enable').checked,
                 show_on_gameover: document.getElementById('edit-block-show').checked,
-                block_a_rounds: parseInt(document.getElementById('edit-block-a').value) || 5,
-                block_b_rounds: parseInt(document.getElementById('edit-block-b').value) || 10
+                block_a_end: parseInt(document.getElementById('edit-block-a').value) || 5,
+                block_b_start: parseInt(document.getElementById('edit-block-b').value) || 6
             };
 
             try {
@@ -2255,12 +2271,13 @@
                 if (filterUser && !p.username.toLowerCase().includes(filterUser)) return;
                 
                 const item = document.createElement('div'); item.className='room-item'; item.style.display = 'flex'; item.style.justifyContent = 'space-between'; item.style.alignItems = 'center';
+                const safeUsername = p.username.replace(/'/g, "\\'");
                 item.innerHTML = `<span><strong>${p.username}</strong> | Sessions: ${p.session_counter}</span> 
                     <div style="display:flex; gap:5px;">
-                        <button class="btn-small" style="background:#3498db;" onclick="inspectPlayer('${p.username}')">Inspect</button>
-                        <button class="btn-small" style="background:#e67e22;" onclick="banPlayerPrompt('${p.username}', 'CLASS')">Ban Class</button>
-                        <button class="btn-small" style="background:#e74c3c;" onclick="banPlayerPrompt('${p.username}', 'ROOM')">Ban Room</button>
-                        <button class="btn-small btn-danger" onclick="banPlayerPrompt('${p.username}', 'GLOBAL')">Ban Global</button>
+                        <button class="btn-small" style="background:#3498db;" onclick="inspectPlayer('${safeUsername}')">Inspect</button>
+                        <button class="btn-small" style="background:#e67e22;" onclick="banPlayerPrompt('${safeUsername}', 'CLASS')">Ban Class</button>
+                        <button class="btn-small" style="background:#e74c3c;" onclick="banPlayerPrompt('${safeUsername}', 'ROOM')">Ban Room</button>
+                        <button class="btn-small btn-danger" onclick="banPlayerPrompt('${safeUsername}', 'GLOBAL')">Ban Global</button>
                     </div>`;
                 list.appendChild(item);
             });
@@ -2668,9 +2685,8 @@
           await wait(600);
 
           // Phase 5: Score banner + counter
-          // HIDING TOTAL SCORE FOR NOW
-          // document.getElementById('score-banner').classList.add('show');
-          // await animCount(document.getElementById('score-val'), score);
+          document.getElementById('score-banner').classList.add('show');
+          await animCount(document.getElementById('score-val'), score);
           await wait(500);
 
           // Phase 6: Lid opens
