@@ -644,7 +644,6 @@
                             <div id="block-config-panel" class="hidden" style="margin-top:10px; border-top:1px solid #555; padding-top:10px;">
                                 <p style="color:#aaa; font-size:12px; margin-bottom:10px; margin-top:0;">Splits the game into blocks for detailed end-of-game score cards.</p>
                                 <label style="display:flex; align-items:center; gap:8px; color:#fff; font-size:14px;"><input type="checkbox" id="block-score-enable"> Enable Block Score Cards</label>
-                                <label style="display:flex; align-items:center; gap:8px; color:#fff; font-size:14px; margin-top:5px;"><input type="checkbox" id="block-show-gameover" checked> Show on Game Over Screen</label>
                                 <input type="number" id="block-a-max" placeholder="Block A Ends at Round (e.g. 5)" style="margin:5px auto; width:100%; font-size:14px; padding:8px;">
                                 <input type="number" id="block-b-max" placeholder="Block B Starts at Round (e.g. 6)" style="margin:5px auto; width:100%; font-size:14px; padding:8px;">
                             </div>
@@ -1370,7 +1369,7 @@
 
             const blockConfig = {
                 enabled: document.getElementById('block-score-enable').checked,
-                show_on_gameover: document.getElementById('block-show-gameover').checked,
+                show_on_gameover: true,
                 block_a_end: parseInt(document.getElementById('block-a-max').value) || 5,
                 block_b_start: parseInt(document.getElementById('block-b-max').value) || 6
             };
@@ -1747,7 +1746,6 @@
                     </div>
                     <div id="edit-block-config-panel" class="hidden" style="margin-top:10px; border-top:1px solid #555; padding-top:10px;">
                         <label style="display:flex; align-items:center; gap:8px; color:#fff; font-size:14px;"><input type="checkbox" id="edit-block-enable" ${bl.enabled ? 'checked' : ''}> Enable Block Score Cards</label>
-                        <label style="display:flex; align-items:center; gap:8px; color:#fff; font-size:14px; margin-top:5px;"><input type="checkbox" id="edit-block-show" ${bl.show_on_gameover ? 'checked' : ''}> Show on Game Over Screen</label>
                         
                         <label style="color:#aaa; font-size:12px; display:block; margin-top:10px;">Block A Ends at Round</label>
                         <input type="number" id="edit-block-a" placeholder="Block A Ends at Round" value="${bl.block_a_end || 5}" style="margin:5px auto; width:100%; font-size:14px; padding:8px;">
@@ -1789,7 +1787,7 @@
 
             const blockConfig = {
                 enabled: document.getElementById('edit-block-enable').checked,
-                show_on_gameover: document.getElementById('edit-block-show').checked,
+                show_on_gameover: true,
                 block_a_end: parseInt(document.getElementById('edit-block-a').value) || 5,
                 block_b_start: parseInt(document.getElementById('edit-block-b').value) || 6
             };
