@@ -9,9 +9,18 @@ import string
 import threading
 import hashlib
 import re
+from datetime import datetime
 from game_bots import create_bot
 import csv
 import io
+
+def get_storage_dir():
+    prod_path = '/home/ubuntu/haifa_project/server/storage'
+    if os.path.exists(prod_path):
+        return prod_path
+    local_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'storage')
+    os.makedirs(local_path, exist_ok=True)
+    return local_path
 
 def generate_system_id(username):
     """Hash username into 8-char alphanumeric code."""
@@ -52,8 +61,9 @@ def archive_input_file(filename, sessions_list, db=None):
             
         file_save_name = re.sub(r'[\\/*?:"<>|]', '_', file_save_name)
         
-        os.makedirs('/home/ubuntu/haifa_project/server/storage/inputs', exist_ok=True)
-        filepath = os.path.join('/home/ubuntu/haifa_project/server/storage/inputs', file_save_name)
+        inputs_dir = os.path.join(get_storage_dir(), 'inputs')
+        os.makedirs(inputs_dir, exist_ok=True)
+        filepath = os.path.join(inputs_dir, file_save_name)
         with open(filepath, 'w', newline='', encoding='utf-8') as f:
             if sessions_list:
                 keys = sessions_list[0].keys()
@@ -198,6 +208,8 @@ def init_db():
             try: db.execute('ALTER TABLE prison_rooms ADD COLUMN block_config TEXT')
             except: pass
             try: db.execute('ALTER TABLE prison_rooms ADD COLUMN disconnect_timeout INTEGER DEFAULT 60')
+            except: pass
+            try: db.execute('ALTER TABLE prison_rooms ADD COLUMN bot_wait_time INTEGER DEFAULT 10')
             except: pass
 
             db.execute('''CREATE TABLE IF NOT EXISTS class_leaderboard (
@@ -575,7 +587,7 @@ def export_chained_live_inputs():
 @app.route('/get_storage_files', methods=['GET'])
 def get_storage_files():
     results = []
-    base_dir = '/home/ubuntu/haifa_project/server/storage'
+    base_dir = get_storage_dir()
     for sub in ['logs', 'inputs']:
         folder = os.path.join(base_dir, sub)
         if os.path.exists(folder):
@@ -602,7 +614,7 @@ def download_storage_file():
     rel_path = request.args.get('path', '')
     if not rel_path or '..' in rel_path or rel_path.startswith('/'):
         return "Invalid path", 400
-    base_dir = '/home/ubuntu/haifa_project/server/storage'
+    base_dir = get_storage_dir()
     full_path = os.path.join(base_dir, rel_path)
     if not os.path.exists(full_path):
         return "File not found", 404
@@ -625,6 +637,7 @@ def get_room_logs():
         rows = cursor.fetchall()
         
         logs = []
+        for r in rows:
             sys1 = r['p1_system_id'] if r['p1_system_id'] else (r['player1'] if r['player1'].startswith('Bot_') else r['player1'])
             sys2 = r['p2_system_id'] if r['p2_system_id'] else (r['player2'] if r['player2'].startswith('Bot_') else r['player2'])
             logs.append({
@@ -850,11 +863,17 @@ def update_room_settings():
         params = []
         
         for key in settings_keys:
-            if key in data and key != 'bot_wait_time':
+            if key in data:
                 val = data[key]
                 if key in ['dd_split_config', 'block_config', 'allowed_bots']:
                     updates.append(f"{key} = ?")
                     params.append(json.dumps(val))
+                elif key in ['bot_wait_time', 'disconnect_timeout', 'num_sessions', 'max_games']:
+                    try:
+                        updates.append(f"{key} = ?")
+                        params.append(int(val))
+                    except (ValueError, TypeError):
+                        pass
                 else:
                     updates.append(f"{key} = ?")
                     params.append(val)
@@ -2307,34 +2326,63 @@ def calculate_block_scores(game, room, room_pw):
     if not block_config or not block_config.get('enabled'):
         return None
     
-    block_a_end = block_config.get('block_a_end', 0)
-    block_b_start = block_config.get('block_b_start', 0)
+    try:
+        block_a_end = int(block_config.get('block_a_end', 0) or 0)
+        block_b_start = int(block_config.get('block_b_start', 0) or 0)
+    except (ValueError, TypeError):
+        block_a_end = 0
+        block_b_start = 0
+
     show_on_gameover = block_config.get('show_on_gameover', True)
-    
     if not show_on_gameover:
         return None
     
     p1 = game['players'][0]
     p2 = game['players'][1]
     game_id = game['id']
+    original_game_id = game.get('original_game_id')
     
     db = None
     try:
         db = get_db()
-        rows = db.execute('SELECT trial, p1_points, p2_points FROM prison_games WHERE game_id = ? ORDER BY trial', (game_id,)).fetchall()
+        if original_game_id:
+            rows = db.execute('''SELECT trial, player1, player2, p1_points, p2_points 
+                                 FROM prison_games 
+                                 WHERE game_id = ? OR game_id = ? OR original_game_id = ?
+                                 ORDER BY trial''', (game_id, original_game_id, original_game_id)).fetchall()
+        else:
+            rows = db.execute('''SELECT trial, player1, player2, p1_points, p2_points 
+                                 FROM prison_games 
+                                 WHERE game_id = ? 
+                                 ORDER BY trial''', (game_id,)).fetchall()
         
         p1_block_a = 0
         p2_block_a = 0
         p1_block_b = 0
         p2_block_b = 0
+        seen_trials = set()
         for r in rows:
-            trial = r['trial']
+            trial = int(r['trial'])
+            if trial in seen_trials:
+                continue
+            seen_trials.add(trial)
+
+            if r['player1'] == p1:
+                r_p1_pts = r['p1_points'] or 0
+                r_p2_pts = r['p2_points'] or 0
+            elif r['player2'] == p1:
+                r_p1_pts = r['p2_points'] or 0
+                r_p2_pts = r['p1_points'] or 0
+            else:
+                r_p1_pts = r['p1_points'] or 0
+                r_p2_pts = r['p2_points'] or 0
+
             if trial <= block_a_end:
-                p1_block_a += r['p1_points']
-                p2_block_a += r['p2_points']
+                p1_block_a += r_p1_pts
+                p2_block_a += r_p2_pts
             if trial >= block_b_start:
-                p1_block_b += r['p1_points']
-                p2_block_b += r['p2_points']
+                p1_block_b += r_p1_pts
+                p2_block_b += r_p2_pts
         
         max_rounds = room['settings']['num_sessions']
         return {
@@ -2448,12 +2496,13 @@ def archive_and_wipe_logs():
                 rooms_data[pw] = []
             rooms_data[pw].append(r_dict)
             
-        os.makedirs('/home/ubuntu/haifa_project/server/storage/logs', exist_ok=True)
+        logs_dir = os.path.join(get_storage_dir(), 'logs')
+        os.makedirs(logs_dir, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
         count = 0
         for pw, room_logs in rooms_data.items():
-            filepath = f'/home/ubuntu/haifa_project/server/storage/logs/room_{pw}_{timestamp}.csv'
+            filepath = os.path.join(logs_dir, f'room_{pw}_{timestamp}.csv')
             with open(filepath, 'w', newline='', encoding='utf-8') as f:
                 if not room_logs: continue
                 keys = room_logs[0].keys()

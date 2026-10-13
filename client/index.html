@@ -2567,7 +2567,11 @@
         }
 
         async function openLeaderboard() {
-            document.getElementById('gameover-screen').style.display = 'none';
+            const screen = document.getElementById('gameover-screen');
+            if (screen) {
+                screen.classList.remove('go-active');
+                screen.style.display = 'none';
+            }
             document.getElementById('prison').classList.add('hidden');
             document.getElementById('leaderboard-modal').classList.remove('hidden');
             await fetchLeaderboards();
@@ -2639,7 +2643,18 @@
           score = score || 0;
           
           const screen = document.getElementById('gameover-screen');
-          screen.classList.add('go-active');
+          if (screen) {
+              screen.style.display = 'flex';
+              screen.classList.add('go-active');
+          }
+
+          // Reset block score cards before potential display
+          const blockScoresEl = document.getElementById('block-scores');
+          const blockACard = document.getElementById('block-a-card');
+          const blockBCard = document.getElementById('block-b-card');
+          if (blockScoresEl) blockScoresEl.classList.add('hidden');
+          if (blockACard) { blockACard.style.opacity = '0'; blockACard.style.transform = 'translateY(20px)'; }
+          if (blockBCard) { blockBCard.style.opacity = '0'; blockBCard.style.transform = 'translateY(20px)'; }
 
           // Show block scores if available
           if (lastGameResult && lastGameResult.blocks && lastGameResult.blocks.enabled && lastGameResult.blocks.show_on_gameover) {
@@ -2650,15 +2665,19 @@
               document.getElementById('block-b-rounds').textContent = 'Rounds ' + blocks.block_b.rounds;
               document.getElementById('block-b-p1-score').textContent = blocks.block_b.p1_score;
               document.getElementById('block-b-p2-score').textContent = blocks.block_b.p2_score;
-              document.getElementById('block-scores').classList.remove('hidden');
+              if (blockScoresEl) blockScoresEl.classList.remove('hidden');
               // Animate in
               setTimeout(() => {
-                  document.getElementById('block-a-card').style.opacity = '1';
-                  document.getElementById('block-a-card').style.transform = 'translateY(0)';
+                  if (blockACard) {
+                      blockACard.style.opacity = '1';
+                      blockACard.style.transform = 'translateY(0)';
+                  }
               }, 1500);
               setTimeout(() => {
-                  document.getElementById('block-b-card').style.opacity = '1';
-                  document.getElementById('block-b-card').style.transform = 'translateY(0)';
+                  if (blockBCard) {
+                      blockBCard.style.opacity = '1';
+                      blockBCard.style.transform = 'translateY(0)';
+                  }
               }, 1700);
           }
 
