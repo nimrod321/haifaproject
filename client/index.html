@@ -167,6 +167,9 @@
             transition: filter 0.3s ease;
         }
         .chest-float img { width: 100%; height: auto; display: block; }
+        @media (max-width: 600px) {
+            .chest-float { position: fixed; bottom: 5px; left: 50%; transform: translateX(-50%); width: 80px; }
+        }
         .chest-float.glowing { filter: drop-shadow(0 0 22px rgba(255,215,0,0.9)) drop-shadow(0 8px 24px rgba(241,196,15,0.6)); }
 
         @keyframes chest-shake {
@@ -575,20 +578,20 @@
 
                         <h3 style="color:#9b59b6; margin-top:20px; border-bottom:1px solid #444; padding-bottom:5px;">Bot Configurations</h3>
                         <div class="bot-selection" style="background:#2c2c2c; border:1px solid #555; padding: 10px; border-radius: 5px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                            <div class="bot-line"><label style="display:flex; align-items:center; gap:8px; color:white;"><input type="checkbox" class="bot-check" value="Random" checked> Random Bot</label></div>
-                            <div class="bot-line"><label style="display:flex; align-items:center; gap:8px; color:white;"><input type="checkbox" class="bot-check" value="CBot" checked> Always Cooperate</label></div>
+                            <div class="bot-line"><label style="display:flex; align-items:center; gap:8px; color:white;"><input type="checkbox" class="bot-check" value="Random"> Random Bot</label></div>
+                            <div class="bot-line"><label style="display:flex; align-items:center; gap:8px; color:white;"><input type="checkbox" class="bot-check" value="CBot"> Always Cooperate</label></div>
                             <div class="bot-line"><label style="display:flex; align-items:center; gap:8px; color:white;"><input type="checkbox" class="bot-check" value="DBot"> Always Defect</label></div>
                             <div class="bot-line"><label style="display:flex; align-items:center; gap:8px; color:white;"><input type="checkbox" class="bot-check" value="TitForTat"> Tit-For-Tat</label></div>
                             <div class="bot-line"><label style="display:flex; align-items:center; gap:8px; color:white;"><input type="checkbox" class="bot-check" value="SERS_1"> SERS Bot (1 Mem)</label></div>
                             <div class="bot-line"><label style="display:flex; align-items:center; gap:8px; color:white;"><input type="checkbox" class="bot-check" value="SERS_3"> SERS Bot (3 Mem)</label></div>
-                            <div class="bot-line"><label style="display:flex; align-items:center; gap:8px; color:white;"><input type="checkbox" class="bot-check" value="SERS_5" checked> SERS Bot (5 Mem)</label></div>
-                            <div class="bot-line"><label style="display:flex; align-items:center; gap:8px; color:white;"><input type="checkbox" class="bot-check" value="MirrorBot"> Mirror Bot</label></div>
+                            <div class="bot-line"><label style="display:flex; align-items:center; gap:8px; color:white;"><input type="checkbox" class="bot-check" value="SERS_5"> SERS Bot (5 Mem)</label></div>
+                            <div class="bot-line"><label style="display:flex; align-items:center; gap:8px; color:white;"><input type="checkbox" class="bot-check" value="MirrorBot" checked> Mirror Bot</label></div>
                         </div>
 
                         <label style="color:#f1c40f; font-size:14px; display:block; margin-top:10px; text-align:left;">Disconnect Timeout & Bot Wait Time (s)</label>
                         <div style="display:flex; gap:10px; margin-top:5px;">
                             <input type="number" id="admin-disconnect-timeout" placeholder="Disconnect Timeout" value="60" style="width:100%; font-size:14px; padding:8px;" title="Disconnect Timeout (s)">
-                            <input type="number" id="admin-bot-wait" placeholder="Bot Wait Time" value="10" style="width:100%; font-size:14px; padding:8px;" title="Bot Wait Time (s)">
+                            <input type="number" id="admin-bot-wait" placeholder="Bot Wait Time" value="30" style="width:100%; font-size:14px; padding:8px;" title="Bot Wait Time (s)">
                         </div>
 
                         <h3 style="color:#9b59b6; margin-top:20px; border-bottom:1px solid #444; padding-bottom:5px;">Advanced Mechanics</h3>
@@ -916,6 +919,7 @@
         let selectedMove = null, currentGid = null, currentUsername = null, currentUserRole = null, choiceLocked = false, sessionTotalScore = 0;
         let currentClassCode = '';
         let currentRoomPassword = '';
+        let currentBotWaitTime = 30;
         let lastGameResult = null; // for Task 4
 
         // Socket.IO connection
@@ -939,7 +943,7 @@
         });
 
         socket.on('queue_status', function(data) {
-            // Still waiting
+            if (data && data.bot_wait_time) currentBotWaitTime = data.bot_wait_time;
         });
 
         socket.on('queue_error', function(data) {
@@ -979,7 +983,7 @@
                     remaining--;
                     if (remaining <= 0) {
                         clearInterval(countdownInterval);
-                        banner.innerHTML = '🤖 Opponent replaced by bot. Game continues.';
+                        banner.innerHTML = '🔄 Opponent has been replaced. Game continues.';
                         setTimeout(() => banner.classList.add('hidden'), 3000);
                     } else {
                         banner.innerHTML = `⚠️ Opponent disconnected. Waiting... ${remaining}s`;
@@ -1256,6 +1260,8 @@
                 const res = await fetch('/enter_room', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw }) });
                 hideLoading();
                 if (res.ok) {
+                    const data = await res.json();
+                    currentBotWaitTime = data.bot_wait_time || 30;
                     currentRoomPassword = pw;
                     document.getElementById('player-lobby').classList.add('hidden');
                     document.getElementById('game').classList.remove('hidden');
@@ -1320,7 +1326,7 @@
             const roomType = document.getElementById('admin-room-type').value;
             const maxGames = parseInt(document.getElementById('admin-room-max-games').value) || 1;
             const disconnectTimeout = parseInt(document.getElementById('admin-disconnect-timeout').value) || 60;
-            const botWaitTime = parseInt(document.getElementById('admin-bot-wait').value) || 10;
+            const botWaitTime = parseInt(document.getElementById('admin-bot-wait').value) || 30;
             if(!pw) return customAlert('Password required');
             const bots = []; document.querySelectorAll('.bot-check').forEach(c => { if(c.checked) bots.push(c.value); });
             if (bots.length === 0) bots.push('MirrorBot');
@@ -1450,7 +1456,7 @@
                 const item = document.createElement('div'); 
                 item.className='room-card'; 
                 
-                let typeHtml = `<span style="color:#cd3ace;">Type: <strong>${room.room_type || 'MIXED'}</strong> | Rounds: ${room.num_sessions}</span>`;
+                let typeHtml = `<span style="color:#cd3ace;">Type: <strong>${room.room_type || 'MIXED'}</strong> | Rounds: ${room.num_sessions} | Max Games: ${room.max_games || 1}</span>`;
                 
                 let activePairsHtml = `<ul style="list-style-type:none; padding:0; margin:0; font-size:14px; color:#ccc;">`;
                 if(room.games && room.games.length > 0) {
@@ -1513,6 +1519,8 @@
                 loadAdminPlayers();
             }
         });
+
+        setInterval(() => { if(currentUserRole === 'admin') loadAdminPlayers(); }, 15000);
 
         function switchAdminSidebar(section) {
             document.querySelectorAll('.admin-nav-btn').forEach(b => b.classList.remove('active'));
@@ -1947,7 +1955,7 @@
                     <div style="background:#1a1a2e;border:4px solid #e74c3c;border-radius:24px;padding:40px 50px;text-align:center;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.8);">
                         <div style="font-size:52px;margin-bottom:12px;">⚠️</div>
                         <div style="font-family:'Bubblegum Sans',cursive;font-size:24px;color:#fff;margin-bottom:8px;">Delete Room?</div>
-                        <div style="font-family:'Bubblegum Sans',cursive;font-size:18px;color:#f1c40f;margin-bottom:28px;">"${pw}"<br><span style="color:#aaa;font-size:15px;">This will permanently remove the room and all its settings.</span></div>
+                        <div style="font-family:'Bubblegum Sans',cursive;font-size:18px;color:#f1c40f;margin-bottom:28px;">"${pw}"<br><span style="color:#aaa;font-size:15px;">This will permanently remove the room and all its settings.<br>⚠️ It is recommended to download all relevant logs before deleting.</span></div>
                         <div style="display:flex;gap:16px;justify-content:center;">
                             <button id="del-cancel" style="font-family:'Bubblegum Sans',cursive;font-size:20px;padding:12px 32px;background:#555;border:3px solid #888;border-radius:40px;color:#fff;cursor:pointer;">Cancel</button>
                             <button id="del-confirm" style="font-family:'Bubblegum Sans',cursive;font-size:20px;padding:12px 32px;background:#e74c3c;border:3px solid #c0392b;border-radius:40px;color:#fff;cursor:pointer;">Yes, Delete</button>
@@ -1972,6 +1980,9 @@
                 });
                 hideLoading();
                 if(res.ok) {
+                    const data = await res.json();
+                    currentBotWaitTime = data.bot_wait_time || 30;
+                    currentRoomPassword = pw;
                     document.getElementById('prison-join-form').classList.add('hidden'); 
                     document.getElementById('room-lobby').classList.remove('hidden');
                 } else {
@@ -2015,7 +2026,7 @@
             
             botMatchTimeout = setTimeout(() => {
                 socket.emit('trigger_bot', { username: currentUsername, password: pw });
-            }, 10000);
+            }, (currentBotWaitTime || 30) * 1000);
         }
 
         function startGameFromData(d) {

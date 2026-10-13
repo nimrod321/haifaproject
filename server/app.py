@@ -209,7 +209,7 @@ def init_db():
             except: pass
             try: db.execute('ALTER TABLE prison_rooms ADD COLUMN disconnect_timeout INTEGER DEFAULT 60')
             except: pass
-            try: db.execute('ALTER TABLE prison_rooms ADD COLUMN bot_wait_time INTEGER DEFAULT 10')
+            try: db.execute('ALTER TABLE prison_rooms ADD COLUMN bot_wait_time INTEGER DEFAULT 30')
             except: pass
 
             db.execute('''CREATE TABLE IF NOT EXISTS class_leaderboard (
@@ -361,7 +361,7 @@ def create_room():
     data = request.get_json()
     password = data.get('password')
     num_sessions = data.get('num_sessions', 10)
-    allowed_bots = data.get('allowed_bots', ['Random', 'CBot'])
+    allowed_bots = data.get('allowed_bots', ['MirrorBot'])
     custom_sessions = data.get('sessions')
     description = data.get('description', '')
     room_type = data.get('room_type', 'MIXED')
@@ -638,13 +638,13 @@ def get_room_logs():
         
         logs = []
         for r in rows:
-            sys1 = r['p1_system_id'] if r['p1_system_id'] else (r['player1'] if r['player1'].startswith('Bot_') else r['player1'])
-            sys2 = r['p2_system_id'] if r['p2_system_id'] else (r['player2'] if r['player2'].startswith('Bot_') else r['player2'])
+            id1 = r['p1_anon_id'] if r['p1_anon_id'] else (r['player1'] if r['player1'].startswith('Bot_') else 'Unknown')
+            id2 = r['p2_anon_id'] if r['p2_anon_id'] else (r['player2'] if r['player2'].startswith('Bot_') else 'Unknown')
             logs.append({
                 'game_id': r['game_id'],
                 'trial': r['trial'] if 'trial' in r.keys() else '',
-                'system_id1': sys1,
-                'system_id2': sys2,
+                'anon_id1': id1,
+                'anon_id2': id2,
                 'p1_choice': r['p1_choice'],
                 'p2_choice': r['p2_choice'],
                 'code': r['code'],
@@ -1310,6 +1310,7 @@ def ensure_room_loaded(password):
                     'room_type': row['room_type'] if 'room_type' in row.keys() else 'MIXED', 
                     'max_games': row['max_games'] if 'max_games' in row.keys() else 1,
                     'disconnect_timeout': row['disconnect_timeout'] if 'disconnect_timeout' in row.keys() else 60,
+                    'bot_wait_time': row['bot_wait_time'] if 'bot_wait_time' in row.keys() else 30,
                     'dd_split_config': json.loads(row['dd_split_config']) if row['dd_split_config'] else None,
                     'block_config': json.loads(row['block_config']) if row['block_config'] else None,
                 },
@@ -1420,7 +1421,7 @@ def join_queue():
     else:
         waiting.append({'username': username, 'class_code': class_code})
         socketio.emit('admin_update', {'type': 'room_state_change'}, room='admin_room')
-        return jsonify({'status': 'waiting', 'bot_wait_time': room['settings'].get('bot_wait_time', 10)})
+        return jsonify({'status': 'waiting', 'bot_wait_time': room['settings'].get('bot_wait_time', 30)})
 
 @app.route('/check_queue', methods=['POST'])
 def check_queue():
@@ -1444,7 +1445,7 @@ def check_queue():
             else:
                 return jsonify({'status': 'matched', 'gameData': build_game_data(game, gid, room, username)})
     
-    return jsonify({'status': 'waiting', 'bot_wait_time': room['settings'].get('bot_wait_time', 10)})
+    return jsonify({'status': 'waiting', 'bot_wait_time': room['settings'].get('bot_wait_time', 30)})
 
 @app.route('/trigger_bot', methods=['POST'])
 def trigger_bot():
@@ -1526,8 +1527,8 @@ def start_game_human_vs_human(room, p1_username, p2_username, pw):
     return game_id, game_data_p1, game_data_p2
 
 def start_game_human_vs_bot(room, username, pw):
-    bot_types = room['settings'].get('allowed_bots', ['Random'])
-    if not bot_types: bot_types = ['Random']
+    bot_types = room['settings'].get('allowed_bots', ['MirrorBot'])
+    if not bot_types: bot_types = ['MirrorBot']
     bot_type = random.choice(bot_types)
     bots_name = f"Bot_{bot_type}"
     
@@ -1887,14 +1888,16 @@ def start_disconnect_timers(username, game, game_id, room, room_pw, timeout=60):
             opponent = game['players'][0] if game['players'][1] == username else game['players'][1]
             
             # Replace disconnected player with a bot
-            bot_types = room['settings'].get('allowed_bots', ['Random'])
-            if not bot_types: bot_types = ['Random']
+            bot_types = room['settings'].get('allowed_bots', ['MirrorBot'])
+            if not bot_types: bot_types = ['MirrorBot']
             bot_type = random.choice(bot_types)
             sessions_list = room.get('sessions') or prison_sessions
             session_idx = game['session']
             if session_idx >= len(sessions_list):
                 session_idx = len(sessions_list) - 1
-            bot_obj = create_bot(bot_type, False, sessions_list[session_idx], room.get('settings', {}))
+            dc_idx = game['players'].index(username)
+            bot_is_p1 = (dc_idx == 0)
+            bot_obj = create_bot(bot_type, bot_is_p1, sessions_list[session_idx], room.get('settings', {}))
             
             game['is_bot'] = True
             game['bot_obj'] = bot_obj
@@ -2220,6 +2223,7 @@ def execute_dd_split(game, game_id, room, room_pw, dd_config):
         del room['active'][game_id]
     
     # Notify players
+    sessions_list = room.get('sessions') or prison_sessions
     if p1 in user_sockets:
         session_idx = min(split_session, len(sessions_list) - 1)
         matrix = prison_matrix_for_player(sessions_list[session_idx], 'p1')
@@ -2622,7 +2626,7 @@ def handle_join_queue(data):
         # Check if already in queue
         for p in waiting:
             if p['username'] == username:
-                emit('queue_status', {'status': 'waiting', 'bot_wait_time': room['settings'].get('bot_wait_time', 10)})
+                emit('queue_status', {'status': 'waiting', 'bot_wait_time': room['settings'].get('bot_wait_time', 30)})
                 return
         
         # Find match
@@ -2653,7 +2657,7 @@ def handle_join_queue(data):
         else:
             waiting.append({'username': username, 'class_code': class_code})
             socketio.emit('admin_update', {'type': 'room_state_change'}, room='admin_room')
-            emit('queue_status', {'status': 'waiting', 'bot_wait_time': room['settings'].get('bot_wait_time', 10)})
+            emit('queue_status', {'status': 'waiting', 'bot_wait_time': room['settings'].get('bot_wait_time', 30)})
 
 @socketio.on('trigger_bot')
 def handle_trigger_bot(data):
@@ -2819,8 +2823,8 @@ def handle_admin_terminate_game(data):
         if password in rooms and 'active' in rooms[password] and game_id in rooms[password]['active']:
             game = rooms[password]['active'][game_id]
             for p in game['players']:
-                if p in connected_users:
-                    emit('game_terminated', {'message': 'Session terminated by admin'}, room=connected_users[p])
+                if p in user_sockets:
+                    emit('game_terminated', {'message': 'Session terminated by admin'}, room=user_sockets[p])
             del rooms[password]['active'][game_id]
             socketio.emit('admin_update', {'type': 'room_state_change'}, room='admin_room')
 
