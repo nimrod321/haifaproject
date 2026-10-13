@@ -2389,11 +2389,15 @@ def calculate_block_scores(game, room, room_pw):
                 p2_block_b += r_p2_pts
         
         max_rounds = room['settings']['num_sessions']
+        if block_a_end <= 0:
+            block_a_end = max_rounds // 2
+        if block_b_start <= 0:
+            block_b_start = block_a_end + 1
         return {
             'enabled': True,
             'show_on_gameover': True,
-            'block_a': {'label': 'Block A', 'rounds': f'1-{block_a_end}', 'p1_score': p1_block_a, 'p2_score': p2_block_a},
-            'block_b': {'label': 'Block B', 'rounds': f'{block_b_start}-{max_rounds}', 'p1_score': p1_block_b, 'p2_score': p2_block_b}
+            'block_a': {'rounds': f'1–{block_a_end}', 'p1_score': p1_block_a, 'p2_score': p2_block_a},
+            'block_b': {'rounds': f'{block_b_start}–{max_rounds}', 'p1_score': p1_block_b, 'p2_score': p2_block_b}
         }
     except Exception as e:
         print(f'[Block] Score calculation error: {e}')
