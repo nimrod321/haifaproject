@@ -436,8 +436,15 @@ def get_rooms():
                     
             # Fetch queued players
             queued_list = []
-            if password in rooms and 'queue' in rooms[password]:
-                queued_list = rooms[password]['queue']
+            if password in rooms and 'waiting' in rooms[password]:
+                for w in rooms[password]['waiting']:
+                    if isinstance(w, dict):
+                        q_name = w.get('username', '')
+                        if w.get('class_code'):
+                            q_name += f" ({w.get('class_code')})"
+                        queued_list.append(q_name)
+                    else:
+                        queued_list.append(str(w))
 
             # Fetch player play counts
             play_counts = {}
@@ -1170,19 +1177,75 @@ def get_players():
             if name in ['BOOMER', 'NIS']: continue
             p_hist = history_by_user.get(name, {'rooms': set(), 'classes': set()})
             p_bans = bans_by_user.get(name, [])
+            
+            is_online = bool(name in user_sockets)
+            is_in_game = False
+            active_room = ''
+            active_game_id = ''
+            active_round = 0
+            total_rounds = 0
+            in_queue = False
+            queue_room = ''
+            
+            game_info = find_active_game_for_user(name)
+            if game_info:
+                g_obj, g_id, r_obj, r_pw = game_info
+                is_in_game = True
+                active_room = r_pw
+                active_game_id = g_id
+                active_round = g_obj.get('session', 0) + 1
+                total_rounds = r_obj['settings'].get('num_sessions', 10)
+            else:
+                for pw, rm in rooms.items():
+                    for w in rm.get('waiting', []):
+                        w_name = w.get('username') if isinstance(w, dict) else w
+                        if w_name == name:
+                            in_queue = True
+                            queue_room = pw
+                            break
+                    if in_queue:
+                        break
+
             players.append({
                 'username': name,
                 'session_counter': u['session_counter'],
                 'total_coins': u['total_coins'],
                 'rooms': list(p_hist['rooms']),
                 'classes': list(p_hist['classes']),
-                'bans': p_bans
+                'bans': p_bans,
+                'is_online': is_online,
+                'is_in_game': is_in_game,
+                'active_room': active_room,
+                'active_game_id': active_game_id,
+                'active_round': active_round,
+                'total_rounds': total_rounds,
+                'in_queue': in_queue,
+                'queue_room': queue_room
             })
         return jsonify(players)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:
         if db: db.close()
+
+@app.route('/admin_close_player_session', methods=['POST'])
+def admin_close_player_session():
+    data = request.get_json()
+    username = data.get('username')
+    if not username:
+        return jsonify({'error': 'Username required'}), 400
+    with game_lock:
+        game_info = find_active_game_for_user(username)
+        if not game_info:
+            return jsonify({'error': f'No active session found for {username}'}), 404
+        game, gid, room, pw = game_info
+        for p in game['players']:
+            if p in user_sockets:
+                socketio.emit('game_terminated', {'message': 'Session closed by administrator'}, room=user_sockets[p])
+        if gid in room.get('active', {}):
+            del room['active'][gid]
+        socketio.emit('admin_update', {'type': 'room_state_change'}, room='admin_room')
+        return jsonify({'message': f'Session terminated for {username}'})
 
 @app.route('/ban_player_custom', methods=['POST'])
 def ban_player_custom():
@@ -1581,6 +1644,7 @@ def submit_choice():
 
         # If it's a bot game, trigger bot decision immediately
         if game.get('is_bot'):
+            bot_slot = 'p1' if game['players'][0].startswith('Bot_') else 'p2'
             try:
                 bot_eval = game['bot_obj'].get_choice()
                 
@@ -1590,20 +1654,21 @@ def submit_choice():
                     session_idx = len(sessions_list) - 1
                 session = sessions_list[session_idx]
                 
-                p2_a_mean = str(session.get('P2_A_MEANING', 'C')).strip().upper()
-                p2_a_is_c = p2_a_mean.startswith('C')
+                meaning_key = 'P1_A_MEANING' if bot_slot == 'p1' else 'P2_A_MEANING'
+                bot_a_mean = str(session.get(meaning_key, 'C')).strip().upper()
+                bot_a_is_c = bot_a_mean.startswith('C')
                 
                 if bot_eval == 'C':
-                    bot_row = 'A' if p2_a_is_c else 'B'
+                    bot_row = 'A' if bot_a_is_c else 'B'
                 else:
-                    bot_row = 'B' if p2_a_is_c else 'A'
+                    bot_row = 'B' if bot_a_is_c else 'A'
                     
-                game['choices']['p2'] = bot_row
+                game['choices'][bot_slot] = bot_row
                 game['bot_ready_time'] = time.time() + random.uniform(3.0, 5.0)
-                print(f"[Game] Bot (p2) chose {bot_row} (Eval: {bot_eval})")
+                print(f"[Game] Bot ({bot_slot}) chose {bot_row} (Eval: {bot_eval})")
             except Exception as e:
                 print(f"[Game] Bot Logic Error: {e}")
-                game['choices']['p2'] = 'B'
+                game['choices'][bot_slot] = 'B'
                 game['bot_ready_time'] = time.time()
 
         # Resolve round if both selections exist
@@ -1778,6 +1843,7 @@ def resolve_round(game, game_id, room):
     # Build result for both players
     result = {
         'p1': {
+            'role': 'p1',
             'op_choice': p2_choice,
             'code': code,
             'my_score': p1_score,
@@ -1787,6 +1853,7 @@ def resolve_round(game, game_id, room):
             'next_session': game['session'] + 1
         },
         'p2': {
+            'role': 'p2',
             'op_choice': p1_choice,
             'code': code,
             'my_score': p2_score,
@@ -1867,6 +1934,10 @@ def start_disconnect_timers(username, game, game_id, room, room_pw, timeout=60):
     if game.get('is_bot') and game['players'][1] == username:
         return
     
+    opponent = game['players'][0] if game['players'][1] == username else game['players'][1]
+    if opponent in user_sockets:
+        socketio.emit('opponent_disconnected', {'timeout': timeout}, room=user_sockets[opponent])
+    
     info = {
         'game_id': game_id,
         'room_pw': room_pw,
@@ -1879,13 +1950,13 @@ def start_disconnect_timers(username, game, game_id, room, room_pw, timeout=60):
         with game_lock:
             if username not in disconnected_players:
                 return
-            print(f"[Disconnect] 1 minute passed for {username}. Replacing with bot.")
+            print(f"[Disconnect] Timeout passed for {username}. Replacing with bot.")
             game_info = find_active_game_for_user(username)
             if not game_info:
                 return
             game, gid, room, pw = game_info
             # Find the live opponent
-            opponent = game['players'][0] if game['players'][1] == username else game['players'][1]
+            opp = game['players'][0] if game['players'][1] == username else game['players'][1]
             
             # Replace disconnected player with a bot
             bot_types = room['settings'].get('allowed_bots', ['MirrorBot'])
@@ -1902,12 +1973,49 @@ def start_disconnect_timers(username, game, game_id, room, room_pw, timeout=60):
             game['is_bot'] = True
             game['bot_obj'] = bot_obj
             game['split_reason'] = 'Disconnection'
+            game['session_status'] = 'split'
             # Replace the disconnected player's name with bot name
-            dc_idx = game['players'].index(username)
             game['players'][dc_idx] = f'Bot_{bot_type}'
             game['total'][f'Bot_{bot_type}'] = game['total'].pop(username, 0)
             
-            print(f"[Disconnect] {opponent} now playing with Bot_{bot_type}")
+            print(f"[Disconnect] {opp} now playing with Bot_{bot_type} (split_reason: Disconnection)")
+            if opp in user_sockets:
+                socketio.emit('bot_stepped_in', {'message': 'Game continues.'}, room=user_sockets[opp])
+            
+            # If live opponent already selected a move, auto-resolve with bot move
+            live_slot = 'p2' if bot_is_p1 else 'p1'
+            live_choice = game['choices'].get(live_slot)
+            if live_choice:
+                try:
+                    bot_slot = 'p1' if bot_is_p1 else 'p2'
+                    if hasattr(bot_obj, 'set_opponent_choice'):
+                        session = sessions_list[session_idx]
+                        live_meaning_key = 'P2_A_MEANING' if bot_is_p1 else 'P1_A_MEANING'
+                        live_a_mean = str(session.get(live_meaning_key, 'C')).strip().upper()
+                        live_a_is_c = live_a_mean.startswith('C')
+                        live_semantic = 'C' if (live_choice == 'A' and live_a_is_c) or (live_choice == 'B' and not live_a_is_c) else 'D'
+                        bot_obj.set_opponent_choice(live_semantic)
+                    bot_eval = bot_obj.get_choice()
+                    session = sessions_list[session_idx]
+                    bot_meaning_key = 'P1_A_MEANING' if bot_is_p1 else 'P2_A_MEANING'
+                    bot_a_mean = str(session.get(bot_meaning_key, 'C')).strip().upper()
+                    bot_a_is_c = bot_a_mean.startswith('C')
+                    bot_row = 'A' if (bot_eval == 'C' and bot_a_is_c) or (bot_eval == 'D' and not bot_a_is_c) else 'B'
+                    game['choices'][bot_slot] = bot_row
+                    
+                    result = resolve_round(game, gid, room)
+                    live_res = result['p2'] if bot_is_p1 else result['p1']
+                    if live_res.get('done'):
+                        block_data = calculate_block_scores(game, room, pw)
+                        if block_data:
+                            live_res['blocks'] = block_data
+                        if opp in user_sockets:
+                            socketio.emit('game_over', live_res, room=user_sockets[opp])
+                    else:
+                        if opp in user_sockets:
+                            socketio.emit('round_result', live_res, room=user_sockets[opp])
+                except Exception as ex:
+                    print(f"[Disconnect] Error auto-resolving bot move: {ex}")
     
     def on_5min_expired():
         with game_lock:
@@ -1936,6 +2044,13 @@ def handle_reconnection(username):
     elapsed = time.time() - info['disconnect_time']
     print(f"[Disconnect] {username} reconnected after {elapsed:.1f}s")
     
+    game_info = find_active_game_for_user(username)
+    if game_info:
+        g, gid, r, pw = game_info
+        opp = g['players'][0] if g['players'][1] == username else g['players'][1]
+        if opp in user_sockets:
+            socketio.emit('opponent_reconnected', {}, room=user_sockets[opp])
+
     if elapsed < 60:
         # Within 1 minute: player's game is still intact, they can resume
         print(f"[Disconnect] {username} resuming original game")
@@ -2350,12 +2465,12 @@ def calculate_block_scores(game, room, room_pw):
     try:
         db = get_db()
         if original_game_id:
-            rows = db.execute('''SELECT trial, player1, player2, p1_points, p2_points 
+            rows = db.execute('''SELECT trial, player1, player2, p1_points, p2_points, code 
                                  FROM prison_games 
                                  WHERE game_id = ? OR game_id = ? OR original_game_id = ?
                                  ORDER BY trial''', (game_id, original_game_id, original_game_id)).fetchall()
         else:
-            rows = db.execute('''SELECT trial, player1, player2, p1_points, p2_points 
+            rows = db.execute('''SELECT trial, player1, player2, p1_points, p2_points, code 
                                  FROM prison_games 
                                  WHERE game_id = ? 
                                  ORDER BY trial''', (game_id,)).fetchall()
@@ -2364,6 +2479,10 @@ def calculate_block_scores(game, room, room_pw):
         p2_block_a = 0
         p1_block_b = 0
         p2_block_b = 0
+        block_a_total = 0
+        block_a_cc = 0
+        block_b_total = 0
+        block_b_cc = 0
         seen_trials = set()
         for r in rows:
             trial = int(r['trial'])
@@ -2381,13 +2500,24 @@ def calculate_block_scores(game, room, room_pw):
                 r_p1_pts = r['p1_points'] or 0
                 r_p2_pts = r['p2_points'] or 0
 
+            code_val = str(r['code'] or '').strip().upper() if 'code' in r.keys() else ''
+
             if trial <= block_a_end:
                 p1_block_a += r_p1_pts
                 p2_block_a += r_p2_pts
+                block_a_total += 1
+                if code_val == 'CC':
+                    block_a_cc += 1
             if trial >= block_b_start:
                 p1_block_b += r_p1_pts
                 p2_block_b += r_p2_pts
+                block_b_total += 1
+                if code_val == 'CC':
+                    block_b_cc += 1
         
+        block_a_cc_pct = round((block_a_cc / block_a_total) * 100) if block_a_total > 0 else 0
+        block_b_cc_pct = round((block_b_cc / block_b_total) * 100) if block_b_total > 0 else 0
+
         max_rounds = room['settings']['num_sessions']
         if block_a_end <= 0:
             block_a_end = max_rounds // 2
@@ -2396,8 +2526,18 @@ def calculate_block_scores(game, room, room_pw):
         return {
             'enabled': True,
             'show_on_gameover': True,
-            'block_a': {'rounds': f'1–{block_a_end}', 'p1_score': p1_block_a, 'p2_score': p2_block_a},
-            'block_b': {'rounds': f'{block_b_start}–{max_rounds}', 'p1_score': p1_block_b, 'p2_score': p2_block_b}
+            'block_a': {
+                'rounds': f'1–{block_a_end}',
+                'p1_score': p1_block_a,
+                'p2_score': p2_block_a,
+                'cc_pct': block_a_cc_pct
+            },
+            'block_b': {
+                'rounds': f'{block_b_start}–{max_rounds}',
+                'p1_score': p1_block_b,
+                'p2_score': p2_block_b,
+                'cc_pct': block_b_cc_pct
+            }
         }
     except Exception as e:
         print(f'[Block] Score calculation error: {e}')
@@ -2554,6 +2694,9 @@ def handle_register(data):
     if username:
         user_sockets[username] = request.sid
         print(f'[Socket] Registered {username} -> {request.sid}')
+        if username in disconnected_players:
+            handle_reconnection(username)
+        socketio.emit('admin_update', {'type': 'player_online_change'}, room='admin_room')
 
 @socketio.on('disconnect')
 def handle_disconnect():
@@ -2566,6 +2709,7 @@ def handle_disconnect():
             break
     if username:
         print(f'[Socket] {username} disconnected')
+        socketio.emit('admin_update', {'type': 'player_online_change'}, room='admin_room')
         with game_lock:
             game_info = find_active_game_for_user(username)
             if game_info:
@@ -2726,18 +2870,20 @@ def handle_submit_choice(data):
         
         # Bot decision
         if game.get('is_bot'):
+            bot_slot = 'p1' if game['players'][0].startswith('Bot_') else 'p2'
+            player_slot_other = 'p2' if bot_slot == 'p1' else 'p1'
             try:
                 # Check if this is a MirrorBot that needs to see the player's choice
                 if hasattr(game['bot_obj'], 'set_opponent_choice'):
-                    # Convert player's row choice to C/D for the mirror bot
                     sessions_list = room.get('sessions') or prison_sessions
                     session_idx = game['session']
                     if session_idx >= len(sessions_list):
                         session_idx = len(sessions_list) - 1
                     session = sessions_list[session_idx]
-                    p1_a_mean = str(session.get('P1_A_MEANING', 'C')).strip().upper()
-                    p1_a_is_c = p1_a_mean.startswith('C')
-                    player_semantic = 'C' if (row == 'A' and p1_a_is_c) or (row == 'B' and not p1_a_is_c) else 'D'
+                    player_meaning_key = 'P1_A_MEANING' if player_slot_other == 'p1' else 'P2_A_MEANING'
+                    p_a_mean = str(session.get(player_meaning_key, 'C')).strip().upper()
+                    p_a_is_c = p_a_mean.startswith('C')
+                    player_semantic = 'C' if (row == 'A' and p_a_is_c) or (row == 'B' and not p_a_is_c) else 'D'
                     game['bot_obj'].set_opponent_choice(player_semantic)
                 
                 bot_eval = game['bot_obj'].get_choice()
@@ -2746,16 +2892,18 @@ def handle_submit_choice(data):
                 if session_idx >= len(sessions_list):
                     session_idx = len(sessions_list) - 1
                 session = sessions_list[session_idx]
-                p2_a_mean = str(session.get('P2_A_MEANING', 'C')).strip().upper()
-                p2_a_is_c = p2_a_mean.startswith('C')
+                bot_meaning_key = 'P1_A_MEANING' if bot_slot == 'p1' else 'P2_A_MEANING'
+                bot_a_mean = str(session.get(bot_meaning_key, 'C')).strip().upper()
+                bot_a_is_c = bot_a_mean.startswith('C')
                 if bot_eval == 'C':
-                    bot_row = 'A' if p2_a_is_c else 'B'
+                    bot_row = 'A' if bot_a_is_c else 'B'
                 else:
-                    bot_row = 'B' if p2_a_is_c else 'A'
-                game['choices']['p2'] = bot_row
+                    bot_row = 'B' if bot_a_is_c else 'A'
+                game['choices'][bot_slot] = bot_row
             except Exception as e:
                 print(f'[Game] Bot Logic Error: {e}')
-                game['choices']['p2'] = 'B'
+                bot_slot = 'p1' if game['players'][0].startswith('Bot_') else 'p2'
+                game['choices'][bot_slot] = 'B'
         
         # Resolve if both choices exist
         if game['choices']['p1'] and game['choices']['p2']:

@@ -169,11 +169,15 @@
         .chest-float img { width: 100%; height: auto; display: block; }
         @media (max-width: 600px) {
             .chest-float { 
-                position: fixed; bottom: 5px; left: 50%; transform: translateX(-50%); 
-                width: 70px; z-index: 999;
+                position: fixed; bottom: 15px; left: 12px; transform: none; 
+                width: 65px; z-index: 999;
                 filter: drop-shadow(0 4px 12px rgba(241,196,15,0.4));
             }
             .chest-float.glowing { filter: drop-shadow(0 0 12px rgba(255,215,0,0.7)); }
+            .queued-point-bubble {
+                padding: 4px 14px;
+                font-size: 18px;
+            }
         }
         .chest-float.glowing { filter: drop-shadow(0 0 22px rgba(255,215,0,0.9)) drop-shadow(0 8px 24px rgba(241,196,15,0.6)); }
 
@@ -650,6 +654,7 @@
                         </div>
 
                         <button onclick="adminCreateRoom()" style="width:100%; margin-top:15px; background:#8e44ad; font-size:22px; color:#fff; padding:10px; border-radius:10px; border:none; cursor:pointer;">Create Room</button>
+                        <div id="admin-create-room-status" style="margin-top:12px; font-size:18px; font-weight:bold; text-align:center; display:none; padding:10px; border-radius:8px;"></div>
                         <!-- ORIGINAL CREATION FORM END -->
                     </div>
                 </div>
@@ -795,7 +800,7 @@
         </div>
 
         <!-- Player Inspect Modal -->
-        <div id="inspect-modal" class="hidden" style="position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:rgba(0,0,0,0.95); border:2px solid #2ecc71; padding:20px; border-radius:10px; z-index:9999; color:white; width:90%; max-width:500px; max-height:80vh; overflow-y:auto; box-shadow: 0 0 20px rgba(0,0,0,0.8);">
+        <div id="inspect-modal" class="hidden" style="position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:rgba(0,0,0,0.95); border:2px solid #2ecc71; padding:20px; border-radius:10px; z-index:100001; color:white; width:90%; max-width:500px; max-height:80vh; overflow-y:auto; box-shadow: 0 0 20px rgba(0,0,0,0.8);">
             <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #777; padding-bottom:10px; margin-bottom:10px;">
                 <h2 id="inspect-title" style="margin:0; color:#f1c40f;"></h2>
                 <button class="btn-danger" style="font-size:16px; padding:5px 10px;" onclick="document.getElementById('inspect-modal').classList.add('hidden')">X</button>
@@ -861,14 +866,16 @@
     </div>
 
     <!-- Block Score Cards (outside gameover-screen so they persist on leaderboard) -->
-    <div id="block-scores" class="hidden" style="position:fixed; top:50%; left:0; right:0; z-index:10001; display:flex; justify-content:space-between; pointer-events:none; padding:0 10px; transform:translateY(-50%);">
-        <div id="block-a-card" style="background:rgba(0,80,120,0.9); backdrop-filter:blur(10px); border:3px solid #3498db; border-radius:18px; padding:15px 25px; text-align:center; opacity:0; transform:translateX(-40px); transition:all 0.5s ease;">
-            <div id="block-a-rounds" style="font-size:22px; color:#fff; font-weight:bold;">Rounds 1–5</div>
-            <div style="font-size:28px; color:#3498db; margin-top:8px; font-weight:bold;">P1: <span id="block-a-p1-score">0</span> | P2: <span id="block-a-p2-score">0</span></div>
+    <div id="block-scores" class="hidden" style="position:fixed; top:50%; left:0; right:0; z-index:10001; display:flex; justify-content:space-between; pointer-events:none; padding:0 12px; transform:translateY(-50%);">
+        <div id="block-a-card" style="background:rgba(0,80,120,0.92); backdrop-filter:blur(10px); border:3px solid #3498db; border-radius:18px; padding:15px 22px; text-align:center; opacity:0; transform:translateX(-40px); transition:all 0.5s ease; box-shadow:0 0 20px rgba(52,152,219,0.5);">
+            <div id="block-a-rounds" style="font-size:20px; color:#fff; font-weight:bold;">Rounds 1–5</div>
+            <div style="font-size:30px; color:#3498db; margin-top:6px; font-weight:bold;"><span id="block-a-score">0</span> pts</div>
+            <div id="block-a-star" style="font-size:20px; color:#f1c40f; margin-top:6px; font-weight:bold;">⭐ <span id="block-a-cc-pct">0%</span> CC</div>
         </div>
-        <div id="block-b-card" style="background:rgba(120,60,0,0.9); backdrop-filter:blur(10px); border:3px solid #f39c12; border-radius:18px; padding:15px 25px; text-align:center; opacity:0; transform:translateX(40px); transition:all 0.5s ease 0.2s;">
-            <div id="block-b-rounds" style="font-size:22px; color:#fff; font-weight:bold;">Rounds 6–10</div>
-            <div style="font-size:28px; color:#f39c12; margin-top:8px; font-weight:bold;">P1: <span id="block-b-p1-score">0</span> | P2: <span id="block-b-p2-score">0</span></div>
+        <div id="block-b-card" style="background:rgba(120,60,0,0.92); backdrop-filter:blur(10px); border:3px solid #f39c12; border-radius:18px; padding:15px 22px; text-align:center; opacity:0; transform:translateX(40px); transition:all 0.5s ease 0.2s; box-shadow:0 0 20px rgba(243,156,18,0.5);">
+            <div id="block-b-rounds" style="font-size:20px; color:#fff; font-weight:bold;">Rounds 6–10</div>
+            <div style="font-size:30px; color:#f39c12; margin-top:6px; font-weight:bold;"><span id="block-b-score">0</span> pts</div>
+            <div id="block-b-star" style="font-size:20px; color:#f1c40f; margin-top:6px; font-weight:bold;">⭐ <span id="block-b-cc-pct">0%</span> CC</div>
         </div>
     </div>
 
@@ -987,8 +994,8 @@
                     remaining--;
                     if (remaining <= 0) {
                         clearInterval(countdownInterval);
-                        banner.innerHTML = '🔄 Opponent has been replaced. Game continues.';
-                        setTimeout(() => banner.classList.add('hidden'), 3000);
+                        banner.innerHTML = 'Game continues.';
+                        setTimeout(() => banner.classList.add('hidden'), 2500);
                     } else {
                         banner.innerHTML = `⚠️ Opponent disconnected. Waiting... ${remaining}s`;
                     }
@@ -1010,8 +1017,8 @@
             const banner = document.getElementById('disconnect-banner');
             if (banner) {
                 if (banner._countdownInterval) clearInterval(banner._countdownInterval);
-                banner.innerHTML = '🤖 Opponent has been replaced. Game continues.';
-                setTimeout(() => banner.classList.add('hidden'), 3000);
+                banner.innerHTML = 'Game continues.';
+                setTimeout(() => banner.classList.add('hidden'), 2500);
             }
         });
 
@@ -1398,6 +1405,15 @@
                 document.getElementById('admin-room-rounds').value = 10;
                 document.getElementById('admin-room-max-games').value = 1;
                 adminShowSuccessModal(`Room "${pw}" created successfully!`);
+                const statusEl = document.getElementById('admin-create-room-status');
+                if (statusEl) {
+                    statusEl.style.display = 'block';
+                    statusEl.style.background = 'rgba(46, 204, 113, 0.2)';
+                    statusEl.style.border = '2px solid #2ecc71';
+                    statusEl.style.color = '#2ecc71';
+                    statusEl.innerHTML = `✓ Room "${pw}" created successfully!`;
+                    setTimeout(() => { statusEl.style.display = 'none'; }, 5000);
+                }
                 loadAdminRooms();
                 document.getElementById('admin-room-description').value = '';
                 if (document.getElementById('admin-room-excel')) document.getElementById('admin-room-excel').value = '';
@@ -1405,7 +1421,16 @@
                 document.getElementById('admin-room-type').value = 'MIXED';
             } else {
                 const data = await res.json();
-                customAlert('Failed to create room: ' + (data.error || 'Unknown error'));
+                const errMsg = data.error || 'Unknown error';
+                const statusEl = document.getElementById('admin-create-room-status');
+                if (statusEl) {
+                    statusEl.style.display = 'block';
+                    statusEl.style.background = 'rgba(231, 76, 60, 0.2)';
+                    statusEl.style.border = '2px solid #e74c3c';
+                    statusEl.style.color = '#e74c3c';
+                    statusEl.innerHTML = `✗ Failed: ${errMsg}`;
+                }
+                customAlert('Failed to create room: ' + errMsg);
             }
         }
 
@@ -1524,7 +1549,12 @@
             }
         });
 
-        setInterval(() => { if(currentUserRole === 'admin') loadAdminPlayers(); }, 15000);
+        setInterval(() => { 
+            if(currentUserRole === 'admin') {
+                loadAdminRooms();
+                loadAdminPlayers();
+            }
+        }, 10000);
 
         function switchAdminSidebar(section) {
             document.querySelectorAll('.admin-nav-btn').forEach(b => b.classList.remove('active'));
@@ -2203,9 +2233,12 @@
         }
 
         function repositionBubbles() {
+            const isMobile = window.innerWidth <= 600;
+            const baseBottom = isMobile ? 75 : 140;
+            const step = isMobile ? 38 : 54;
             floatingScores.forEach((bubble, idx) => {
                 // idx 0 = oldest (bottom, closest to chest); idx 2 = newest (top)
-                const bottomPx = 140 + idx * 54;
+                const bottomPx = baseBottom + idx * step;
                 requestAnimationFrame(() => {
                     bubble.style.transition = 'opacity 0.4s ease, transform 0.4s cubic-bezier(0.175,0.885,0.32,1.275), bottom 0.4s ease';
                     bubble.style.opacity = '1';
@@ -2286,7 +2319,18 @@
                 
                 const item = document.createElement('div'); item.className='room-item'; item.style.display = 'flex'; item.style.justifyContent = 'space-between'; item.style.alignItems = 'center';
                 const safeUsername = p.username.replace(/'/g, "\\'");
-                item.innerHTML = `<span><strong>${p.username}</strong> | Sessions: ${p.session_counter}</span> 
+                const onlineBadge = p.is_online 
+                    ? `<span style="color:#2ecc71; font-weight:bold; font-size:14px; margin-left:6px;" title="Online">● Online</span>` 
+                    : `<span style="color:#888; font-size:14px; margin-left:6px;" title="Offline">○ Offline</span>`;
+                
+                let sessionBadge = '';
+                if (p.is_in_game) {
+                    sessionBadge = `<span style="background:#e67e22; color:#fff; font-size:12px; padding:2px 8px; border-radius:12px; margin-left:6px;" title="In Live Game">🎮 Live Match (${p.active_room} - R${p.active_round}/${p.total_rounds})</span>`;
+                } else if (p.in_queue) {
+                    sessionBadge = `<span style="background:#f39c12; color:#000; font-size:12px; padding:2px 8px; border-radius:12px; margin-left:6px;" title="In Queue">⏳ Queued (${p.queue_room})</span>`;
+                }
+
+                item.innerHTML = `<span><strong>${p.username}</strong> ${onlineBadge} ${sessionBadge} | Sessions: ${p.session_counter}</span> 
                     <div style="display:flex; gap:5px;">
                         <button class="btn-small" style="background:#3498db;" onclick="inspectPlayer('${safeUsername}')">Inspect</button>
                         <button class="btn-small" style="background:#e67e22;" onclick="banPlayerPrompt('${safeUsername}', 'CLASS')">Ban Class</button>
@@ -2300,13 +2344,33 @@
         function inspectPlayer(username) {
             const p = allAdminPlayers.find(x => x.username === username);
             if (!p) return;
+            const safeUsername = username.replace(/'/g, "\\'");
             document.getElementById('inspect-title').innerText = `Player: ${username}`;
             let html = `
+                <p><strong>Status:</strong> ${p.is_online ? '<span style="color:#2ecc71; font-weight:bold;">● Online</span>' : '<span style="color:#888;">○ Offline</span>'}</p>
                 <p><strong>Total Coins:</strong> ${p.total_coins}</p>
                 <p><strong>Total Sessions Played:</strong> ${p.session_counter}</p>
                 <p><strong>Rooms Played In:</strong> ${p.rooms.length > 0 ? p.rooms.join(', ') : 'None'}</p>
                 <p><strong>Class Codes Used:</strong> ${p.classes.length > 0 ? p.classes.join(', ') : 'None'}</p>
             `;
+            if (p.is_in_game) {
+                html += `
+                    <div style="background:rgba(231,76,60,0.15); border:2px solid #e74c3c; border-radius:10px; padding:12px; margin:15px 0;">
+                        <div style="color:#e74c3c; font-weight:bold; font-size:18px; margin-bottom:5px;">🎮 Active Live Session</div>
+                        <p style="margin:4px 0;"><strong>Room:</strong> ${p.active_room}</p>
+                        <p style="margin:4px 0;"><strong>Round:</strong> ${p.active_round} of ${p.total_rounds}</p>
+                        <p style="margin:4px 0;"><strong>Game ID:</strong> ${p.active_game_id}</p>
+                        <button onclick="adminClosePlayerSession('${safeUsername}')" style="margin-top:10px; background:#e74c3c; color:white; border:none; padding:8px 16px; border-radius:8px; font-size:16px; cursor:pointer; font-weight:bold; width:100%;">Close Live Session</button>
+                    </div>
+                `;
+            } else if (p.in_queue) {
+                html += `
+                    <div style="background:rgba(243,156,18,0.15); border:2px solid #f39c12; border-radius:10px; padding:12px; margin:15px 0;">
+                        <div style="color:#f39c12; font-weight:bold; font-size:18px; margin-bottom:5px;">⏳ In Queue</div>
+                        <p style="margin:4px 0;"><strong>Room:</strong> ${p.queue_room}</p>
+                    </div>
+                `;
+            }
             if (p.bans && p.bans.length > 0) {
                 html += `<h4 style="color:#e74c3c; margin-top:15px; margin-bottom:5px;">Active Bans:</h4><ul style="margin:0; padding-left:20px;">`;
                 p.bans.forEach(b => {
@@ -2320,6 +2384,24 @@
             
             document.getElementById('inspect-content').innerHTML = html;
             document.getElementById('inspect-modal').classList.remove('hidden');
+        }
+
+        async function adminClosePlayerSession(username) {
+            if(!confirm(`Close active session for ${username}?`)) return;
+            const res = await fetch('/admin_close_player_session', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({username: username})
+            });
+            const data = await res.json();
+            if(res.ok) {
+                customAlert(data.message || 'Session closed.');
+                await loadAdminPlayers();
+                await loadAdminRooms();
+                inspectPlayer(username);
+            } else {
+                customAlert(data.error || 'Failed to close session.');
+            }
         }
 
         async function revokeBan(banId) {
@@ -2676,12 +2758,15 @@
           // Show block scores if available
           if (lastGameResult && lastGameResult.blocks && lastGameResult.blocks.enabled && lastGameResult.blocks.show_on_gameover) {
               const blocks = lastGameResult.blocks;
+              const myRole = (lastGameResult && lastGameResult.role) ? lastGameResult.role : 'p1';
+              const myScoreA = (myRole === 'p2') ? blocks.block_a.p2_score : blocks.block_a.p1_score;
+              const myScoreB = (myRole === 'p2') ? blocks.block_b.p2_score : blocks.block_b.p1_score;
               document.getElementById('block-a-rounds').textContent = 'Rounds ' + blocks.block_a.rounds;
-              document.getElementById('block-a-p1-score').textContent = blocks.block_a.p1_score;
-              document.getElementById('block-a-p2-score').textContent = blocks.block_a.p2_score;
+              document.getElementById('block-a-score').textContent = myScoreA;
+              document.getElementById('block-a-cc-pct').textContent = (blocks.block_a.cc_pct !== undefined ? blocks.block_a.cc_pct : 0) + '%';
               document.getElementById('block-b-rounds').textContent = 'Rounds ' + blocks.block_b.rounds;
-              document.getElementById('block-b-p1-score').textContent = blocks.block_b.p1_score;
-              document.getElementById('block-b-p2-score').textContent = blocks.block_b.p2_score;
+              document.getElementById('block-b-score').textContent = myScoreB;
+              document.getElementById('block-b-cc-pct').textContent = (blocks.block_b.cc_pct !== undefined ? blocks.block_b.cc_pct : 0) + '%';
               if (blockScoresEl) blockScoresEl.classList.remove('hidden');
               // Animate in from sides
               setTimeout(() => {
@@ -2870,7 +2955,7 @@ async function tutSubmitChoice() {
 
         function adminShowSuccessModal(msg) {
             const modal = document.createElement('div');
-            modal.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); display:flex; justify-content:center; align-items:center; z-index:9999; backdrop-filter:blur(5px);';
+            modal.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); display:flex; justify-content:center; align-items:center; z-index:100001; backdrop-filter:blur(5px);';
             modal.innerHTML = `
                 <div style="background:#1e1e1e; border:3px solid #2ecc71; border-radius:15px; padding:30px; text-align:center; max-width:400px; box-shadow:0 0 30px rgba(46,204,113,0.5);">
                     <h2 style="color:#2ecc71; font-size:32px; margin-top:0;">Success!</h2>
