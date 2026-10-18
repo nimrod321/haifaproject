@@ -168,15 +168,63 @@
         }
         .chest-float img { width: 100%; height: auto; display: block; }
         @media (max-width: 600px) {
+            .game-board-panel {
+                padding: 10px 6px;
+                margin: 5px auto 8px auto;
+                border-width: 6px;
+                border-radius: 14px;
+            }
+            .board-layout {
+                grid-template-columns: 52px minmax(75px, 1fr) minmax(75px, 1fr);
+                grid-template-rows: 24px 28px minmax(65px, 95px) 20px minmax(65px, 95px);
+                gap: 5px;
+            }
+            .row-btn {
+                width: 50px;
+                height: 50px;
+                font-size: 22px;
+                border-width: 4px;
+                box-shadow: 0 4px 0 #8c5300;
+            }
+            .row-btn.selected {
+                transform: translateY(4px);
+            }
+            .matrix-cell {
+                border-width: 3px;
+                border-radius: 10px;
+                font-size: clamp(20px, 4.5vw, 34px);
+            }
+            .col-header {
+                height: 24px;
+                font-size: 15px;
+                padding: 4px;
+                border-width: 2px;
+            }
+            #me-label {
+                font-size: 15px;
+            }
+            .submit-btn {
+                font-size: 20px;
+                padding: 8px 36px;
+                margin-top: 8px;
+                border-width: 4px;
+                box-shadow: 0 5px 0 #2d1b11;
+            }
             .chest-float { 
-                position: fixed; bottom: 15px; left: 12px; transform: none; 
-                width: 65px; z-index: 999;
-                filter: drop-shadow(0 4px 12px rgba(241,196,15,0.4));
+                position: fixed; bottom: 8px; left: 8px; transform: none; 
+                width: 55px; z-index: 999;
+                filter: drop-shadow(0 4px 10px rgba(241,196,15,0.4));
             }
             .chest-float.glowing { filter: drop-shadow(0 0 12px rgba(255,215,0,0.7)); }
             .queued-point-bubble {
-                padding: 4px 14px;
-                font-size: 18px;
+                padding: 2px 10px;
+                font-size: 14px;
+                border-width: 1.5px;
+            }
+            #jackpot-text {
+                font-size: clamp(34px, 10.5vw, 52px) !important;
+                letter-spacing: 3px !important;
+                top: 8% !important;
             }
         }
         .chest-float.glowing { filter: drop-shadow(0 0 22px rgba(255,215,0,0.9)) drop-shadow(0 8px 24px rgba(241,196,15,0.6)); }
@@ -277,9 +325,9 @@
           left: 50%;
           transform: translateX(-50%) scale(0) rotate(-8deg);
           z-index: 20;
-          font-size: clamp(70px, 12vw, 130px);
+          font-size: clamp(34px, 10.5vw, 120px);
           color: #f1c40f;
-          letter-spacing: 6px;
+          letter-spacing: clamp(2px, 1.2vw, 6px);
           white-space: nowrap;
           text-shadow:
             0 0 30px rgba(255,200,0,1),
@@ -865,23 +913,23 @@
         <button id="play-again-btn" onclick="openLeaderboard()">🏆 Open Leaderboard</button>
     </div>
 
-    <!-- Block Score Cards (outside gameover-screen so they persist on leaderboard) -->
-    <div id="block-scores" class="hidden" style="position:fixed; top:50%; left:0; right:0; z-index:10001; display:flex; justify-content:space-between; pointer-events:none; padding:0 12px; transform:translateY(-50%);">
-        <div id="block-a-card" style="background:rgba(0,80,120,0.92); backdrop-filter:blur(10px); border:3px solid #3498db; border-radius:18px; padding:15px 22px; text-align:center; opacity:0; transform:translateX(-40px); transition:all 0.5s ease; box-shadow:0 0 20px rgba(52,152,219,0.5);">
-            <div id="block-a-rounds" style="font-size:20px; color:#fff; font-weight:bold;">Rounds 1–5</div>
-            <div style="font-size:30px; color:#3498db; margin-top:6px; font-weight:bold;"><span id="block-a-score">0</span> pts</div>
-            <div id="block-a-star" style="font-size:20px; color:#f1c40f; margin-top:6px; font-weight:bold;">⭐ <span id="block-a-cc-pct">0%</span> CC</div>
-        </div>
-        <div id="block-b-card" style="background:rgba(120,60,0,0.92); backdrop-filter:blur(10px); border:3px solid #f39c12; border-radius:18px; padding:15px 22px; text-align:center; opacity:0; transform:translateX(40px); transition:all 0.5s ease 0.2s; box-shadow:0 0 20px rgba(243,156,18,0.5);">
-            <div id="block-b-rounds" style="font-size:20px; color:#fff; font-weight:bold;">Rounds 6–10</div>
-            <div style="font-size:30px; color:#f39c12; margin-top:6px; font-weight:bold;"><span id="block-b-score">0</span> pts</div>
-            <div id="block-b-star" style="font-size:20px; color:#f1c40f; margin-top:6px; font-weight:bold;">⭐ <span id="block-b-cc-pct">0%</span> CC</div>
-        </div>
-    </div>
-
     <!-- Leaderboard Modal -->
     <div id="leaderboard-modal" class="hidden glass-panel" style="position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); width:min(90%, 800px); max-height:90vh; overflow-y:auto; z-index:9999; text-align:center;">
         <h2 style="font-size:32px; color:#f1c40f; text-shadow:2px 2px 5px rgba(0,0,0,0.5); margin-bottom:10px;">Daily Leaderboards</h2>
+        
+        <!-- Block Score Cards (positioned above leaderboard tabs & lists) -->
+        <div id="block-scores" class="hidden" style="display:flex; justify-content:center; gap:12px; margin: 10px auto 18px auto; flex-wrap:wrap; max-width:500px;">
+            <div id="block-a-card" style="background:rgba(0,80,120,0.92); backdrop-filter:blur(10px); border:3px solid #3498db; border-radius:18px; padding:10px 18px; text-align:center; box-shadow:0 0 20px rgba(52,152,219,0.5); min-width:125px; flex:1;">
+                <div id="block-a-rounds" style="font-size:16px; color:#fff; font-weight:bold;">Rounds 1–5</div>
+                <div style="font-size:26px; color:#3498db; margin-top:4px; font-weight:bold;"><span id="block-a-score">0</span> pts</div>
+                <div id="block-a-star" style="font-size:18px; color:#f1c40f; margin-top:4px; font-weight:bold;">⭐ <span id="block-a-cc-pct">0%</span></div>
+            </div>
+            <div id="block-b-card" style="background:rgba(120,60,0,0.92); backdrop-filter:blur(10px); border:3px solid #f39c12; border-radius:18px; padding:10px 18px; text-align:center; box-shadow:0 0 20px rgba(243,156,18,0.5); min-width:125px; flex:1;">
+                <div id="block-b-rounds" style="font-size:16px; color:#fff; font-weight:bold;">Rounds 6–10</div>
+                <div style="font-size:26px; color:#f39c12; margin-top:4px; font-weight:bold;"><span id="block-b-score">0</span> pts</div>
+                <div id="block-b-star" style="font-size:18px; color:#f1c40f; margin-top:4px; font-weight:bold;">⭐ <span id="block-b-cc-pct">0%</span></div>
+            </div>
+        </div>
         
         <div class="lb-tabs" style="display:flex; justify-content:center; gap:10px; margin-bottom:15px;">
             <button class="btn-small" id="lb-tab-btn-class" style="background:#3498db; font-size:18px;" onclick="switchLbTab('class')">Class Leaderboard</button>
@@ -930,7 +978,7 @@
         let selectedMove = null, currentGid = null, currentUsername = null, currentUserRole = null, choiceLocked = false, sessionTotalScore = 0;
         let currentClassCode = '';
         let currentRoomPassword = '';
-        let currentBotWaitTime = 30;
+        let currentBotWaitTime = 10;
         let lastGameResult = null; // for Task 4
 
         // Socket.IO connection
@@ -948,13 +996,27 @@
         socket.on('queue_matched', function(gameData) {
             hideLoading();
             clearInterval(queuePollInterval);
-            if (typeof botMatchTimeout !== 'undefined') clearTimeout(botMatchTimeout);
+            if (typeof botMatchTimeout !== 'undefined' && botMatchTimeout) clearTimeout(botMatchTimeout);
             currentGid = gameData.gameId;
             startGameFromData(gameData);
         });
 
         socket.on('queue_status', function(data) {
-            if (data && data.bot_wait_time) currentBotWaitTime = data.bot_wait_time;
+            if (data && data.bot_wait_time !== undefined) {
+                currentBotWaitTime = Number(data.bot_wait_time);
+                const lobby = document.getElementById('room-lobby');
+                if (lobby && !lobby.classList.contains('hidden')) {
+                    if (typeof botMatchTimeout !== 'undefined' && botMatchTimeout) {
+                        clearTimeout(botMatchTimeout);
+                    }
+                    const pw = (document.getElementById('prison-password') ? document.getElementById('prison-password').value : '') || currentRoomPassword;
+                    if (pw) {
+                        botMatchTimeout = setTimeout(() => {
+                            socket.emit('trigger_bot', { username: currentUsername, password: pw });
+                        }, currentBotWaitTime * 1000);
+                    }
+                }
+            }
         });
 
         socket.on('queue_error', function(data) {
@@ -2028,13 +2090,25 @@
             }
         }
 
-        function enterMatchmaking(roomCode) {
+        async function enterMatchmaking(roomCode) {
             islandEngine.hide();
             document.getElementById('auth').classList.add('hidden');
             document.getElementById('prison-join-form').classList.add('hidden');
             document.getElementById('game').classList.remove('hidden');
             document.getElementById('room-lobby').classList.remove('hidden');
             document.getElementById('prison-password').value = roomCode;
+            currentRoomPassword = roomCode;
+            try {
+                const res = await fetch('/enter_room', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({password: roomCode})
+                });
+                if(res.ok) {
+                    const data = await res.json();
+                    if(data.bot_wait_time !== undefined) currentBotWaitTime = Number(data.bot_wait_time);
+                }
+            } catch(e) {}
             queueForGame();
         }
         
@@ -2043,6 +2117,7 @@
 
         async function queueForGame() { 
             const pw = document.getElementById('prison-password').value; 
+            currentRoomPassword = pw;
             document.getElementById('start-game-btn').style.display = 'none';
             const backBtn = document.getElementById('back-room-btn');
             if(backBtn) backBtn.style.display = 'none';
@@ -2057,9 +2132,10 @@
                 </div>
             `;
             
+            if (botMatchTimeout) clearTimeout(botMatchTimeout);
             botMatchTimeout = setTimeout(() => {
                 socket.emit('trigger_bot', { username: currentUsername, password: pw });
-            }, (currentBotWaitTime || 30) * 1000);
+            }, (currentBotWaitTime || 10) * 1000);
         }
 
         function startGameFromData(d) {
@@ -2234,8 +2310,8 @@
 
         function repositionBubbles() {
             const isMobile = window.innerWidth <= 600;
-            const baseBottom = isMobile ? 75 : 140;
-            const step = isMobile ? 38 : 54;
+            const baseBottom = isMobile ? 48 : 140;
+            const step = isMobile ? 24 : 54;
             floatingScores.forEach((bubble, idx) => {
                 // idx 0 = oldest (bottom, closest to chest); idx 2 = newest (top)
                 const bottomPx = baseBottom + idx * step;
@@ -2749,14 +2825,10 @@
 
           // Reset block score cards before potential display
           const blockScoresEl = document.getElementById('block-scores');
-          const blockACard = document.getElementById('block-a-card');
-          const blockBCard = document.getElementById('block-b-card');
           if (blockScoresEl) blockScoresEl.classList.add('hidden');
-          if (blockACard) { blockACard.style.opacity = '0'; blockACard.style.transform = 'translateX(-40px)'; }
-          if (blockBCard) { blockBCard.style.opacity = '0'; blockBCard.style.transform = 'translateX(40px)'; }
 
           // Show block scores if available
-          if (lastGameResult && lastGameResult.blocks && lastGameResult.blocks.enabled && lastGameResult.blocks.show_on_gameover) {
+          if (lastGameResult && lastGameResult.blocks && lastGameResult.blocks.enabled) {
               const blocks = lastGameResult.blocks;
               const myRole = (lastGameResult && lastGameResult.role) ? lastGameResult.role : 'p1';
               const myScoreA = (myRole === 'p2') ? blocks.block_a.p2_score : blocks.block_a.p1_score;
@@ -2768,19 +2840,6 @@
               document.getElementById('block-b-score').textContent = myScoreB;
               document.getElementById('block-b-cc-pct').textContent = (blocks.block_b.cc_pct !== undefined ? blocks.block_b.cc_pct : 0) + '%';
               if (blockScoresEl) blockScoresEl.classList.remove('hidden');
-              // Animate in from sides
-              setTimeout(() => {
-                  if (blockACard) {
-                      blockACard.style.opacity = '1';
-                      blockACard.style.transform = 'translateX(0)';
-                  }
-              }, 1500);
-              setTimeout(() => {
-                  if (blockBCard) {
-                      blockBCard.style.opacity = '1';
-                      blockBCard.style.transform = 'translateX(0)';
-                  }
-              }, 1700);
           }
 
           // Reset

@@ -1915,7 +1915,8 @@ def check_presence_timeouts():
                         if last_ping > 0 and (now - last_ping > 20):
                             if username not in disconnected_players:
                                 print(f"[Presence] Timeout detected for {username} (>20s)")
-                                start_disconnect_timers(username, game, gid, room, pw)
+                                disc_timeout = room['settings'].get('disconnect_timeout', 60)
+                                start_disconnect_timers(username, game, gid, room, pw, disc_timeout)
 
 # Start background presence monitor
 threading.Thread(target=check_presence_timeouts, daemon=True).start()
@@ -2774,7 +2775,7 @@ def handle_join_queue(data):
         # Check if already in queue
         for p in waiting:
             if p['username'] == username:
-                emit('queue_status', {'status': 'waiting', 'bot_wait_time': room['settings'].get('bot_wait_time', 30)})
+                emit('queue_status', {'status': 'waiting', 'bot_wait_time': room['settings'].get('bot_wait_time', 10)})
                 return
         
         # Find match
@@ -2805,7 +2806,27 @@ def handle_join_queue(data):
         else:
             waiting.append({'username': username, 'class_code': class_code})
             socketio.emit('admin_update', {'type': 'room_state_change'}, room='admin_room')
-            emit('queue_status', {'status': 'waiting', 'bot_wait_time': room['settings'].get('bot_wait_time', 30)})
+            wait_time = int(room['settings'].get('bot_wait_time', 10))
+            emit('queue_status', {'status': 'waiting', 'bot_wait_time': wait_time})
+
+            def auto_trigger_bot_server(pw, u):
+                with game_lock:
+                    if pw not in rooms:
+                        return
+                    r = rooms[pw]
+                    for p in list(r.get('waiting', [])):
+                        if p['username'] == u:
+                            r['waiting'].remove(p)
+                            gid, gdata = start_game_human_vs_bot(r, u, pw)
+                            r['active'][gid]['class_codes'] = {u: p.get('class_code', '')}
+                            socketio.emit('admin_update', {'type': 'room_state_change'}, room='admin_room')
+                            if u in user_sockets:
+                                socketio.emit('queue_matched', gdata, room=user_sockets[u])
+                            break
+
+            t = threading.Timer(wait_time, auto_trigger_bot_server, args=[password, username])
+            t.daemon = True
+            t.start()
 
 @socketio.on('trigger_bot')
 def handle_trigger_bot(data):
