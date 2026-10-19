@@ -9,3 +9,4 @@ LightsailDefaultKey-eu-central-1.pem
 *.pyc
 server_log.txt
 server/storage/
+.idea/
