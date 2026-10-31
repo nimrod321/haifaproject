@@ -211,6 +211,8 @@ def init_db():
             except: pass
             try: db.execute('ALTER TABLE prison_rooms ADD COLUMN bot_wait_time INTEGER DEFAULT 30')
             except: pass
+            try: db.execute('ALTER TABLE prison_rooms ADD COLUMN is_locked INTEGER DEFAULT 0')
+            except: pass
 
             db.execute('''CREATE TABLE IF NOT EXISTS class_leaderboard (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -298,7 +300,52 @@ def migrate_anon_ids():
 migrate_anon_ids()
 
 user_sockets = {}  # username -> socket session id (sid)
-rooms = {}  # password -> {'waiting': [], 'active': [], 'settings': {'num_sessions': 10}}
+rooms = {}  # password -> {'waiting': [], 'active': {}, 'settings': {'num_sessions': 10}}
+
+def emit_to_user(username, event, data):
+    """Safely emit an event to a user via both room and SID."""
+    if not username:
+        return
+    socketio.emit(event, data, room=f'user_{username}')
+    sid = user_sockets.get(username)
+    if sid:
+        try:
+            socketio.emit(event, data, room=sid)
+        except Exception:
+            pass
+
+def sync_active_game_for_user(username):
+    """Emit current active game state to reconnecting/registering player."""
+    try:
+        with game_lock:
+            game_info = find_active_game_for_user(username)
+            if not game_info:
+                return
+            game, gid, room, pw = game_info
+            sessions_list = room.get('sessions') or prison_sessions
+            session_idx = game['session']
+            if session_idx >= len(sessions_list):
+                session_idx = len(sessions_list) - 1
+            session = sessions_list[session_idx]
+            role = 'p1' if game['players'][0] == username else 'p2'
+            matrix = prison_matrix_for_player(session, role)
+            
+            has_chosen = bool(game.get('choices', {}).get(role))
+            reconnect_payload = {
+                'gameId': gid,
+                'session': game['session'] + 1,
+                'total_sessions': room['settings']['num_sessions'],
+                'matrix': matrix,
+                'role': role,
+                'opponent': 'Player 2' if role == 'p1' else 'Player 1',
+                'has_chosen': has_chosen,
+                'current_total': game['total'].get(username, 0),
+                'room_password': pw
+            }
+            emit_to_user(username, 'session_reconnect_state', reconnect_payload)
+    except Exception as e:
+        print(f"[Sync] Error syncing active game for {username}: {e}")
+
 
 @socketio.on('admin_join')
 def handle_admin_join():
@@ -419,7 +466,7 @@ def get_rooms():
     room_list = []
     try:
         db = get_db()
-        db_rooms = db.execute('SELECT password, description, room_type, allowed_bots, max_games, num_sessions, dd_split_config, block_config, bot_wait_time FROM prison_rooms').fetchall()
+        db_rooms = db.execute('SELECT password, description, room_type, allowed_bots, max_games, num_sessions, dd_split_config, block_config, bot_wait_time, is_locked FROM prison_rooms').fetchall()
         for r in db_rooms:
             password = r['password']
             description = r['description']
@@ -427,12 +474,20 @@ def get_rooms():
             # Keep active match data for admin viewing if the global mem exists
             active_games_list = []
             if password in rooms:
-                for game_id, game in rooms[password].get('active', {}).items():
-                    active_games_list.append({
-                        'game_id': game_id,
-                        'players': game['players'],
-                        'session': game.get('session', 0)
-                    })
+                act = rooms[password].get('active', {})
+                now_t = time.time()
+                for gid in list(act.keys()):
+                    g = act[gid]
+                    if g.get('done') or g.get('session', 0) >= r['num_sessions']:
+                        if (now_t - g.get('done_time', now_t)) > 15:
+                            act.pop(gid, None)
+                for game_id, game in act.items():
+                    if not game.get('done') and game.get('session', 0) < r['num_sessions']:
+                        active_games_list.append({
+                            'game_id': game_id,
+                            'players': game['players'],
+                            'session': game.get('session', 0)
+                        })
                     
             # Fetch queued players
             queued_list = []
@@ -474,6 +529,7 @@ def get_rooms():
                 'dd_split_config': json.loads(r['dd_split_config']) if 'dd_split_config' in r.keys() and r['dd_split_config'] else None,
                 'block_config': json.loads(r['block_config']) if 'block_config' in r.keys() and r['block_config'] else None,
                 'bot_wait_time': r['bot_wait_time'] if 'bot_wait_time' in r.keys() else 30,
+                'is_locked': bool(r['is_locked']) if 'is_locked' in r.keys() and r['is_locked'] else False,
                 'active_games': len(active_games_list),
                 'games': active_games_list,
                 'player_counts': play_counts
@@ -951,6 +1007,31 @@ def update_room_file():
     finally:
         if db: db.close()
 
+@app.route('/toggle_room_lock', methods=['POST'])
+def toggle_room_lock():
+    data = request.get_json()
+    password = data.get('password')
+    if not password:
+        return jsonify({'error': 'Password required'}), 400
+    db = None
+    try:
+        db = get_db()
+        row = db.execute('SELECT is_locked FROM prison_rooms WHERE password = ?', (password,)).fetchone()
+        if not row:
+            return jsonify({'error': 'Room not found'}), 404
+        cur_locked = bool(row['is_locked']) if 'is_locked' in row.keys() and row['is_locked'] else False
+        new_locked = 0 if cur_locked else 1
+        db.execute('UPDATE prison_rooms SET is_locked = ? WHERE password = ?', (new_locked, password))
+        db.commit()
+        if password in rooms:
+            rooms[password]['settings']['is_locked'] = bool(new_locked)
+        socketio.emit('admin_update', {'type': 'room_state_change'}, room='admin_room')
+        return jsonify({'message': f"Room {'locked' if new_locked else 'unlocked'} successfully", 'is_locked': bool(new_locked)})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if db: db.close()
+
 @app.route('/update_room_max_games', methods=['POST'])
 def update_room_max_games():
     data = request.get_json()
@@ -1374,6 +1455,7 @@ def ensure_room_loaded(password):
                     'max_games': row['max_games'] if 'max_games' in row.keys() else 1,
                     'disconnect_timeout': row['disconnect_timeout'] if 'disconnect_timeout' in row.keys() else 60,
                     'bot_wait_time': row['bot_wait_time'] if 'bot_wait_time' in row.keys() else 30,
+                    'is_locked': bool(row['is_locked']) if 'is_locked' in row.keys() and row['is_locked'] else False,
                     'dd_split_config': json.loads(row['dd_split_config']) if row['dd_split_config'] else None,
                     'block_config': json.loads(row['block_config']) if row['block_config'] else None,
                 },
@@ -1392,7 +1474,13 @@ def enter_room():
     password = data.get('password')
     if not password or not ensure_room_loaded(password):
         return jsonify({'error': 'Invalid room password'}), 404
-    return jsonify({'message': 'Room found'})
+    room = rooms[password]
+    return jsonify({
+        'message': 'Room found',
+        'room_password': password,
+        'is_locked': bool(room['settings'].get('is_locked', False)),
+        'bot_wait_time': room['settings'].get('bot_wait_time', 10)
+    })
 
 @app.route('/join_queue', methods=['POST'])
 def join_queue():
@@ -1420,6 +1508,9 @@ def join_queue():
     except: pass
     finally:
         if db: db.close()
+
+    if room['settings'].get('is_locked'):
+        return jsonify({'error': 'This room is currently locked. No new games can be started.'}), 403
 
     # Check if already in an active game first (so reconnecting is allowed)
     for gid, game in room['active'].items():
@@ -1868,6 +1959,8 @@ def resolve_round(game, game_id, room):
     game['last_result'] = result
 
     if done:
+        game['done'] = True
+        game['done_time'] = time.time()
         print(f"[Game] Session {game_id} Complete")
         # Don't delete the game yet - let the other player poll for the result
         # It will be cleaned up on next game start or disconnect
@@ -1925,7 +2018,7 @@ def find_active_game_for_user(username):
     """Find an active game for a given username across all rooms."""
     for pw, room in rooms.items():
         for gid, game in room['active'].items():
-            if username in game['players'] and game['session'] < room['settings']['num_sessions']:
+            if username in game['players'] and not game.get('done') and game['session'] < room['settings']['num_sessions']:
                 return game, gid, room, pw
     return None
 
@@ -2694,9 +2787,12 @@ def handle_register(data):
     username = data.get('username')
     if username:
         user_sockets[username] = request.sid
-        print(f'[Socket] Registered {username} -> {request.sid}')
+        join_room(f'user_{username}')
+        print(f'[Socket] Registered {username} -> {request.sid} (joined user_{username})')
         if username in disconnected_players:
             handle_reconnection(username)
+        else:
+            sync_active_game_for_user(username)
         socketio.emit('admin_update', {'type': 'player_online_change'}, room='admin_room')
 
 @socketio.on('disconnect')
@@ -2719,6 +2815,60 @@ def handle_disconnect():
                     if username not in disconnected_players:
                         disconnect_timeout = room['settings'].get('disconnect_timeout', 60)
                         start_disconnect_timers(username, game, gid, room, pw, disconnect_timeout)
+
+@socketio.on('check_queue_status')
+def handle_check_queue_status(data):
+    username = data.get('username')
+    password = data.get('password')
+    if not username:
+        return
+    with game_lock:
+        game_info = find_active_game_for_user(username)
+        if game_info:
+            game, gid, room, pw = game_info
+            game_data = build_game_data(game, gid, room, username)
+            emit_to_user(username, 'queue_matched', game_data)
+            return
+        if password and password in rooms:
+            room = rooms[password]
+            for p in room.get('waiting', []):
+                if p.get('username') == username:
+                    emit_to_user(username, 'queue_status', {
+                        'status': 'waiting',
+                        'bot_wait_time': room['settings'].get('bot_wait_time', 10)
+                    })
+                    return
+        emit_to_user(username, 'queue_status', {'status': 'not_in_queue'})
+
+@socketio.on('check_game_status')
+def handle_check_game_status(data):
+    username = data.get('username')
+    game_id = data.get('gameId')
+    if not username or not game_id:
+        return
+    with game_lock:
+        game = None
+        room = None
+        room_pw = None
+        for pw, r in rooms.items():
+            if game_id in r.get('active', {}):
+                game = r['active'][game_id]
+                room = r
+                room_pw = pw
+                break
+        if not game:
+            return
+        role = 'p1' if game['players'][0] == username else 'p2'
+        if game.get('last_result'):
+            res = game['last_result'].get(role)
+            if res:
+                if res.get('done'):
+                    block_data = calculate_block_scores(game, room, room_pw)
+                    if block_data:
+                        res['blocks'] = block_data
+                    emit_to_user(username, 'game_over', res)
+                else:
+                    emit_to_user(username, 'round_result', res)
 
 @socketio.on('join_queue')
 def handle_join_queue(data):
@@ -2753,6 +2903,10 @@ def handle_join_queue(data):
         except: pass
         finally:
             if db: db.close()
+        
+        if room['settings'].get('is_locked'):
+            emit('queue_error', {'error': 'This room is currently locked. No new games can be started.'})
+            return
         
         # Check if already in active game
         for gid, game in room['active'].items():
@@ -2800,9 +2954,8 @@ def handle_join_queue(data):
             
             socketio.emit('admin_update', {'type': 'room_state_change'}, room='admin_room')
             # Push to both players via WebSocket
-            if p1_username in user_sockets:
-                socketio.emit('queue_matched', game_data_p1, room=user_sockets[p1_username])
-            emit('queue_matched', game_data_p2)
+            emit_to_user(p1_username, 'queue_matched', game_data_p1)
+            emit_to_user(username, 'queue_matched', game_data_p2)
         else:
             waiting.append({'username': username, 'class_code': class_code})
             socketio.emit('admin_update', {'type': 'room_state_change'}, room='admin_room')
@@ -2820,8 +2973,7 @@ def handle_join_queue(data):
                             gid, gdata = start_game_human_vs_bot(r, u, pw)
                             r['active'][gid]['class_codes'] = {u: p.get('class_code', '')}
                             socketio.emit('admin_update', {'type': 'room_state_change'}, room='admin_room')
-                            if u in user_sockets:
-                                socketio.emit('queue_matched', gdata, room=user_sockets[u])
+                            emit_to_user(u, 'queue_matched', gdata)
                             break
 
             t = threading.Timer(wait_time, auto_trigger_bot_server, args=[password, username])
@@ -2944,15 +3096,15 @@ def handle_submit_choice(data):
                     p1_result['blocks'] = block_data
                     p2_result['blocks'] = block_data
                 
-                if p1 in user_sockets:
-                    socketio.emit('game_over', p1_result, room=user_sockets[p1])
-                if p2 in user_sockets and not p2.startswith('Bot_'):
-                    socketio.emit('game_over', p2_result, room=user_sockets[p2])
+                game['done'] = True
+                game['done_time'] = time.time()
+                emit_to_user(p1, 'game_over', p1_result)
+                if not p2.startswith('Bot_'):
+                    emit_to_user(p2, 'game_over', p2_result)
             else:
-                if p1 in user_sockets:
-                    socketio.emit('round_result', p1_result, room=user_sockets[p1])
-                if p2 in user_sockets and not p2.startswith('Bot_'):
-                    socketio.emit('round_result', p2_result, room=user_sockets[p2])
+                emit_to_user(p1, 'round_result', p1_result)
+                if not p2.startswith('Bot_'):
+                    emit_to_user(p2, 'round_result', p2_result)
             
             # Check for DD-split trigger
             check_dd_split(game, game_id, room, room_pw, result)

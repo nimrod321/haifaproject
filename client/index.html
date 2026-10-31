@@ -168,16 +168,32 @@
         }
         .chest-float img { width: 100%; height: auto; display: block; }
         @media (max-width: 600px) {
+            .container {
+                padding: 6px 4px !important;
+                width: 100% !important;
+                max-width: 100vw !important;
+                box-sizing: border-box !important;
+                overflow-x: hidden !important;
+            }
             .game-board-panel {
-                padding: 10px 6px;
-                margin: 5px auto 8px auto;
-                border-width: 6px;
-                border-radius: 14px;
+                width: 100% !important;
+                max-width: 100% !important;
+                box-sizing: border-box !important;
+                padding: 8px 4px !important;
+                margin: 4px auto 8px auto !important;
+                border-width: 4px !important;
+                border-radius: 14px !important;
+                overflow-x: hidden !important;
             }
             .board-layout {
-                grid-template-columns: 52px minmax(75px, 1fr) minmax(75px, 1fr);
-                grid-template-rows: 24px 28px minmax(65px, 95px) 20px minmax(65px, 95px);
-                gap: 5px;
+                width: 100% !important;
+                max-width: 100% !important;
+                box-sizing: border-box !important;
+                grid-template-columns: 46px minmax(0, 1fr) minmax(0, 1fr) !important;
+                grid-template-rows: 24px 28px minmax(65px, 95px) 20px minmax(65px, 95px) !important;
+                gap: 4px !important;
+                margin: 0 auto !important;
+                justify-content: center !important;
             }
             .row-btn {
                 width: 50px;
@@ -507,7 +523,7 @@
                 <button onclick="login()" style="font-size:clamp(18px,4vw,24px);">Login</button>
                 <button onclick="showSignupForm()" style="background:#3498db; margin-top:10px; font-size:clamp(18px,4vw,24px);">Create Account</button>
                 <div style="margin-top:15px;"><a href="#" onclick="showRecoveryForm(); return false;" style="color:#f1c40f; font-size:18px; text-decoration:underline;">Forgot Password?</a></div>
-                <div style="margin-top:15px;"><button onclick="showTutorial()" style="background:#3498db; font-size:clamp(16px,3.5vw,22px); padding:8px 25px;">📖 How to Play</button></div>
+                
             </div>
             
             <!-- Signup Form -->
@@ -543,15 +559,25 @@
         
         <!-- Player Lobby (class code + room entry for non-BOOMER users) -->
         <div id="player-lobby" class="hidden">
-            <div id="class-code-section" class="glass-panel">
+            <!-- Welcome Menu Screen (between login and class code) -->
+            <div id="welcome-menu-section" class="glass-panel">
+                <h2 id="welcome-user-title">Welcome!</h2>
+                <p style="color:#eee; font-size:18px; margin-bottom:20px;">Ready for Dilemma Street?</p>
+                <button onclick="goToClassCode()" class="submit-btn" style="font-size:clamp(20px,4.5vw,26px); padding:12px 40px; margin-bottom:15px; width:100%; max-width:320px;">Play Game</button>
+                <br>
+                <button onclick="showTutorial()" style="background:#3498db; font-size:clamp(18px,4vw,22px); padding:10px 30px; margin-bottom:15px; width:100%; max-width:320px;">📖 How to Play</button>
+                <br>
+                <button onclick="logoutPlayer()" style="background:#e74c3c; margin-top:10px; font-size:16px; padding:8px 25px;">Logout</button>
+            </div>
+            <div id="class-code-section" class="glass-panel hidden">
                 <h2>Enter Class Code</h2>
                 <input type="text" id="class-code-input" placeholder="Class Code" onkeypress="if(event.keyCode===13) submitClassCode()">
                 <button onclick="submitClassCode()" style="font-size:clamp(18px,4vw,24px);">Continue</button>
-                <button onclick="backToLogin()" style="background:#95a5a6; margin-top:5px; font-size:16px;">Back to Login</button>
+                <button onclick="backToWelcomeMenu()" style="background:#95a5a6; margin-top:5px; font-size:16px;">Back to Menu</button>
             </div>
             <div id="room-password-section" class="glass-panel hidden">
                 <h2>Enter Room Password</h2>
-                <input type="password" id="player-room-password" placeholder="Room Password" onkeypress="if(event.keyCode===13) enterRoomFromLobby()">
+                <input type="text" id="player-room-password" placeholder="Room Password / Code" onkeypress="if(event.keyCode===13) enterRoomFromLobby()">
                 <button onclick="enterRoomFromLobby()" style="font-size:clamp(18px,4vw,24px);">Enter Room</button>
                 <button onclick="backToClassCode()" style="background:#95a5a6; margin-top:5px; font-size:16px;">Back to Class Password</button>
             </div>
@@ -610,7 +636,7 @@
                     <div style="background: #1e1e1e; border: 2px solid #333; border-radius: 15px; padding: 20px; max-width: 800px; margin-top: 20px;">
                         <h3 style="color:#9b59b6; margin-top:0; border-bottom:1px solid #444; padding-bottom:5px;">Basic Room Settings</h3>
                         <!-- ORIGINAL CREATION FORM START -->
-                        <input type="password" id="admin-room-password" placeholder="Room Password" onkeypress="if(event.keyCode===13) adminCreateRoom()">
+                        <input type="text" id="admin-room-password" placeholder="Room Password / Code" onkeypress="if(event.keyCode===13) adminCreateRoom()">
                         <input type="text" id="admin-room-description" placeholder="Room Description (Optional)">
                         <input type="number" id="admin-room-rounds" placeholder="Rounds" value="10">
                         <input type="number" id="admin-room-max-games" placeholder="Max Games per Player" value="1" style="margin-top:10px;">
@@ -859,11 +885,12 @@
         <div id="game" class="hidden">
             <div id="prison-join-form" class="glass-panel">
                 <h2>Join Room</h2>
-                <input type="password" id="prison-password" placeholder="Room Password" onkeypress="if(event.keyCode===13) enterRoom()">
+                <input type="text" id="prison-password" placeholder="Room Password / Code" onkeypress="if(event.keyCode===13) enterRoom()">
                 <button onclick="enterRoom()">Enter</button>
             </div>
 
             <div id="room-lobby" class="glass-panel hidden">
+                <h2 id="room-lobby-title" style="margin-bottom: 20px; color: #f1c40f; font-size: 32px; font-weight: bold;">Room</h2>
                 <button onclick="queueForGame()" id="start-game-btn" class="submit-btn" style="padding: 10px 40px; font-size:30px;">START GAME</button>
                 <br>
                 <button onclick="backToRoomInput()" id="back-room-btn" style="background:#95a5a6; margin-top:20px; font-size:18px; padding:10px 20px;">Back to Room Code</button>
@@ -873,6 +900,7 @@
             <div id="disconnect-banner" class="hidden" style="position:fixed; top:0; left:0; right:0; background:rgba(231,76,60,0.95); color:white; padding:12px 20px; text-align:center; font-size:18px; font-weight:bold; z-index:5000; backdrop-filter:blur(5px); transition: opacity 0.3s;"></div>
 
             <div id="prison" class="hidden">
+                <div id="game-room-title" style="font-size: 22px; font-weight: bold; color: #f1c40f; margin-bottom: 6px; text-shadow: 2px 2px 4px #000;">Room</div>
                 <div id="countdown-overlay" style="display:none; position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); font-size:120px; font-weight:bold; color:#fff; text-shadow:0 0 20px #000; z-index:999; animation:pulse 1s infinite;"></div>
                 <div class="game-board-panel">
             <div class="board-layout">
@@ -985,14 +1013,97 @@
         const socket = io();
         let socketRegistered = false;
 
+        let roundPollInterval = null;
+
+        function goToClassCode() {
+            document.getElementById('welcome-menu-section').classList.add('hidden');
+            document.getElementById('class-code-section').classList.remove('hidden');
+        }
+
+        function backToWelcomeMenu() {
+            document.getElementById('class-code-section').classList.add('hidden');
+            document.getElementById('welcome-menu-section').classList.remove('hidden');
+        }
+
+        function logoutPlayer() {
+            sessionStorage.removeItem('haifa_session');
+            location.reload();
+        }
+
+        socket.on('connect', () => {
+            console.log('[Socket] Connected / Reconnected. SID:', socket.id);
+            if (currentUsername) {
+                socket.emit('register', { username: currentUsername });
+                if (currentGid) {
+                    socket.emit('check_game_status', { username: currentUsername, gameId: currentGid });
+                } else if (currentRoomPassword) {
+                    const lobby = document.getElementById('room-lobby');
+                    if (lobby && !lobby.classList.contains('hidden')) {
+                        socket.emit('check_queue_status', { username: currentUsername, password: currentRoomPassword });
+                    }
+                }
+            }
+            if (currentUserRole === 'admin') {
+                socket.emit('admin_join');
+            }
+        });
+
         function registerSocket() {
-            if (currentUsername && !socketRegistered) {
+            if (currentUsername) {
                 socket.emit('register', { username: currentUsername });
                 socketRegistered = true;
             }
         }
 
         // Socket event listeners
+                socket.on('session_reconnect_state', function(state) {
+            console.log('[Socket] Received session reconnect state:', state);
+            if (typeof queuePollInterval !== 'undefined' && queuePollInterval) {
+                clearInterval(queuePollInterval);
+                queuePollInterval = null;
+            }
+            hideLoading();
+            const disconnectBanner = document.getElementById('disconnect-banner');
+            if (disconnectBanner) disconnectBanner.classList.add('hidden');
+            
+            currentGid = state.gameId;
+            currentRoomPassword = state.room_password;
+            if (document.getElementById('prison-password')) {
+                document.getElementById('prison-password').value = currentRoomPassword;
+            }
+            if (document.getElementById('game-room-title')) {
+                document.getElementById('game-room-title').innerText = 'Room ' + currentRoomPassword;
+            }
+            document.getElementById('room-lobby').classList.add('hidden');
+            document.getElementById('player-lobby').classList.add('hidden');
+            document.getElementById('auth').classList.add('hidden');
+            document.getElementById('game').classList.remove('hidden');
+            document.getElementById('prison').classList.remove('hidden');
+            
+            currentRole = state.role;
+            renderMatrix(state.matrix);
+            openAllDoors();
+            updateScores(state.session, state.total_sessions);
+            
+            if (state.has_chosen) {
+                choiceLocked = true;
+                document.getElementById('prison-message').innerText = 'Waiting for opponent...';
+                document.getElementById('submit-choice-btn').disabled = true;
+                if (!roundPollInterval) {
+                    roundPollInterval = setInterval(() => {
+                        socket.emit('check_game_status', { username: currentUsername, gameId: currentGid });
+                    }, 2000);
+                }
+            } else {
+                choiceLocked = false;
+                selectedMove = null;
+                document.getElementById('row-btn-A').classList.remove('selected');
+                document.getElementById('row-btn-B').classList.remove('selected');
+                document.getElementById('submit-choice-btn').disabled = true;
+                document.getElementById('prison-message').innerText = 'Make your choice!';
+            }
+        });
+
         socket.on('queue_matched', function(gameData) {
             hideLoading();
             clearInterval(queuePollInterval);
@@ -1232,7 +1343,19 @@
                             }
                         } catch(e) { console.log('Active game check failed:', e); }
                         document.getElementById('player-lobby').classList.remove('hidden');
+                        document.getElementById('welcome-menu-section').classList.remove('hidden');
+                        document.getElementById('class-code-section').classList.add('hidden');
+                        document.getElementById('room-password-section').classList.add('hidden');
+                        document.getElementById('welcome-user-title').innerText = 'Welcome, ' + currentUsername + '!';
                     }
+                    try {
+                        sessionStorage.setItem('haifa_session', JSON.stringify({
+                            username: currentUsername,
+                            role: currentUserRole,
+                            classCode: currentClassCode,
+                            roomPassword: currentRoomPassword
+                        }));
+                    } catch(e) {}
                 } else customAlert(data.error);
             } catch (e) {
                 hideLoading();
@@ -1339,6 +1462,9 @@
                     document.getElementById('player-lobby').classList.add('hidden');
                     document.getElementById('game').classList.remove('hidden');
                     document.getElementById('prison-password').value = pw;
+                    currentRoomPassword = pw;
+                    document.getElementById('room-lobby-title').innerText = 'Room ' + pw;
+                    document.getElementById('game-room-title').innerText = 'Room ' + pw;
                     document.getElementById('prison-join-form').classList.add('hidden');
                     document.getElementById('room-lobby').classList.remove('hidden');
                 } else {
@@ -1527,6 +1653,42 @@
             }
         }
 
+        const openRoomAccordions = new Set();
+        function toggleRoomAccordion(pw, btn) {
+            const content = btn.nextElementSibling;
+            if (openRoomAccordions.has(pw)) {
+                openRoomAccordions.delete(pw);
+                content.classList.remove('active');
+                btn.innerHTML = 'View Games & Queue ▼';
+            } else {
+                openRoomAccordions.add(pw);
+                content.classList.add('active');
+                btn.innerHTML = 'View Games & Queue ▲';
+            }
+        }
+
+        async function toggleRoomLock(pw) {
+            try {
+                showLoading('Updating room lock...');
+                const res = await fetch('/toggle_room_lock', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ password: pw })
+                });
+                const data = await res.json();
+                hideLoading();
+                if (res.ok) {
+                    customAlert(data.message);
+                    loadAdminRooms();
+                } else {
+                    customAlert(data.error || 'Failed to toggle room lock.');
+                }
+            } catch(e) {
+                hideLoading();
+                customAlert('Error toggling room lock.');
+            }
+        }
+
         async function loadAdminRooms() {
             const res = await fetch('/get_rooms'); 
             const data = await res.json();
@@ -1547,6 +1709,13 @@
                 const item = document.createElement('div'); 
                 item.className='room-card'; 
                 
+                const isLocked = Boolean(room.is_locked);
+                let lockBadge = isLocked 
+                    ? `<span style="background:#e74c3c; color:white; font-size:12px; padding:3px 8px; border-radius:12px; font-weight:bold; margin-left:8px;">LOCKED</span>` 
+                    : `<span style="background:#27ae60; color:white; font-size:12px; padding:3px 8px; border-radius:12px; font-weight:bold; margin-left:8px;">OPEN</span>`;
+
+                let lockBtn = `<button style="background:${isLocked ? '#27ae60' : '#8e44ad'}; border:none; padding:5px 15px; border-radius:50px; color:white; cursor:pointer;" onclick="toggleRoomLock('${room.password}')">${isLocked ? '🔓 Unlock' : '🔒 Lock'}</button>`;
+
                 let typeHtml = `<span style="color:#cd3ace;">Type: <strong>${room.room_type || 'MIXED'}</strong> | Rounds: ${room.num_sessions} | Max Games: ${room.max_games || 1}</span>`;
                 
                 let activePairsHtml = `<ul style="list-style-type:none; padding:0; margin:0; font-size:14px; color:#ccc;">`;
@@ -1569,10 +1738,16 @@
                 }
                 queueHtml += `</ul>`;
 
+                const isOpen = openRoomAccordions.has(room.password);
+
                 item.innerHTML = `
                     <div class="room-card-header">
-                        <span style="font-weight:bold; color:#f1c40f; font-size:24px;">${room.password}</span>
-                        <div style="display:flex; gap:10px;">
+                        <div style="display:flex; align-items:center;">
+                            <span style="font-weight:bold; color:#f1c40f; font-size:24px;">${room.password}</span>
+                            ${lockBadge}
+                        </div>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                            ${lockBtn}
                             <button style="background:#3498db; border:none; padding:5px 15px; border-radius:50px; color:white; cursor:pointer;" onclick="downloadLogs('${room.password}')">Download Logs</button>
                             <button style="background:#e67e22; border:none; padding:5px 15px; border-radius:50px; color:white; cursor:pointer;" onclick="openRoomSettings('${room.password}')">Edit Settings</button>
                             <button style="background:#e74c3c; border:none; padding:5px 15px; border-radius:50px; color:white; cursor:pointer;" onclick="deleteRoom('${room.password}')">Delete</button>
@@ -1587,8 +1762,8 @@
                         <span>Queued Players: <strong style="color:#f39c12;">${currentQueued}</strong></span>
                     </div>
                     
-                    <button class="accordion-btn" onclick="this.nextElementSibling.classList.toggle('active')">View Games & Queue ▼</button>
-                    <div class="accordion-content">
+                    <button class="accordion-btn" onclick="toggleRoomAccordion('${room.password}', this)">View Games & Queue ${isOpen ? '▲' : '▼'}</button>
+                    <div class="accordion-content ${isOpen ? 'active' : ''}">
                         <strong style="color:#9b59b6;">Active Games:</strong>
                         ${activePairsHtml}
                         <br>
@@ -2079,6 +2254,8 @@
                     currentBotWaitTime = data.bot_wait_time || 30;
                     currentRoomPassword = pw;
                     document.getElementById('prison-join-form').classList.add('hidden'); 
+                    if (document.getElementById('room-lobby-title')) document.getElementById('room-lobby-title').innerText = 'Room ' + pw;
+                    if (document.getElementById('game-room-title')) document.getElementById('game-room-title').innerText = 'Room ' + pw;
                     document.getElementById('room-lobby').classList.remove('hidden');
                 } else {
                     const data = await res.json();
@@ -2098,6 +2275,8 @@
             document.getElementById('room-lobby').classList.remove('hidden');
             document.getElementById('prison-password').value = roomCode;
             currentRoomPassword = roomCode;
+            if (document.getElementById('room-lobby-title')) document.getElementById('room-lobby-title').innerText = 'Room ' + roomCode;
+            if (document.getElementById('game-room-title')) document.getElementById('game-room-title').innerText = 'Room ' + roomCode;
             try {
                 const res = await fetch('/enter_room', {
                     method: 'POST',
@@ -2116,12 +2295,18 @@
         let botMatchTimeout = null;
 
         async function queueForGame() { 
-            const pw = document.getElementById('prison-password').value; 
+            const pw = document.getElementById('prison-password').value || currentRoomPassword; 
             currentRoomPassword = pw;
             document.getElementById('start-game-btn').style.display = 'none';
             const backBtn = document.getElementById('back-room-btn');
             if(backBtn) backBtn.style.display = 'none';
             document.getElementById('lobby-message').innerHTML = '<div style="font-size: 22px; color: #aaa;">Connecting...</div>';
+            if (queuePollInterval) clearInterval(queuePollInterval);
+            queuePollInterval = setInterval(() => {
+                if (currentUsername && currentRoomPassword) {
+                    socket.emit('check_queue_status', { username: currentUsername, password: currentRoomPassword });
+                }
+            }, 2500);
             
             socket.emit('join_queue', { username: currentUsername, password: pw, class_code: currentClassCode });
             
@@ -2151,6 +2336,9 @@
             
             setTimeout(() => {
                 currentGid = d.gameId;
+                if (currentRoomPassword && document.getElementById('game-room-title')) {
+                    document.getElementById('game-room-title').innerText = 'Room ' + currentRoomPassword;
+                }
                 renderMatrix(d.matrix);
                 document.getElementById('room-lobby').classList.add('hidden'); 
                 document.getElementById('prison').classList.remove('hidden');
@@ -3016,6 +3204,66 @@ async function tutSubmitChoice() {
             `;
             container.appendChild(row);
         }
+
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const saved = sessionStorage.getItem('haifa_session');
+                if (saved) {
+                    const sess = JSON.parse(saved);
+                    if (sess && sess.username) {
+                        currentUsername = sess.username;
+                        currentUserRole = sess.role || 'player';
+                        currentClassCode = sess.classCode || '';
+                        currentRoomPassword = sess.roomPassword || '';
+                        registerSocket();
+                        if (currentUserRole === 'admin') {
+                            socket.emit('admin_join');
+                            document.body.style.background = '#6d4c41';
+                            document.getElementById('admin-panel').classList.remove('hidden');
+                            switchAdminSidebar('dashboard');
+                            await loadAdminPastFiles();
+                            loadAdminRooms();
+                            loadAdminPlayers();
+                            loadAdminClassCodes();
+                        } else if (currentUserRole === 'boomer') {
+                            islandEngine.loadPrivateIsland(currentUsername);
+                            loadTotalCoins();
+                        } else {
+                            loadTotalCoins();
+                            try {
+                                const activeRes = await fetch('/check_active_game', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ username: currentUsername })
+                                });
+                                const activeData = await activeRes.json();
+                                if (activeData.active) {
+                                    currentRoomPassword = activeData.room_password;
+                                    document.getElementById('prison-password').value = currentRoomPassword;
+                                    if (document.getElementById('game-room-title')) {
+                                        document.getElementById('game-room-title').innerText = 'Room ' + currentRoomPassword;
+                                    }
+                                    if (activeData.gameData.current_total) sessionTotalScore = activeData.gameData.current_total;
+                                    document.getElementById('auth').classList.add('hidden');
+                                    document.getElementById('game').classList.remove('hidden');
+                                    startGameFromData(activeData.gameData);
+                                    return;
+                                }
+                            } catch(e) {}
+                            document.getElementById('auth').classList.add('hidden');
+                            document.getElementById('player-lobby').classList.remove('hidden');
+                            document.getElementById('welcome-menu-section').classList.remove('hidden');
+                            document.getElementById('class-code-section').classList.add('hidden');
+                            document.getElementById('room-password-section').classList.add('hidden');
+                            document.getElementById('welcome-user-title').innerText = 'Welcome, ' + currentUsername + '!';
+                        }
+                    }
+                }
+            } catch(e) {
+                console.log('Session restore error:', e);
+            }
+        });
 
         function adminShowSuccessModal(msg) {
             const modal = document.createElement('div');
