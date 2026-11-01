@@ -1014,6 +1014,8 @@
         let socketRegistered = false;
 
         let roundPollInterval = null;
+        let queuePollInterval = null;
+        let botMatchTimeout = null;
 
         function goToClassCode() {
             document.getElementById('welcome-menu-section').classList.add('hidden');
@@ -1056,7 +1058,7 @@
         }
 
         // Socket event listeners
-                socket.on('session_reconnect_state', function(state) {
+        socket.on('session_reconnect_state', function(state) {
             console.log('[Socket] Received session reconnect state:', state);
             if (typeof queuePollInterval !== 'undefined' && queuePollInterval) {
                 clearInterval(queuePollInterval);
@@ -1083,7 +1085,7 @@
             currentRole = state.role;
             renderMatrix(state.matrix);
             openAllDoors();
-            updateScores(state.session, state.total_sessions);
+            document.getElementById("prison-message").innerText = "Round " + state.session + " of " + state.total_sessions;
             
             if (state.has_chosen) {
                 choiceLocked = true;
@@ -2291,8 +2293,6 @@
             queueForGame();
         }
         
-        let queuePollInterval = null;
-        let botMatchTimeout = null;
 
         async function queueForGame() { 
             const pw = document.getElementById('prison-password').value || currentRoomPassword; 
