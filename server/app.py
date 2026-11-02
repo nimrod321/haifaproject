@@ -303,16 +303,10 @@ user_sockets = {}  # username -> socket session id (sid)
 rooms = {}  # password -> {'waiting': [], 'active': {}, 'settings': {'num_sessions': 10}}
 
 def emit_to_user(username, event, data):
-    """Safely emit an event to a user via both room and SID."""
+    """Safely emit an event to a user via their personal room."""
     if not username:
         return
     socketio.emit(event, data, room=f'user_{username}')
-    sid = user_sockets.get(username)
-    if sid:
-        try:
-            socketio.emit(event, data, room=sid)
-        except Exception:
-            pass
 
 def sync_active_game_for_user(username):
     """Emit current active game state to reconnecting/registering player."""
@@ -2103,11 +2097,9 @@ def start_disconnect_timers(username, game, game_id, room, room_pw, timeout=60):
                         block_data = calculate_block_scores(game, room, pw)
                         if block_data:
                             live_res['blocks'] = block_data
-                        if opp in user_sockets:
-                            socketio.emit('game_over', live_res, room=user_sockets[opp])
+                        emit_to_user(opp, 'game_over', live_res)
                     else:
-                        if opp in user_sockets:
-                            socketio.emit('round_result', live_res, room=user_sockets[opp])
+                        emit_to_user(opp, 'round_result', live_res)
                 except Exception as ex:
                     print(f"[Disconnect] Error auto-resolving bot move: {ex}")
     
