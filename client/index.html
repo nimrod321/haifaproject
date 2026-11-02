@@ -562,7 +562,7 @@
             <!-- Welcome Menu Screen (between login and class code) -->
             <div id="welcome-menu-section" class="glass-panel">
                 <h2 id="welcome-user-title">Welcome!</h2>
-                <p style="color:#eee; font-size:18px; margin-bottom:20px;">Ready for Dilemma Street?</p>
+                
                 <button onclick="goToClassCode()" class="submit-btn" style="font-size:clamp(20px,4.5vw,26px); padding:12px 40px; margin-bottom:15px; width:100%; max-width:320px;">Play Game</button>
                 <br>
                 <button onclick="showTutorial()" style="background:#3498db; font-size:clamp(18px,4vw,22px); padding:10px 30px; margin-bottom:15px; width:100%; max-width:320px;">📖 How to Play</button>
@@ -1008,6 +1008,7 @@
         let currentRoomPassword = '';
         let currentBotWaitTime = 10;
         let lastGameResult = null; // for Task 4
+        let lastProcessedRound = -1; // Guard against duplicate round_result processing
 
         // Socket.IO connection
         const socket = io();
@@ -2343,7 +2344,9 @@
                 document.getElementById('room-lobby').classList.add('hidden'); 
                 document.getElementById('prison').classList.remove('hidden');
                 openAllDoors();
-                choiceLocked = false; 
+                choiceLocked = false;
+                lastProcessedRound = -1;
+                sessionTotalScore = 0; 
             }, 1500);
         }
 
@@ -2381,6 +2384,14 @@
         async function handleRoundResult(d) {
             // Clear any last_result on server for next round
             clearInterval(roundPollInterval);
+            
+            // Guard: skip if we already processed this round's result
+            const roundNum = d.next_session ? d.next_session - 1 : (d.done ? 9999 : -1);
+            if (roundNum === lastProcessedRound) {
+                console.log('[Guard] Skipping duplicate round result for round', roundNum);
+                return;
+            }
+            lastProcessedRound = roundNum;
             
             if (d.done) lastGameResult = d;
 
