@@ -650,6 +650,14 @@
                             </select>
                         </div>
 
+                        <div style="margin-top:10px;">
+                            <label style="color:#f1c40f; font-size:16px;">Leaderboard Type:</label>
+                            <select id="admin-leaderboard-type" style="padding:8px; border-radius:5px; outline:none; border:3px solid #8e44ad; font-family:'Bubblegum Sans', cursive; font-size:16px; width: 100%; display:block; margin:5px 0;">
+                                <option value="last_game" selected>Last Game Only</option>
+                                <option value="all_games">All Games (Cumulative)</option>
+                            </select>
+                        </div>
+
                         <div style="display:flex; flex-direction:column; gap:10px; margin: 15px 0; width: 100%;">
                             <label style="color:#f1c40f; font-size:16px;">Custom Matrix (Optional):</label>
                             <input type="file" id="admin-room-excel" accept=".xlsx, .xls" style="margin:0; width:100%; border-radius:5px; padding:5px; font-size:14px; background:#fff;">
@@ -919,7 +927,7 @@
                 <div style="position: relative; display: inline-block;">
                     <button id="submit-choice-btn" class="submit-btn" onclick="submitChoice()" disabled>SEND</button>
                 </div>
-                <div id="prison-message" style="margin-top:15px; font-weight:bold; color:#f1c40f; font-size:22px;"></div>
+                <div id="prison-message" style="margin-top:15px; font-weight:bold; color:#000000; font-size:30px;"></div>
                 
                 <div class="chest-float" id="treasure-chest">
                     <img id="chest-hud-img" src="chest_closed.png" alt="chest" style="width:100%;height:auto;">
@@ -1526,6 +1534,7 @@
             const rd = parseInt(document.getElementById('admin-room-rounds').value) || 10;
             const desc = document.getElementById('admin-room-description').value;
             const roomType = document.getElementById('admin-room-type').value;
+            const leaderboardType = document.getElementById('admin-leaderboard-type').value;
             const maxGames = parseInt(document.getElementById('admin-room-max-games').value) || 1;
             const disconnectTimeout = parseInt(document.getElementById('admin-disconnect-timeout').value) || 60;
             const botWaitTime = parseInt(document.getElementById('admin-bot-wait').value) || 30;
@@ -1583,6 +1592,7 @@
                     description: desc, 
                     filename: fname, 
                     room_type: roomType, 
+                    leaderboard_type: leaderboardType,
                     max_games: maxGames,
                     dd_split_config: ddConfig,
                     block_config: blockConfig,
@@ -1719,7 +1729,7 @@
 
                 let lockBtn = `<button style="background:${isLocked ? '#27ae60' : '#8e44ad'}; border:none; padding:5px 15px; border-radius:50px; color:white; cursor:pointer;" onclick="toggleRoomLock('${room.password}')">${isLocked ? '🔓 Unlock' : '🔒 Lock'}</button>`;
 
-                let typeHtml = `<span style="color:#cd3ace;">Type: <strong>${room.room_type || 'MIXED'}</strong> | Rounds: ${room.num_sessions} | Max Games: ${room.max_games || 1}</span>`;
+                let typeHtml = `<span style="color:#cd3ace;">Type: <strong>${room.room_type || 'MIXED'}</strong> | Leaderboard: <strong>${room.leaderboard_type === 'all_games' ? 'All Games' : 'Last Game'}</strong> | Rounds: ${room.num_sessions} | Max Games: ${room.max_games || 1}</span>`;
                 
                 let activePairsHtml = `<ul style="list-style-type:none; padding:0; margin:0; font-size:14px; color:#ccc;">`;
                 if(room.games && room.games.length > 0) {
@@ -1943,6 +1953,14 @@
                     </select>
                 </div>
 
+                <div style="margin-top:10px; text-align:left;">
+                    <label style="color:#f1c40f; font-size:14px;">Leaderboard Type:</label>
+                    <select id="edit-leaderboard-type" style="padding:8px; border-radius:5px; outline:none; border:3px solid #8e44ad; font-family:'Bubblegum Sans', cursive; font-size:16px; width: 100%; display:block; margin:5px 0;">
+                        <option value="last_game" ${room.leaderboard_type !== 'all_games' ? 'selected' : ''}>Last Game Only</option>
+                        <option value="all_games" ${room.leaderboard_type === 'all_games' ? 'selected' : ''}>All Games (Cumulative)</option>
+                    </select>
+                </div>
+
                 <h3 style="color:#9b59b6; margin-top:20px; border-bottom:1px solid #444; padding-bottom:5px;">Bot Configurations</h3>
                 
                 <label style="color:#f1c40f; font-size:14px; display:block; margin-top:10px; text-align:left;">Disconnect Timeout & Bot Wait Time (s)</label>
@@ -2038,6 +2056,7 @@
             const desc = document.getElementById('edit-room-desc').value;
             const rounds = parseInt(document.getElementById('edit-room-rounds').value) || 10;
             const roomType = document.getElementById('edit-room-type').value;
+            const leaderboardType = document.getElementById('edit-leaderboard-type').value;
 
             const interventionBots = [];
             document.querySelectorAll('#edit-dd-intervention-bots-list .dd-bot-row').forEach(row => {
@@ -2075,6 +2094,7 @@
                         description: desc,
                         num_sessions: rounds,
                         room_type: roomType,
+                        leaderboard_type: leaderboardType,
                         dd_split_config: ddConfig,
                         block_config: blockConfig
                     })
@@ -2979,6 +2999,7 @@
                     body: JSON.stringify({ class_code: currentClassCode || '', room_password: currentRoomPassword })
                 });
                 const data = await res.json();
+                const isLastGame = (data.leaderboard_type !== 'all_games');
                 
                 const cList = document.getElementById('lb-class-list');
                 const rList = document.getElementById('lb-room-list');
@@ -2990,9 +3011,10 @@
                         const dispName = isMe ? 'YOU' : r.system_id;
                         const bgColor = isMe ? 'rgba(241,196,15,0.3)' : (i%2===0 ? 'rgba(255,255,255,0.05)' : 'transparent');
                         const rColor = getRankColor(i);
+                        const gamesInfo = isLastGame ? '' : ` <span style="font-size:12px; color:#aaa;">(${r.sessions} games)</span>`;
                         cList.innerHTML += `<div style="padding:10px; border-bottom:1px solid #444; background:${bgColor}; display:flex; justify-content:space-between; align-items:center;">
                             <span><strong style="color:${rColor}; font-size:18px;">#${i+1}</strong> <span style="${isMe?'color:#f1c40f; font-weight:bold;':''} margin-left:10px; font-size:18px;">${dispName}</span></span>
-                            <span><strong>${r.total}</strong> pts <span style="font-size:12px; color:#aaa;">(${r.sessions} plays)</span></span>
+                            <span><strong>${r.total}</strong> pts${gamesInfo}</span>
                         </div>`;
                     });
                 }
@@ -3002,9 +3024,10 @@
                         const dispName = isMe ? 'YOU' : r.system_id;
                         const bgColor = isMe ? 'rgba(241,196,15,0.3)' : (i%2===0 ? 'rgba(255,255,255,0.05)' : 'transparent');
                         const rColor = getRankColor(i);
+                        const gamesInfo = isLastGame ? '' : ` <span style="font-size:12px; color:#aaa;">(${r.sessions} games)</span>`;
                         rList.innerHTML += `<div style="padding:10px; border-bottom:1px solid #444; background:${bgColor}; display:flex; justify-content:space-between; align-items:center;">
                             <span><strong style="color:${rColor}; font-size:18px;">#${i+1}</strong> <span style="${isMe?'color:#f1c40f; font-weight:bold;':''} margin-left:10px; font-size:18px;">${dispName}</span></span>
-                            <span><strong>${r.total}</strong> pts <span style="font-size:12px; color:#aaa;">(${r.sessions} plays)</span></span>
+                            <span><strong>${r.total}</strong> pts${gamesInfo}</span>
                         </div>`;
                     });
                 }

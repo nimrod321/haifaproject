@@ -213,6 +213,14 @@ def init_db():
             except: pass
             try: db.execute('ALTER TABLE prison_rooms ADD COLUMN is_locked INTEGER DEFAULT 0')
             except: pass
+            try: db.execute('ALTER TABLE prison_rooms ADD COLUMN leaderboard_type TEXT DEFAULT "last_game"')
+            except: pass
+            try: db.execute('UPDATE prison_rooms SET leaderboard_type = "last_game" WHERE leaderboard_type IS NULL')
+            except: pass
+            try: db.execute('ALTER TABLE class_leaderboard ADD COLUMN last_game_score INTEGER DEFAULT 0')
+            except: pass
+            try: db.execute('UPDATE class_leaderboard SET last_game_score = total_score WHERE last_game_score IS NULL OR last_game_score = 0')
+            except: pass
 
             db.execute('''CREATE TABLE IF NOT EXISTS class_leaderboard (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -221,6 +229,7 @@ def init_db():
                 username TEXT,
                 total_score INTEGER DEFAULT 0,
                 sessions_played INTEGER DEFAULT 0,
+                last_game_score INTEGER DEFAULT 0,
                 last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(class_code, room_password, username)
             )''')
@@ -236,7 +245,8 @@ def init_db():
                 num_sessions INTEGER,
                 allowed_bots TEXT,
                 custom_sessions TEXT,
-                description TEXT
+                description TEXT,
+                leaderboard_type TEXT DEFAULT "last_game"
             )''')
             
             db.execute('''CREATE TABLE IF NOT EXISTS class_codes (
@@ -412,6 +422,9 @@ def create_room():
     block_config = data.get('block_config')
     disconnect_timeout = data.get('disconnect_timeout', 60)
     bot_wait_time = data.get('bot_wait_time', 30)
+    leaderboard_type = data.get('leaderboard_type', 'last_game')
+    if leaderboard_type not in ['last_game', 'all_games']:
+        leaderboard_type = 'last_game'
     
     if custom_sessions:
         cleaned_list = []
@@ -438,9 +451,9 @@ def create_room():
         if existing:
             return jsonify({'error': 'Room already exists'}), 400
             
-        db.execute('''INSERT INTO prison_rooms (password, num_sessions, allowed_bots, custom_sessions, description, room_type, max_games, dd_split_config, block_config, disconnect_timeout, bot_wait_time)
-                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
-                   (password, num_sessions, json.dumps(allowed_bots), json.dumps(custom_sessions) if custom_sessions else None, description, room_type, max_games, json.dumps(dd_split_config) if dd_split_config else None, json.dumps(block_config) if block_config else None, int(disconnect_timeout), int(bot_wait_time)))
+        db.execute('''INSERT INTO prison_rooms (password, num_sessions, allowed_bots, custom_sessions, description, room_type, max_games, dd_split_config, block_config, disconnect_timeout, bot_wait_time, leaderboard_type)
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
+                   (password, num_sessions, json.dumps(allowed_bots), json.dumps(custom_sessions) if custom_sessions else None, description, room_type, max_games, json.dumps(dd_split_config) if dd_split_config else None, json.dumps(block_config) if block_config else None, int(disconnect_timeout), int(bot_wait_time), leaderboard_type))
         
         if filename and custom_sessions:
             archive_input_file(filename, custom_sessions, db)
@@ -460,7 +473,7 @@ def get_rooms():
     room_list = []
     try:
         db = get_db()
-        db_rooms = db.execute('SELECT password, description, room_type, allowed_bots, max_games, num_sessions, dd_split_config, block_config, bot_wait_time, is_locked FROM prison_rooms').fetchall()
+        db_rooms = db.execute('SELECT password, description, room_type, allowed_bots, max_games, num_sessions, dd_split_config, block_config, bot_wait_time, is_locked, disconnect_timeout, leaderboard_type FROM prison_rooms').fetchall()
         for r in db_rooms:
             password = r['password']
             description = r['description']
@@ -523,6 +536,7 @@ def get_rooms():
                 'dd_split_config': json.loads(r['dd_split_config']) if 'dd_split_config' in r.keys() and r['dd_split_config'] else None,
                 'block_config': json.loads(r['block_config']) if 'block_config' in r.keys() and r['block_config'] else None,
                 'bot_wait_time': r['bot_wait_time'] if 'bot_wait_time' in r.keys() else 30,
+                'leaderboard_type': r['leaderboard_type'] if 'leaderboard_type' in r.keys() and r['leaderboard_type'] else 'last_game',
                 'is_locked': bool(r['is_locked']) if 'is_locked' in r.keys() and r['is_locked'] else False,
                 'active_games': len(active_games_list),
                 'games': active_games_list,
@@ -814,30 +828,59 @@ def get_leaderboard():
     db = None
     try:
         db = get_db()
-        class_lb = db.execute('''
-            SELECT c.username, SUM(c.total_score) as total, SUM(c.sessions_played) as sessions, u.system_id
-            FROM class_leaderboard c
-            LEFT JOIN users u ON c.username = u.username
-            WHERE c.class_code = ? AND DATE(c.last_updated, 'localtime') = DATE('now', 'localtime')
-            GROUP BY c.username
-            ORDER BY total DESC
-            LIMIT 50
-        ''', (class_code,)).fetchall()
         
-        room_lb = db.execute('''
-            SELECT c.username, SUM(c.total_score) as total, SUM(c.sessions_played) as sessions, u.system_id
-            FROM class_leaderboard c
-            LEFT JOIN users u ON c.username = u.username
-            WHERE c.room_password = ? AND DATE(c.last_updated, 'localtime') = DATE('now', 'localtime')
-            GROUP BY c.username
-            ORDER BY total DESC
-            LIMIT 50
-        ''', (room_password,)).fetchall()
+        leaderboard_type = 'last_game'
+        if room_password:
+            room_row = db.execute('SELECT leaderboard_type FROM prison_rooms WHERE password = ?', (room_password,)).fetchone()
+            if room_row and 'leaderboard_type' in room_row.keys() and room_row['leaderboard_type']:
+                leaderboard_type = room_row['leaderboard_type']
+                
+        if leaderboard_type == 'last_game':
+            class_lb = db.execute('''
+                SELECT c.username, MAX(c.last_game_score) as total, SUM(c.sessions_played) as sessions, u.system_id
+                FROM class_leaderboard c
+                LEFT JOIN users u ON c.username = u.username
+                WHERE c.class_code = ? AND DATE(c.last_updated, 'localtime') = DATE('now', 'localtime')
+                GROUP BY c.username
+                ORDER BY total DESC
+                LIMIT 50
+            ''', (class_code,)).fetchall()
+            
+            room_lb = db.execute('''
+                SELECT c.username, MAX(c.last_game_score) as total, MAX(c.sessions_played) as sessions, u.system_id
+                FROM class_leaderboard c
+                LEFT JOIN users u ON c.username = u.username
+                WHERE c.room_password = ? AND DATE(c.last_updated, 'localtime') = DATE('now', 'localtime')
+                GROUP BY c.username
+                ORDER BY total DESC
+                LIMIT 50
+            ''', (room_password,)).fetchall()
+        else:
+            class_lb = db.execute('''
+                SELECT c.username, SUM(c.total_score) as total, SUM(c.sessions_played) as sessions, u.system_id
+                FROM class_leaderboard c
+                LEFT JOIN users u ON c.username = u.username
+                WHERE c.class_code = ? AND DATE(c.last_updated, 'localtime') = DATE('now', 'localtime')
+                GROUP BY c.username
+                ORDER BY total DESC
+                LIMIT 50
+            ''', (class_code,)).fetchall()
+            
+            room_lb = db.execute('''
+                SELECT c.username, SUM(c.total_score) as total, SUM(c.sessions_played) as sessions, u.system_id
+                FROM class_leaderboard c
+                LEFT JOIN users u ON c.username = u.username
+                WHERE c.room_password = ? AND DATE(c.last_updated, 'localtime') = DATE('now', 'localtime')
+                GROUP BY c.username
+                ORDER BY total DESC
+                LIMIT 50
+            ''', (room_password,)).fetchall()
         
         def safe_dict(r):
             return {k: r[k] for k in r.keys()}
         
         return jsonify({
+            'leaderboard_type': leaderboard_type,
             'class_leaderboard': [safe_dict(r) for r in class_lb],
             'room_leaderboard': [safe_dict(r) for r in room_lb]
         })
@@ -881,21 +924,34 @@ def get_room_leaderboard_csv():
     db = None
     try:
         db = get_db()
-        rows = db.execute('''
-            SELECT username, total_score, sessions_played, last_updated
+        r_type = 'last_game'
+        if room_pwd:
+            r_row = db.execute('SELECT leaderboard_type FROM prison_rooms WHERE password = ?', (room_pwd,)).fetchone()
+            if r_row and 'leaderboard_type' in r_row.keys() and r_row['leaderboard_type']:
+                r_type = r_row['leaderboard_type']
+        
+        score_col = 'last_game_score' if r_type == 'last_game' else 'total_score'
+        rows = db.execute(f'''
+            SELECT username, {score_col} as score, sessions_played, last_updated
             FROM class_leaderboard
             WHERE class_code = ? AND room_password = ? AND DATE(last_updated, 'localtime') = DATE('now', 'localtime')
-            ORDER BY total_score DESC
+            ORDER BY score DESC
         ''', (class_code, room_pwd)).fetchall()
         
         si = io.StringIO()
         cw = csv.writer(si)
-        cw.writerow(['anon_id', 'total_score', 'sessions_played', 'last_updated'])
-        
-        for r in rows:
-            u_row = db.execute('SELECT anon_id FROM users WHERE username = ?', (r['username'],)).fetchone()
-            aid = u_row['anon_id'] if u_row and u_row['anon_id'] else r['username']
-            cw.writerow([aid, r['total_score'], r['sessions_played'], r['last_updated']])
+        if r_type == 'last_game':
+            cw.writerow(['anon_id', 'last_game_score', 'last_updated'])
+            for r in rows:
+                u_row = db.execute('SELECT anon_id FROM users WHERE username = ?', (r['username'],)).fetchone()
+                aid = u_row['anon_id'] if u_row and u_row['anon_id'] else r['username']
+                cw.writerow([aid, r['score'], r['last_updated']])
+        else:
+            cw.writerow(['anon_id', 'total_score', 'sessions_played', 'last_updated'])
+            for r in rows:
+                u_row = db.execute('SELECT anon_id FROM users WHERE username = ?', (r['username'],)).fetchone()
+                aid = u_row['anon_id'] if u_row and u_row['anon_id'] else r['username']
+                cw.writerow([aid, r['score'], r['sessions_played'], r['last_updated']])
             
         resp = make_response(si.getvalue())
         resp.headers['Content-Type'] = 'text/csv'
@@ -911,7 +967,7 @@ def update_room_settings():
     if not password:
         return jsonify({'error': 'Password required'}), 400
     
-    settings_keys = ['dd_split_config', 'block_config', 'disconnect_timeout', 'allowed_bots', 'bot_wait_time', 'description', 'num_sessions', 'room_type', 'max_games']
+    settings_keys = ['dd_split_config', 'block_config', 'disconnect_timeout', 'allowed_bots', 'bot_wait_time', 'description', 'num_sessions', 'room_type', 'max_games', 'leaderboard_type']
     
     db = None
     try:
@@ -1452,6 +1508,7 @@ def ensure_room_loaded(password):
                     'is_locked': bool(row['is_locked']) if 'is_locked' in row.keys() and row['is_locked'] else False,
                     'dd_split_config': json.loads(row['dd_split_config']) if row['dd_split_config'] else None,
                     'block_config': json.loads(row['block_config']) if row['block_config'] else None,
+                    'leaderboard_type': row['leaderboard_type'] if 'leaderboard_type' in row.keys() and row['leaderboard_type'] else 'last_game',
                 },
                 'last_join_time': 0
             }
@@ -1473,7 +1530,8 @@ def enter_room():
         'message': 'Room found',
         'room_password': password,
         'is_locked': bool(room['settings'].get('is_locked', False)),
-        'bot_wait_time': room['settings'].get('bot_wait_time', 10)
+        'bot_wait_time': room['settings'].get('bot_wait_time', 10),
+        'leaderboard_type': room['settings'].get('leaderboard_type', 'last_game')
     })
 
 @app.route('/join_queue', methods=['POST'])
@@ -1898,18 +1956,20 @@ def resolve_round(game, game_id, room):
             p1_cc = class_codes.get(player1, '')
             p2_cc = class_codes.get(player2, '')
             
-            db.execute('''INSERT INTO class_leaderboard (class_code, room_password, username, total_score, sessions_played) 
-                          VALUES (?, ?, ?, ?, 1)
+            p1_score = game['total'][player1]
+            p2_score = game['total'][player2]
+            db.execute('''INSERT INTO class_leaderboard (class_code, room_password, username, total_score, sessions_played, last_game_score) 
+                          VALUES (?, ?, ?, ?, 1, ?)
                           ON CONFLICT(class_code, room_password, username) 
-                          DO UPDATE SET total_score = total_score + excluded.total_score, sessions_played = sessions_played + 1, last_updated = CURRENT_TIMESTAMP''',
-                       (p1_cc, room_pwd, player1, game['total'][player1]))
+                          DO UPDATE SET total_score = total_score + excluded.total_score, sessions_played = sessions_played + 1, last_game_score = excluded.last_game_score, last_updated = CURRENT_TIMESTAMP''',
+                       (p1_cc, room_pwd, player1, p1_score, p1_score))
                        
             if not game.get('is_bot'):
-                db.execute('''INSERT INTO class_leaderboard (class_code, room_password, username, total_score, sessions_played) 
-                              VALUES (?, ?, ?, ?, 1)
+                db.execute('''INSERT INTO class_leaderboard (class_code, room_password, username, total_score, sessions_played, last_game_score) 
+                              VALUES (?, ?, ?, ?, 1, ?)
                               ON CONFLICT(class_code, room_password, username) 
-                              DO UPDATE SET total_score = total_score + excluded.total_score, sessions_played = sessions_played + 1, last_updated = CURRENT_TIMESTAMP''',
-                           (p2_cc, room_pwd, player2, game['total'][player2]))
+                              DO UPDATE SET total_score = total_score + excluded.total_score, sessions_played = sessions_played + 1, last_game_score = excluded.last_game_score, last_updated = CURRENT_TIMESTAMP''',
+                           (p2_cc, room_pwd, player2, p2_score, p2_score))
             
             db.commit()
         except Exception as e:
