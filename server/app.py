@@ -1956,20 +1956,20 @@ def resolve_round(game, game_id, room):
             p1_cc = class_codes.get(player1, '')
             p2_cc = class_codes.get(player2, '')
             
-            p1_score = game['total'][player1]
-            p2_score = game['total'][player2]
+            p1_game_total = game['total'][player1]
+            p2_game_total = game['total'][player2]
             db.execute('''INSERT INTO class_leaderboard (class_code, room_password, username, total_score, sessions_played, last_game_score) 
                           VALUES (?, ?, ?, ?, 1, ?)
                           ON CONFLICT(class_code, room_password, username) 
                           DO UPDATE SET total_score = total_score + excluded.total_score, sessions_played = sessions_played + 1, last_game_score = excluded.last_game_score, last_updated = CURRENT_TIMESTAMP''',
-                       (p1_cc, room_pwd, player1, p1_score, p1_score))
+                       (p1_cc, room_pwd, player1, p1_game_total, p1_game_total))
                        
             if not game.get('is_bot'):
                 db.execute('''INSERT INTO class_leaderboard (class_code, room_password, username, total_score, sessions_played, last_game_score) 
                               VALUES (?, ?, ?, ?, 1, ?)
                               ON CONFLICT(class_code, room_password, username) 
                               DO UPDATE SET total_score = total_score + excluded.total_score, sessions_played = sessions_played + 1, last_game_score = excluded.last_game_score, last_updated = CURRENT_TIMESTAMP''',
-                           (p2_cc, room_pwd, player2, p2_score, p2_score))
+                           (p2_cc, room_pwd, player2, p2_game_total, p2_game_total))
             
             db.commit()
         except Exception as e:
